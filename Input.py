@@ -5,6 +5,8 @@
 
 import numpy as np
 from Optimisation import scenario
+from Simulation import Reliability
+from Network import Transmission
 
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
 PVl =   np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
@@ -22,13 +24,15 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
+Wind_frag = np.genfromtxt('Data/fragility PoC.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
 
-assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(np.float)
+
+assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
 CBaseload = np.array([0, 0, 0, 0, 0, 1.0, 0, 0]) # 24/7, GW
 CPeak = CHydro + CBio - CBaseload # GW
 
-cars = np.genfromtxt('Data/cars.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(np.float)
+cars = np.genfromtxt('Data/cars.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CDP = DSP * cars[:, 0] * 9.6 * pow(10, -6) # kW to GW
 CDS = DSP * cars[:, 0] * 77 * 0.75 * pow(10, -6) # kWh to GWh
 
@@ -48,6 +52,8 @@ if scenario<=17:
     MLoad, MLoadD = [x[:, np.where(Nodel==node)[0]] for x in (MLoad, MLoadD)]
     TSPV = TSPV[:, np.where(PVl==node)[0]]
     TSWind = TSWind[:, np.where(Windl==node)[0]]
+    Wind_frag = Wind_frag[np.where(Windl==node)[0]]
+    
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(Nodel==node)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
     if node=='QLD':
         MLoad, MLoadD, CDP, CDS = [x / 0.9 for x in (MLoad, MLoadD, CDP, CDS)]
@@ -67,6 +73,8 @@ if scenario>=21:
     MLoad, MLoadD = [x[:, np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (MLoad, MLoadD)]
     TSPV = TSPV[:, np.where(np.in1d(PVl, coverage)==True)[0]]
     TSWind = TSWind[:, np.where(np.in1d(Windl, coverage)==True)[0]]
+    Wind_frag = Wind_frag[np.where(np.in1d(Windl, coverage)==True)[0]]
+    
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
     if 'FNQ' not in coverage:
         MLoad[:, np.where(coverage=='QLD')[0][0]] /= 0.9
@@ -96,7 +104,7 @@ class Solution:
         self.resolution = resolution
 
         self.CPV = list(x[: pidx]) # CPV(i), GW
-        self.CWind = list(x[pidx: widx]) # CWind(i), GW
+        self.CWind = list(x[pidx: widx]) # CWind(i), GW        
         self.GPV = TSPV * np.tile(self.CPV, (intervals, 1)) * pow(10, 3) # GPV(i, t), GW to MW
         self.GWind = TSWind * np.tile(self.CWind, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
 
@@ -110,7 +118,41 @@ class Solution:
 
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
         self.CHydro = CHydro # GW, GWh
+        
+        self.CWindR = self.CWind*(1-Wind_frag)
+        self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
+        self.LossR = self.GWindR.sum()
+        
+        def cost(): 
+            Deficit, DeficitD = Reliability(self, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
+            Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
+            Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
+            PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
+    
+            Deficit, DeficitD = Reliability(self, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
+            PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
+    
+            TDC = Transmission(self) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
+            CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
+            PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
+
+            cost = factor * np.array([sum(self.CPV), sum(self.CWind), sum(self.CPHP), self.CPHS] + list(CDC) + [sum(self.CPV), sum(self.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
+            if scenario<=17:
+                cost[-1], cost[-2] = [0] * 2
+            cost = cost.sum()
+            loss = np.sum(abs(TDC), axis=0) * DCloss
+            loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
+            LCOE = cost / abs(energy - loss)
+        
+            return LCOE + PenHydro + PenDeficit + PenDC
+
+        self.cost = cost()  
+        self.optim = np.append(x, cost)
+
 
     def __repr__(self):
         """S = Solution(list(np.ones(64))) >> print(S)"""
-        return 'Solution({})'.format(self.x)
+        return 'Solution({})'.format(self.optim)
+    
+    
+

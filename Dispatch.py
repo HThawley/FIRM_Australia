@@ -57,5 +57,5 @@ def Analysis(x):
     return True
 
 if __name__ == '__main__':
-    capacities = np.genfromtxt('Results/Optimisation_resultx.csv', delimiter=',', skip_header=1)
+    capacities = np.genfromtxt('Results/Optimisation_resultx12.csv', delimiter=',', skip_header=1)
     Analysis(capacities)

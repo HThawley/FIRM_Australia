@@ -67,11 +67,11 @@ def LPGM(solution):
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
     C = np.around(C.transpose())
 
-    datentime = np.array([(dt.datetime(firstyear, 1, 1, 0, 0) + x * dt.timedelta(minutes=60 * resolution)).strftime('%a %-d %b %Y %H:%M') for x in range(intervals)])
+    datentime = np.array([(dt.datetime(firstyear, 1, 1, 0, 0) + x * dt.timedelta(minutes=60 * resolution)).strftime('%a -%d %b %Y %H:%M') for x in range(intervals)])
     C = np.insert(C.astype('str'), 0, datentime, axis=1)
 
     header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
-             'Hydropower,Biomass,Solar photovoltaics,Wind,Pumped hydro energy storage,Energy deficit,Energy spillage,PHES-Charge,' \
+             'Hydropower,Biomass,Solar photovoltaics,Wind,Wind loss due to storm,Pumped hydro energy storage,Energy deficit,Energy spillage,PHES-Charge,' \
              'PHES-Storage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
@@ -87,7 +87,7 @@ def LPGM(solution):
 
         for j in range(nodes):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
-                          solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j],
+                          solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.MWindR[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
                           solution.MStorage[:, j]])
             C = np.around(C.transpose())
@@ -190,6 +190,7 @@ def Information(x, flexible):
 
         S.MPV = S.GPV.sum(axis=1) if S.GPV.shape[1]>0 else np.zeros((intervals, 1))
         S.MWind = S.GWind.sum(axis=1) if S.GWind.shape[1]>0 else np.zeros((intervals, 1))
+        S.MWindR = S.GWindR.sum(axis=1) if S.GWindR.shape[1]>0 else np.zeros((intervals, 1))
 
         S.MDischarge = np.tile(S.Discharge, (nodes, 1)).transpose()
         S.MDeficit = np.tile(S.Deficit, (nodes, 1)).transpose()
@@ -219,6 +220,6 @@ def Information(x, flexible):
     return True
 
 if __name__ == '__main__':
-    capacities = np.genfromtxt('Results/Optimisation_resultx17.csv', delimiter=',')
-    flexible = np.genfromtxt('Results/Dispatch_Flexible17.csv', delimiter=',', skip_header=1)
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',')
+    flexible = np.genfromtxt('Results/Dispatch_Flexible{}.csv'.format(scenario), delimiter=',', skip_header=1)
     Information(capacities, flexible)

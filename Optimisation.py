@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 import datetime as dt
 import csv
 
+
 parser = ArgumentParser()
 parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4000, 400')
 parser.add_argument('-p', default=1, type=int, required=False, help='popsize=2, 10')
@@ -18,12 +19,17 @@ args = parser.parse_args()
 
 scenario = args.s
 
+
+
 from Input import *
+
+'''
 from Simulation import Reliability
 from Network import Transmission
 
 def F(x):
-    """This is the objective function."""
+    """This was the objective function.
+    But is now a constraint"""
 
     S = Solution(x)
 
@@ -50,15 +56,24 @@ def F(x):
     Func = LCOE + PenHydro + PenDeficit + PenDC
 
     return Func
+'''
+
+def R(x):
+    """This is the new Resilience objective function""" 
+    
+    S = Solution(x) 
+    
+    return S.LossR 
+
 
 if __name__=='__main__':
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
 
-    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
+    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]     
     ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
 
-    result = differential_evolution(func=F, bounds=list(zip(lb, ub)), tol=0,
+    result = differential_evolution(func=R, bounds=list(zip(lb, ub)), tol=0,
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
                                     disp=True, polish=False, updating='deferred', workers=-1)
 
@@ -71,3 +86,4 @@ if __name__=='__main__':
 
     from Dispatch import Analysis
     Analysis(result.x)
+    
