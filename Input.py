@@ -147,12 +147,11 @@ class Solution:
             return LCOE + PenHydro + PenDeficit + PenDC
 
         self.cost = cost()  
-        self.optim = np.append(x, cost)
 
 
     def __repr__(self):
         """S = Solution(list(np.ones(64))) >> print(S)"""
-        return 'Solution({})'.format(self.optim)
+        return 'Solution({})'.format(self.x)
     
     
 

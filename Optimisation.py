@@ -63,6 +63,9 @@ def R(x):
     
     S = Solution(x) 
     
+    if S.cost > 500:
+        return S.LossR*1000
+    
     return S.LossR 
 
 
@@ -70,8 +73,8 @@ if __name__=='__main__':
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
 
-    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]     
-    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
+    lb = [0.]  * pzones + [0.]   * wzones + contingency    
+    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes
 
     result = differential_evolution(func=R, bounds=list(zip(lb, ub)), tol=0,
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
