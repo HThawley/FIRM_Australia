@@ -11,11 +11,12 @@ def Transmission(solution, output=False):
     Nodel, PVl, Windl = (solution.Nodel, solution.PVl, solution.Windl)
     intervals, nodes = (solution.intervals, solution.nodes)
 
-    MPV, MWind = map(np.zeros, [(nodes, intervals)] * 2)
+    MPV, MWind, MWindR = map(np.zeros, [(nodes, intervals)] * 3)
     for i, j in enumerate(Nodel):
         MPV[i, :] = solution.GPV[:, np.where(PVl==j)[0]].sum(axis=1)
         MWind[i, :] = solution.GWind[:, np.where(Windl==j)[0]].sum(axis=1)
-    MPV, MWind = (MPV.transpose(), MWind.transpose()) # Sij-GPV(t, i), Sij-GWind(t, i), MW
+        MWindR[i, :] = solution.GWindR[:, np.where(Windl==j)[0]].sum(axis=1)
+    MPV, MWind, MWindR = (MPV.transpose(), MWind.transpose(), MWindR.transpose()) # Sij-GPV(t, i), Sij-GWind(t, i), MW
 
     MBaseload = solution.GBaseload # MW
     CPeak = solution.CPeak # GW
@@ -63,7 +64,7 @@ def Transmission(solution, output=False):
         MStorage = np.tile(solution.Storage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
         MDischargeD = np.tile(solution.DischargeD, (nodes, 1)).transpose() * pcfactorD  # MDischargeD: DD(j, t)
         MStorageD = np.tile(solution.StorageD, (nodes, 1)).transpose() * pcfactorD  # SD(t, j), MWh
-        solution.MPV, solution.MWind, solution.MBaseload, solution.MPeak = (MPV, MWind,MBaseload, MPeak)
+        solution.MPV, solution.MWind, solution.MWindR, solution.MBaseload, solution.MPeak = (MPV, MWind, MWindR, MBaseload, MPeak)
         solution.MDischarge, solution.MCharge, solution.MStorage, solution.MP2V = (MDischarge, MCharge, MStorage, MP2V)
         solution.MDischargeD, solution.MChargeD, solution.MStorageD = (MDischargeD, MChargeD, MStorageD)
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)

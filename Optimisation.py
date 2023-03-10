@@ -14,7 +14,7 @@ parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4
 parser.add_argument('-p', default=1, type=int, required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=11, type=int, required=False, help='11, 12, 13, ...')
+parser.add_argument('-s', default=21, type=int, required=False, help='11, 12, 13, ...')
 args = parser.parse_args()
 
 scenario = args.s
@@ -63,7 +63,7 @@ def R(x):
     
     S = Solution(x) 
     
-    if S.cost > 500:
+    if S.cost > 100:
         return S.LossR*1000
     
     return S.LossR 
@@ -73,8 +73,8 @@ if __name__=='__main__':
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
 
-    lb = [0.]  * pzones + [0.]   * wzones + contingency    
-    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes
+    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
+    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
 
     result = differential_evolution(func=R, bounds=list(zip(lb, ub)), tol=0,
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,

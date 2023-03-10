@@ -61,7 +61,7 @@ def LPGM(solution):
     Debug(solution)
 
     C = np.stack([(solution.MLoad + solution.MLoadD).sum(axis=1), (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1),
-                  solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1),
+                  solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1), solution.GWindR,sum(axis=1),
                   solution.Discharge, solution.Deficit, -1 * solution.Spillage, -1 * solution.Charge,
                   solution.Storage,
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
@@ -79,7 +79,7 @@ def LPGM(solution):
 
     if scenario>=21:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
-                 'Hydropower,Biomass,Solar photovoltaics,Wind,Pumped hydro energy storage,Energy deficit,Energy spillage,' \
+                 'Hydropower,Biomass,Solar photovoltaics,Wind,Wind loss due to storm,Pumped hydro energy storage,Energy deficit,Energy spillage,' \
                  'Transmission,PHES-Charge,' \
                  'PHES-Storage'
 
