@@ -25,7 +25,7 @@ def Flexible(instance):
 
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
-        Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx) # Sj-EDE(t, j), MW
+        Deficit, DeficitD, RDeficit, RDeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx) # Sj-EDE(t, j), MW
         if (Deficit + DeficitD).sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
 
@@ -57,5 +57,5 @@ def Analysis(x):
     return True
 
 if __name__ == '__main__':
-    capacities = np.genfromtxt('Results/Optimisation_resultx12.csv', delimiter=',', skip_header=1)
+    capacities = np.genfromtxt('Results/Optimisation_resultx11.csv'.format(scenario), delimiter=',', skip_header=1)
     Analysis(capacities)

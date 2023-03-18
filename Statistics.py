@@ -173,7 +173,7 @@ def Information(x, flexible):
     print("Statistics start at", start)
 
     S = Solution(x)
-    Deficit, DeficitD = Reliability(S, flexible=flexible)
+    Deficit, DeficitD, RDeficit, RDeficitD = Reliability(S, flexible=flexible)
 
     try:
         assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'

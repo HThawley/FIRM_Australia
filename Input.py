@@ -94,6 +94,33 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
+def cost(solution): 
+    Deficit, DeficitD, RDeficit, RDeficitD = Reliability(solution, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
+    
+    Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
+    Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
+    PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
+
+    Deficit, DeficitD, RDeficit, RDeficitD = Reliability(solution, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
+    PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
+
+    StormDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
+
+    TDC = Transmission(solution) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
+    CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
+    PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
+
+    cost = factor * np.array([sum(solution.CPV), sum(solution.CWind), sum(solution.CPHP), solution.CPHS] + list(CDC) + [sum(solution.CPV), sum(solution.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
+    if scenario<=17:
+        cost[-1], cost[-2] = [0] * 2
+    cost = cost.sum()
+    loss = np.sum(abs(TDC), axis=0) * DCloss
+    loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
+    LCOE = cost / abs(energy - loss)
+
+    return LCOE + PenHydro + PenDeficit + PenDC, StormDeficit
+
+
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
@@ -119,34 +146,12 @@ class Solution:
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
         self.CHydro = CHydro # GW, GWh
         
-        self.CWindR = self.CWind*(1-Wind_frag)
+        self.CWindR = self.CWind*(Wind_frag)
         self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
-        self.LossR = self.GWindR.sum()
-        
-        def cost(): 
-            Deficit, DeficitD = Reliability(self, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
-            Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
-            Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
-            PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
-    
-            Deficit, DeficitD = Reliability(self, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
-            PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-    
-            TDC = Transmission(self) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
-            CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
-            PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
+        # self.LossR = self.GWindR.sum()
 
-            cost = factor * np.array([sum(self.CPV), sum(self.CWind), sum(self.CPHP), self.CPHS] + list(CDC) + [sum(self.CPV), sum(self.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
-            if scenario<=17:
-                cost[-1], cost[-2] = [0] * 2
-            cost = cost.sum()
-            loss = np.sum(abs(TDC), axis=0) * DCloss
-            loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
-            LCOE = cost / abs(energy - loss)
         
-            return LCOE + PenHydro + PenDeficit + PenDC
-
-        self.cost = cost()  
+        self.cost, self.Fragility = cost(self)
 
 
     def __repr__(self):
