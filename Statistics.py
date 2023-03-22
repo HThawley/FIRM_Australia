@@ -63,7 +63,7 @@ def LPGM(solution):
     C = np.stack([(solution.MLoad + solution.MLoadD).sum(axis=1), (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1),
                   solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1), solution.GWindR.sum(axis=1),
                   solution.Discharge, solution.Deficit, -1 * solution.Spillage, -1 * solution.Charge,
-                  solution.Storage,
+                  solution.Storage, solution.Surplus, solution.RDeficit, solution.RStorage,
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
     C = np.around(C.transpose())
 
@@ -71,8 +71,8 @@ def LPGM(solution):
     C = np.insert(C.astype('str'), 0, datentime, axis=1)
 
     header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
-             'Hydropower,Biomass,Solar photovoltaics,Wind,Wind loss due to storm,Pumped hydro energy storage,Energy deficit,Energy spillage,PHES-Charge,' \
-             'PHES-Storage,' \
+             'Hydropower,Biomass,Solar photovoltaics,Wind,StormPowerLoss,Pumped hydro energy storage,Energy deficit,Energy spillage,PHES-Charge,' \
+             'PHES-Storage,Surplus,StormDeficit,StormStorage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
     np.savetxt('Results/S{}.csv'.format(scenario), C, fmt='%s', delimiter=',', header=header, comments='')
@@ -81,7 +81,7 @@ def LPGM(solution):
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
                  'Hydropower,Biomass,Solar photovoltaics,Wind,Wind loss due to storm,Pumped hydro energy storage,Energy deficit,Energy spillage,' \
                  'Transmission,PHES-Charge,' \
-                 'PHES-Storage'
+                 'PHES-Storage,Surplus,StormDeficit,StormStorage'
 
         Topology = solution.Topology[np.where(np.in1d(np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']), coverage) == True)[0]]
 
@@ -89,7 +89,7 @@ def LPGM(solution):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
                           solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.MWindR[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
-                          solution.MStorage[:, j]])
+                          solution.MStorage[:, j], solution.MSurplus[:, j], solution.MRDeficit[:, j], solution.MRStorage[:, j]])
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
@@ -173,7 +173,7 @@ def Information(x, flexible):
     print("Statistics start at", start)
 
     S = Solution(x)
-    Deficit, DeficitD, RDeficit, RDeficitD = Reliability(S, flexible=flexible)
+    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Reliability(S, flexible=flexible)
 
     try:
         assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'

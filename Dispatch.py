@@ -25,7 +25,8 @@ def Flexible(instance):
 
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
-        Deficit, DeficitD, RDeficit, RDeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx) # Sj-EDE(t, j), MW
+        Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD =\
+            Reliability(S, flexible=flexible, start=startidx, end=endidx) # Sj-EDE(t, j), MW
         if (Deficit + DeficitD).sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
 

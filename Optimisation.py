@@ -63,10 +63,7 @@ def R(x):
     
     S = Solution(x) 
     
-    if S.cost > 100:
-        return S.Fragility + S.cost*1000
-    
-    return S.Fragility 
+    return S.StormDefict + S.Penalties 
 
 
 if __name__=='__main__':

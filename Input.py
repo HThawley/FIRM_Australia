@@ -95,14 +95,16 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 def cost(solution): 
-    Deficit, DeficitD, RDeficit, RDeficitD = Reliability(solution, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
+    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Reliability(solution, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
     
     Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
     Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
     PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
 
-    Deficit, DeficitD, RDeficit, RDeficitD = Reliability(solution, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
+    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Reliability(solution, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
+
+    PenSurplus = max(0, (Surplus + SurplusD / efficiencyD).sum() * resolution) # MWh
 
     StormDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
 
@@ -118,7 +120,7 @@ def cost(solution):
     loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
     LCOE = cost / abs(energy - loss)
 
-    return LCOE + PenHydro + PenDeficit + PenDC, StormDeficit
+    return LCOE, StormDeficit, PenHydro + PenDeficit + PenDC + PenSurplus
 
 
 class Solution:
@@ -151,7 +153,7 @@ class Solution:
         # self.LossR = self.GWindR.sum()
 
         
-        self.cost, self.Fragility = cost(self)
+        self.cost, self.StormDeficit, self.Penalties = cost(self)
 
 
     def __repr__(self):

@@ -68,5 +68,8 @@ def Transmission(solution, output=False):
         solution.MDischarge, solution.MCharge, solution.MStorage, solution.MP2V = (MDischarge, MCharge, MStorage, MP2V)
         solution.MDischargeD, solution.MChargeD, solution.MStorageD = (MDischargeD, MChargeD, MStorageD)
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)
+# =============================================================================
+#         update storm terms and add surplus terms 
+# =============================================================================
 
     return TDC
