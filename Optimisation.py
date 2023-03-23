@@ -19,51 +19,14 @@ args = parser.parse_args()
 
 scenario = args.s
 
-
-
 from Input import *
-
-'''
-from Simulation import Reliability
-from Network import Transmission
-
-def F(x):
-    """This was the objective function.
-    But is now a constraint"""
-
-    S = Solution(x)
-
-    Deficit, DeficitD = Reliability(S, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
-    Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
-    Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
-    PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
-
-    Deficit, DeficitD = Reliability(S, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
-    PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-
-    TDC = Transmission(S) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
-    CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
-    PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
-
-    cost = factor * np.array([sum(S.CPV), sum(S.CWind), sum(S.CPHP), S.CPHS] + list(CDC) + [sum(S.CPV), sum(S.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
-    if scenario<=17:
-        cost[-1], cost[-2] = [0] * 2
-    cost = cost.sum()
-    loss = np.sum(abs(TDC), axis=0) * DCloss
-    loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
-    LCOE = cost / abs(energy - loss)
-
-    Func = LCOE + PenHydro + PenDeficit + PenDC
-
-    return Func
-'''
 
 def R(x):
     """This is the new Resilience objective function""" 
     
     S = Solution(x) 
     
-    return S.StormDefict + S.Penalties 
+    return S.StormDeficit + S.Penalties 
 
 
 if __name__=='__main__':

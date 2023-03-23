@@ -67,16 +67,10 @@ def Reliability(solution, flexible, start=None, end=None):
         
         RNetloadt = RNetload[t]
 
-        period = range(min(0, t-StormDuration), t)
-        RStoraget_1 = Storage[min(0, t-StormDuration)] \
-                + RCharge[period].sum() * resolution * efficiency \
-                - RDischarge[period].sum() * resolution \
-                if t>0 else 0.5*Scapacity
+        period_start = min(0, t-StormDuration)
+        RStoraget_1 = Storage[period_start] + RCharge[period_start:t].sum() * resolution * efficiency - RDischarge[period_start:t].sum() * resolution if t>0 else 0.5*Scapacity
                 
-        RStorageDt_1 = StorageD[min(0, t-StormDuration)] \
-                + RCharge[period].sum() * resolution * efficiencyD \
-                - RDischarge[period].sum() * resolution \
-                if t>0 else 0.5*Scapacity
+        RStorageDt_1 = StorageD[period_start] + RCharge[period_start:t].sum() * resolution * efficiencyD - RDischarge[period_start:t].sum() * resolution if t>0 else 0.5*Scapacity
         # State of charge is taken as the state of charge {StormDuration} steps ago 
         # +/- the charging that occurs under the modified generation capacity 
         
@@ -100,29 +94,6 @@ def Reliability(solution, flexible, start=None, end=None):
         RChargeD[t] = RChargeDt
         RStorageD[t] = RStorageDt
     
-
-        
-        
-
-        '''# Re-simulate with resilience losses due to windstorm
-        RNetloadt = RNetload[t]
-
-        RDischarget = min(max(0, RNetloadt), Pcapacity, Storaget_1 / resolution)
-        RCharget = min(-1 * min(0, RNetloadt), Pcapacity, (Scapacity - Storaget_1) / efficiency / resolution)
-        RStoraget = Storaget_1 - RDischarget * resolution + RCharget * resolution * efficiency
-
-        RChargeDt = min(-1 * min(0, RNetloadt + RCharget), PcapacityD, (ScapacityD - StorageDt_1) / efficiencyD / resolution)
-        RStorageDt = StorageDt_1 - DischargeDt * resolution + RChargeDt * resolution * efficiencyD
-
-        RP2Vt = min(diff / efficiencyD, Pcapacity - RDischarget - RCharget) if diff > 0 and RStoraget / resolution > diff / efficiencyD else 0
-
-        RDischarge[t] = RDischarget + RP2Vt
-        RP2V[t] = RP2Vt
-        RCharge[t] = RCharget
-        RStorage[t] = RStoraget - RP2Vt * resolution        
-
-        RChargeD[t] = RChargeDt
-        RStorageD[t] = RStorageDt'''
 
     Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
