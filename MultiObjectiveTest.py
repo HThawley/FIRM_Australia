@@ -66,7 +66,7 @@ if __name__=='__main__':
 
     result = minimize(Resilience(pzones, wzones, contingency, nodes), 
                       NSGA2(pop_size = cpu_count()), 
-                      ('n_gen', 400), 
+                      ('time', "05:00:00"), 
                       seed = 1,
                       mutation=BitflipMutation(prob=0.5, prob_var=0.3),
                       crossover=SinglePointCrossover(prob=0.5),
@@ -74,10 +74,13 @@ if __name__=='__main__':
     
     # y = Resilience(pzones, wzones, contingency, nodes).pareto_front()
     
-    with open('Results/MOOptimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
+    with open('Results/MOOptimisation_result{}.csv'.format(scenario), 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(result.X + result.F)
-        
+        writer.writerow(result.X)
+    with open('Results/MOOptimisation_output{}.csv'.format(scenario), 'a', newline="") as csvfile:
+         writer = csv.writer(csvfile)
+         writer.writerow(result.F)   
+    
         
     plt.figure(figsize=(7, 5))
     plt.scatter(result.F[:, 0], result.F[:, 1], s=30, facecolors='none', edgecolors='b', label="Solutions")
