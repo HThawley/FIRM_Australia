@@ -61,7 +61,7 @@ def Reliability(solution, flexible, start=None, end=None):
         SurplusD[t] = max(0, min(0,-1 * min(0, Netloadt + Charget) - ChargeDt)) * resolution 
 
         # Re-simulate with resilience losses due to windstorm, and including storage depletion
-        StormDuration = 2*24*2 
+        StormDuration = 2 *24*2 
         #2 days*24 hours per day *2 half hours per hour 
         # This parameter will be moved elsewhere, kept here now for testing
         
