@@ -8,44 +8,69 @@ Created on Thu Apr 13 11:50:04 2023
 import os 
 import pandas as pd
 from tqdm import tqdm
-from math import sin, cos, sqrt, atan2, pi
 import numpy as np
+from multiprocessing import Pool, cpu_count
+from concurrent.futures import ProcessPoolExecutor as NestablePool
+
+
 
 #%%
+
+def readAllRepo(location):
+    active_dir = os.getcwd()
+    
+    os.chdir(location)
+    repos = [path for path in os.listdir() if '.zip' not in path]
+    
+    print('Reading and processing data\nCompleted: ', end = '')
+    pool = NestablePool(max_workers=min(cpu_count(), len(repos)))
+    results = pool.map(readData, repos)
+    
+    stn = pd.concat(results, ignore_index=True)
+    
+    os.chdir(active_dir)
+    
+    return stn
+
 def readData(repo):
+    active_dir = os.getcwd()
     os.chdir(repo)
-    # z = pd.Series([])
+    
+    print(f'{repo[9:]} ', end='')
     
     stn = pd.read_csv('C:/Users/hmtha/OneDrive/Desktop/data - Copy/AWS_Wind-NT/HM01X_StnDet_9999999910323091.txt',
                       header = None,
                       usecols = [1,3,6,7])
     stn.columns = ['stn no.', 'stn Name', 'Lat', 'Lon']
     
-    stnData = {}
-    stnFracs = {}
+    stn['stn no.'].apply(lambda x: '0'*(6-len(str(x)))+str(x) 
+                                  if not pd.isna(x)
+                                  else pd.NA)
     
-    # files = os.listdir()
-    for f in tqdm(os.listdir()):
-        if not 'Data' in f:
-            continue
-        stnNo = f[11:17]
-        
-        x = pd.read_csv(f, usecols = [16],dtype=str)
-        gusts = pd.to_numeric(x['Speed of maximum windgust in last 10 minutes in  km/h'],
-                              errors = 'coerce').dropna()
-        gusts = gusts / 3.6# km/h to m/s
-        
-        frac = len(gusts[gusts > 25])/len(gusts)
-        
-        # z = pd.concat([z, gusts])
-        stnData[stnNo] = gusts
-        stnFracs[stnNo] = frac
+    files = [path for path in os.listdir() if 'Data' in path]
     
-    stn['frac'] = stn['stn no.'].apply(lambda x: '0'+str(x) 
-                                       if len(str(x)) == 5 
-                                       else str(x)
-                                       ).map(stnFracs)
-    return stn
+    pool = Pool(processes = min(cpu_count(), len(files)))
+    result = pool.map(readFile, files)
+    pool.terminate()
+    
+    stn['frac'] = stn['stn no.'].map(dict(zip([output[0] for output in result], 
+                                              [output[1] for output in result])))
+    stn['gust'] = stn['stn no.'].map(dict(zip([output[0]for output in result], 
+                                              [output[2] for output in result])))
+    
+    os.chdir(active_dir)
+    return stn    
+    
+def readFile(path):
+    
+    x = pd.read_csv(path, usecols = [16],dtype=str)
+    gust = pd.to_numeric(x['Speed of maximum windgust in last 10 minutes in  km/h'],
+                          errors = 'coerce').dropna()
+    gust = gust / 3.6# km/h to m/s
+    
+    frac = len(gust[gust > 25])/len(gust) if len(gust) > 0 else 0 
+
+    return (path[11:17], frac, gust)
 
 #%%
 def fracFromCoord(lat, lon, stn, k='max'):
@@ -75,7 +100,7 @@ def fracFromCoord(lat, lon, stn, k='max'):
     
     return stnCopy['weightedFrac'].sum()/((1/stnCopy['distance']).sum())
 
-def Haversine(lat1,lon1,lat2,lon2, **kwarg):
+def Haversine(lat1,lon1,lat2,lon2):
     """
     This uses the ‘haversine’ formula to calculate the great-circle distance between two points – that is, 
     the shortest distance over the earth’s surface – giving an ‘as-the-crow-flies’ distance between the points 
@@ -97,8 +122,10 @@ def Haversine(lat1,lon1,lat2,lon2, **kwarg):
     d = R * c
     return d
  
-stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NT')   
-x = fracFromCoord(-12, 130, stn, 'max')
+if __name__=='__main__':
+    stn = readAllRepo(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy')
+    # stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NT')   
+    # x = fracFromCoord(-12, 130, stn, 'max')
     
     
     
