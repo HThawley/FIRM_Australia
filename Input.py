@@ -120,7 +120,7 @@ def cost(solution):
     loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
     LCOE = cost / abs(energy - loss)
 
-    return LCOE, StormDeficit, PenHydro + PenDeficit + PenDC + PenSurplus
+    return LCOE, StormDeficit, PenHydro + PenDeficit + PenDC #+ PenSurplus
 
 
 class Solution:
