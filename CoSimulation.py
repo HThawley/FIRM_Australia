@@ -5,7 +5,7 @@
 
 import numpy as np
 
-def Reliability(solution, flexible, start=None, end=None):
+def Resilience(solution, flexible, start=None, end=None):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
 
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
@@ -114,9 +114,12 @@ def Reliability(solution, flexible, start=None, end=None):
     assert np.amin(RSpillage) >= 0, 'RSpillage below zero'
 
     solution.Discharge, solution.Charge, solution.Storage, solution.P2V = (Discharge, Charge, Storage, P2V)
-    solution.DischargeD, solution.ChargeD, solution.StorageD, solution.RP2V = (DischargeD, ChargeD, StorageD, RP2V)
+    solution.DischargeD, solution.ChargeD, solution.StorageD = (DischargeD, ChargeD, StorageD)
     solution.Deficit, solution.DeficitD, solution.Spillage = (Deficit, DeficitD, Spillage)
-    solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage)
+
+    solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (RDischarge, RCharge, RStorage, RP2V)
+    solution.RDischargeD, solution.RChargeD, solution.RStorageD = (RDischargeD, RChargeD, RStorageD)
+    solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage) 
     solution.Surplus, solution.SurplusD = (Surplus, SurplusD)
 
     return Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD

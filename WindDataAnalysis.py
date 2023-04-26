@@ -43,15 +43,18 @@ def readData(repo):
                       usecols = [1,3,6,7])
     stn.columns = ['stn no.', 'stn Name', 'Lat', 'Lon']
     
-    stn['stn no.'].apply(lambda x: '0'*(6-len(str(x)))+str(x) 
-                                  if not pd.isna(x)
-                                  else pd.NA)
+    stn['stn no.'] = stn['stn no.'].apply(lambda x: '0'*(6-len(str(x)))+str(x) 
+                                          if not pd.isna(x)
+                                          else pd.NA)
     
     files = [path for path in os.listdir() if 'Data' in path]
     
-    pool = Pool(processes = min(cpu_count(), len(files)))
-    result = pool.map(readFile, files)
-    pool.terminate()
+    # pool = Pool(processes = min(cpu_count(), len(files)))
+    # result = pool.map(readFile, files)
+    # pool.terminate()
+    result = []
+    for path in tqdm(files):
+        result.append(readFile(path))
     
     stn['frac'] = stn['stn no.'].map(dict(zip([output[0] for output in result], 
                                               [output[1] for output in result])))
@@ -127,6 +130,43 @@ if __name__=='__main__':
     # stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NT')   
     # x = fracFromCoord(-12, 130, stn, 'max')
     
+#%%
+
+from math import exp
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.stats as stats
+
+def weibull(x, c, k, loc, scale): 
+    if x <0:
+        return 0 
+    return ((k/c)*(((x-loc)/c)**(k-1))*(exp(-((x-loc)/c)**k)))/scale
+
+def weibullIntegral(a,b,l,k):
+    return exp(-(a/l)**k)-exp(-(b/l)**k)
     
+def weibullNormaliseDistribution(dist):
+    return stats.exponweib.fit(dist)
     
-    
+
+xrange = np.arange(0,30000)/1000.
+yrange = [weibull(x, 12, 1.5, 0, 2.) for x in xrange]
+yrange2 = [weibull(x, 10, 1.5, 0, 2.) for x in xrange]
+
+fig = plt.figure(figsize=(12,8))
+ax = fig.add_subplot(111)
+ax.set_ylabel("Frequency")
+ax.set_xlabel("Wind speed  (m/s)")
+ax.set_title("Wind speed distribution")
+
+plt.plot(xrange, yrange, color = 'red')
+plt.plot(xrange, yrange2, color = 'blue') 
+
+s = np.arange(25000,30000)/1000
+
+plt.fill_between(x= xrange, y1= yrange, where= xrange > 25,color= "red",alpha= 0.2)
+plt.fill_between(x= xrange, y1= yrange2, where= xrange > 25,color= "blue",alpha= 0.2)
+
+plt.plot([25, 25], [-0.001, max(max(yrange), max(yrange2))*1.1], color = 'green')
+plt.plot([0, 30], [0,0], color = 'black')
+

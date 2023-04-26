@@ -46,35 +46,8 @@ def objFunc(x, n_var):
 def R(x):
     S = Solution(x)
     
-    return [S.StormDeficit, S.cost]
+    return [S.StormDeficit, S.cost + S.penalties]
 
-
-def is_pareto_efficient(costs, return_mask = True):
-    """
-    https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
-    
-    Find the pareto-efficient points
-    :param costs: An (n_points, n_costs) array
-    :param return_mask: True to return a mask
-    :return: An array of indices of pareto-efficient points.
-        If return_mask is True, this will be an (n_points, ) boolean array
-        Otherwise it will be a (n_efficient_points, ) integer array of indices.
-    """
-    is_efficient = np.arange(costs.shape[0])
-    n_points = costs.shape[0]
-    next_point_index = 0  # Next index in the is_efficient array to search for
-    while next_point_index<len(costs):
-        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
-        nondominated_point_mask[next_point_index] = True
-        is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
-        costs = costs[nondominated_point_mask]
-        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
-    if return_mask:
-        is_efficient_mask = np.zeros(n_points, dtype = bool)
-        is_efficient_mask[is_efficient] = True
-        return is_efficient_mask
-    else:
-        return is_efficient
 
 class Resilience(Problem):
     def __init__(self, pzones, wzones, contingency, nodes): 
@@ -88,63 +61,61 @@ class Resilience(Problem):
     def _evaluate(self, x, out, *args, **kwargs):
         out['F'] = objFunc(x, self.n_var)
         
-    def _calc_pareto_set(self, solutionSpace, designSpace=None):
-        
-        mask = is_pareto_efficient(solutionSpace)
-        if designSpace: 
-            return solutionSpace[mask], designSpace[mask]
-        else: 
-            return solutionSpace[mask]
-        
 
 if __name__=='__main__':
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
 
-    result = minimize(Resilience(pzones, wzones, contingency, nodes), 
-                      NSGA2(pop_size = cpu_count()), 
-                      ('n_gen', 1), 
-                      seed = 1,
-                      mutation=BitflipMutation(prob=0.5, prob_var=0.3),
-                      crossover=SinglePointCrossover(prob=0.5),
-                      verbose = True, 
-                      save_history = True)
+    try: 
+        result = minimize(Resilience(pzones, wzones, contingency, nodes), 
+                          NSGA2(pop_size = cpu_count()), 
+                          ('n_gen', 1), 
+                          # seed = 1,
+                          mutation=BitflipMutation(prob=0.5, prob_var=0.3),
+                          crossover=SinglePointCrossover(prob=0.5),
+                          verbose = True
+                          # , save_history = True
+                          )
+    except KeyboardInterrupt:
+        pass
     
-    with open('Results/MOOptimisation_result{}.csv'.format(scenario), 'a', newline="") as csvfile:
+    # with open('Results/MOOptimisation_result{}.csv'.format(scenario), 'a', newline="") as csvfile:
+    #     writer = csv.writer(csvfile)
+    #     writer.writerow(dt.datetime.now(), result.X)
+    # with open('Results/MOOptimisation_output{}.csv'.format(scenario), 'a', newline="") as csvfile:
+    #      writer = csv.writer(csvfile)
+    #      writer.writerow(dt.datetime.now(), result.F)
+         
+    with open('/media/fileshare/FIRM_Aus_Resilience2/testX.csv', 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(dt.datetime.now(), result.X)
-    with open('Results/MOOptimisation_output{}.csv'.format(scenario), 'a', newline="") as csvfile:
-         writer = csv.writer(csvfile)
-         writer.writerow(dt.datetime.now(), result.F)
-    
-    solutionSpace = [e.opt.get("F") for e in result.history]
-    designSpace = [e.opt.get("X") for e in result.history]
-    
-    solutions, designs = result._calculate_pareto_set(solutionSpace, 
-                                                      designSpace)
+        writer.writerow(result.X[:,0])
+        writer.writerow(result.X[:,1])
+        writer.writerow(result.X[:,2])
+        writer.writerow(result.X[:,3])
+    with open('/media/fileshare/FIRM_Aus_Resilience2/testF.csv', 'a', newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(result.F[:,0])
+        writer.writerow(result.F[:,1])
+
+    print(result.F)
+    endtime = dt.datetime.now()
+    print("Optimisation took", endtime - starttime)
+
+
     fig = plt.figure(figsize=(7, 5))
-    ax = fig.add_subplot(211)
-    plt.scatter(solutions[:,0], solutions[:,1], s=30, facecolors='none', edgecolors='b', label="Solutions")
+    ax = fig.add_subplot(111)
+    plt.scatter(result.F[:, 0], result.F[:, 1], s=30, facecolors='none', edgecolors='b', label="Solutions")
     ax.set_title("Solutions")
     ax.set_xlabel("Fragility")
     ax.set_ylabel("Cost ($/MWh)")
         
 
-    ax1 = fig.add_subplot(212)
-    plt.scatter(result.F[:, 0], result.F[:, 1], s=30, facecolors='none', edgecolors='b', label="Solutions")
-    # plt.plot(pf_a[:, 0], pf_a[:, 1], alpha=0.5, linewidth=2.0, color="red", label="Pareto-front")
-    # plt.plot(pf_b[:, 0], pf_b[:, 1], alpha=0.5, linewidth=2.0, color="red")
-    ax1.set_title("Objective Space")
-    ax1.legend()
-    plt.show()
 
-    endtime = dt.datetime.now()
-    print("Optimisation took", endtime - starttime)
-
-    # from Dispatch import Analysis
-    # Analysis(result.x)
+    from Dispatch import Analysis
+    for r in result.X:
+        Analysis(r)
     
-
+    plt.show()
 
 
 

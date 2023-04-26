@@ -6,6 +6,7 @@
 
 from Input import *
 from Simulation import Reliability
+from CoSimulation import Resilience
 from Network import Transmission
 
 import numpy as np
@@ -173,7 +174,7 @@ def Information(x, flexible):
     print("Statistics start at", start)
 
     S = Solution(x)
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Reliability(S, flexible=flexible)
+    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=flexible)
 
     try:
         assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
