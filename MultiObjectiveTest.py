@@ -66,6 +66,7 @@ if __name__=='__main__':
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
 
+<<<<<<< HEAD
     try: 
         result = minimize(Resilience(pzones, wzones, contingency, nodes), 
                           NSGA2(pop_size = cpu_count()), 
@@ -78,6 +79,16 @@ if __name__=='__main__':
                           )
     except KeyboardInterrupt:
         pass
+=======
+    result = minimize(Resilience(pzones, wzones, contingency, nodes), 
+                      NSGA2(pop_size = cpu_count()), 
+                      ('time', "19:00:00"), 
+                      seed = 1,
+                      mutation=BitflipMutation(prob=0.5, prob_var=0.3),
+                      crossover=SinglePointCrossover(prob=0.5),
+                      verbose = True, 
+                      save_history = True)
+>>>>>>> 508a501a48c0648ce1e1ae7481a58ecc44a2fd13
     
     # with open('Results/MOOptimisation_result{}.csv'.format(scenario), 'a', newline="") as csvfile:
     #     writer = csv.writer(csvfile)
@@ -88,6 +99,7 @@ if __name__=='__main__':
          
     with open('/media/fileshare/FIRM_Aus_Resilience2/testX.csv', 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
+<<<<<<< HEAD
         writer.writerow(result.X[:,0])
         writer.writerow(result.X[:,1])
         writer.writerow(result.X[:,2])
@@ -101,6 +113,19 @@ if __name__=='__main__':
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)
 
+=======
+        writer.writerow(result.X)
+    with open('Results/MOOptimisation_output{}.csv'.format(scenario), 'a', newline="") as csvfile:
+         writer = csv.writer(csvfile)
+         writer.writerow(result.F)
+    
+    solutionSpace = [e.opt.get("F") for e in result.history]
+    designSpace = [e.opt.get("X") for e in result.history]
+    
+    solutions, designs = result._calculate_pareto_set(solutionSpace, 
+                                                      designSpace)
+    
+>>>>>>> 508a501a48c0648ce1e1ae7481a58ecc44a2fd13
 
     fig = plt.figure(figsize=(7, 5))
     ax = fig.add_subplot(111)

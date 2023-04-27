@@ -21,32 +21,36 @@ scenario = args.s
 
 from Input import *
 
-def R(x):
+def R(x, cost_constraint):
     """This is the new Resilience objective function""" 
     
     S = Solution(x) 
     
+    if S.cost > cost_constraint:
+        return 1000*(S.StormDeficit + S.Penalties)
     return S.StormDeficit + S.Penalties 
 
 
 if __name__=='__main__':
-    starttime = dt.datetime.now()
-    print("Optimisation starts at", starttime)
 
-    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
-    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
+    for cost_constraint in (110, 121, 132, 143):
+        starttime = dt.datetime.now()
+        print("Optimisation starts at", starttime)
 
-    result = differential_evolution(func=R, bounds=list(zip(lb, ub)), tol=0,
-                                    maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
-                                    disp=True, polish=False, updating='deferred', workers=-1)
+        lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
+        ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
 
-    with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(result.x)
+        result = differential_evolution(func=R, bounds=list(zip(lb, ub)), args =[cost_constraint], tol=0,
+                                        maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
+                                        disp=True, polish=False, updating='deferred', workers=-1)
 
-    endtime = dt.datetime.now()
-    print("Optimisation took", endtime - starttime)
+        with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(result.x)
 
-    from Dispatch import Analysis
-    Analysis(result.x)
+        endtime = dt.datetime.now()
+        print("Optimisation took", endtime - starttime)
+
+        from Dispatch import Analysis
+        Analysis(result.x)
     

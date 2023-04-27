@@ -123,6 +123,7 @@ def cost(solution):
     # CapHydro, CapBio = CHydro.sum(), CBio.sum() # GW
     # CapHydrobio = CapHydro + CapBio
 
+<<<<<<< HEAD
     # GPV, GWind, GHydro, GBio = map(lambda x: x * pow(10, -6) * resolution / years, (solution.GPV.sum(), solution.GWind.sum(), solution.MHydro.sum(), solution.MBio.sum())) # TWh p.a.
     GPV, GWind = map(lambda x: x * pow(10, -6) * resolution / years, (solution.GPV.sum(), solution.GWind.sum())) # TWh p.a.
     # GHydrobio = GHydro + GBio
@@ -152,6 +153,8 @@ def cost(solution):
     # LCOE = (CostPV + CostWind + CostHydro + CostBio + CostPH + CostDC + CostAC) / (Energy - Loss)
     LCOE = (CostPV + CostWind + CostPH + CostDC + CostAC) / (Energy - Loss)
 
+=======
+>>>>>>> 508a501a48c0648ce1e1ae7481a58ecc44a2fd13
     return LCOE, StormDeficit, PenHydro + PenDeficit + PenDC #+ PenSurplus
 
 
