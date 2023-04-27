@@ -31,7 +31,8 @@ def R(x, cost_constraint):
     return S.StormDeficit + S.Penalties 
 
 
-if __name__=='__main__':
+# if __name__=='__main__':
+if 1==0:
 
     for cost_constraint in (110, 121, 132, 143):
         starttime = dt.datetime.now()
@@ -46,6 +47,11 @@ if __name__=='__main__':
 
         with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)
+            writer.writerow(result.x)
+
+        with open('/Results/Otestx.csv'.format(scenario), 'a', newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([scenario,cost_constraint, result.fun, Solution(result.x).StormDeficit])
             writer.writerow(result.x)
 
         endtime = dt.datetime.now()

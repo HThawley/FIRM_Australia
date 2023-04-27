@@ -13,6 +13,8 @@ def Resilience(solution, flexible, start=None, end=None):
 
     RNetload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWindR.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
               - flexible # Sj-ENLoad(j, t), MW
+              
+    
 
     length = len(Netload)
     solution.flexible = flexible # MW

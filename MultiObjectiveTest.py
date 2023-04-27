@@ -5,12 +5,10 @@ Created on Sun Apr 16 16:25:06 2023
 @author: hmtha
 """
 
-import pymoo
 from pymoo.core.problem import Problem
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.optimize import minimize
 from pymoo.operators.mutation.bitflip import BitflipMutation
-from pymoo.core.callback import Callback
 from pymoo.operators.crossover.pntx import SinglePointCrossover
 import matplotlib.pyplot as plt
 
@@ -34,9 +32,8 @@ scenario = args.s
 
 from Input import *
 
-def objFunc(x, n_var):
+def objFunc(x):
     """This is the new Resilience objective function""" 
-    return_values = [[]*len(x)]
     
     pool = Pool(processes=min(cpu_count(), len(x)))
     result = pool.map(R, x)
@@ -59,36 +56,23 @@ class Resilience(Problem):
         
         
     def _evaluate(self, x, out, *args, **kwargs):
-        out['F'] = objFunc(x, self.n_var)
+        out['F'] = objFunc(x)
         
 
 if __name__=='__main__':
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
 
-<<<<<<< HEAD
-    try: 
-        result = minimize(Resilience(pzones, wzones, contingency, nodes), 
-                          NSGA2(pop_size = cpu_count()), 
-                          ('n_gen', 1), 
-                          # seed = 1,
-                          mutation=BitflipMutation(prob=0.5, prob_var=0.3),
-                          crossover=SinglePointCrossover(prob=0.5),
-                          verbose = True
-                          # , save_history = True
-                          )
-    except KeyboardInterrupt:
-        pass
-=======
+
     result = minimize(Resilience(pzones, wzones, contingency, nodes), 
                       NSGA2(pop_size = cpu_count()), 
                       ('time', "19:00:00"), 
                       seed = 1,
                       mutation=BitflipMutation(prob=0.5, prob_var=0.3),
                       crossover=SinglePointCrossover(prob=0.5),
-                      verbose = True, 
-                      save_history = True)
->>>>>>> 508a501a48c0648ce1e1ae7481a58ecc44a2fd13
+                      verbose = True) 
+                      #, save_history = True)
+
     
     # with open('Results/MOOptimisation_result{}.csv'.format(scenario), 'a', newline="") as csvfile:
     #     writer = csv.writer(csvfile)
@@ -97,14 +81,14 @@ if __name__=='__main__':
     #      writer = csv.writer(csvfile)
     #      writer.writerow(dt.datetime.now(), result.F)
          
-    with open('/media/fileshare/FIRM_Aus_Resilience2/testX.csv', 'a', newline="") as csvfile:
+    with open('Results/testX.csv', 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
-<<<<<<< HEAD
+
         writer.writerow(result.X[:,0])
         writer.writerow(result.X[:,1])
         writer.writerow(result.X[:,2])
         writer.writerow(result.X[:,3])
-    with open('/media/fileshare/FIRM_Aus_Resilience2/testF.csv', 'a', newline="") as csvfile:
+    with open('Results/testF.csv', 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(result.F[:,0])
         writer.writerow(result.F[:,1])
@@ -113,19 +97,10 @@ if __name__=='__main__':
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)
 
-=======
-        writer.writerow(result.X)
-    with open('Results/MOOptimisation_output{}.csv'.format(scenario), 'a', newline="") as csvfile:
-         writer = csv.writer(csvfile)
-         writer.writerow(result.F)
-    
-    solutionSpace = [e.opt.get("F") for e in result.history]
-    designSpace = [e.opt.get("X") for e in result.history]
-    
-    solutions, designs = result._calculate_pareto_set(solutionSpace, 
-                                                      designSpace)
-    
->>>>>>> 508a501a48c0648ce1e1ae7481a58ecc44a2fd13
+
+    # with open('Results/MOOptimisation_output{}.csv'.format(scenario), 'a', newline="") as csvfile:
+    #      writer = csv.writer(csvfile)
+    #      writer.writerow(result.F)
 
     fig = plt.figure(figsize=(7, 5))
     ax = fig.add_subplot(111)
@@ -133,8 +108,6 @@ if __name__=='__main__':
     ax.set_title("Solutions")
     ax.set_xlabel("Fragility")
     ax.set_ylabel("Cost ($/MWh)")
-        
-
 
     from Dispatch import Analysis
     for r in result.X:
