@@ -11,10 +11,9 @@ def Resilience(solution, flexible, start=None, end=None):
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
               - flexible # Sj-ENLoad(j, t), MW
 
-    RNetload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWindR.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
-              - flexible # Sj-ENLoad(j, t), MW
-              
-    
+    windDiff, stormDur = solution.WindDiff, solution.stormDur
+
+    RNetload = Netload + windDiff.sum(axis=1)
 
     length = len(Netload)
     solution.flexible = flexible # MW
@@ -62,24 +61,25 @@ def Resilience(solution, flexible, start=None, end=None):
         Surplus[t] = max(0, -1*min(0,Netloadt) - Charget) * resolution #MWh
         SurplusD[t] = max(0, min(0,-1 * min(0, Netloadt + Charget) - ChargeDt)) * resolution 
 
-        # Re-simulate with resilience losses due to windstorm, and including storage depletion
-        StormDuration = 2 *24*2 
-        #2 days*24 hours per day *2 half hours per hour 
-        # This parameter will be moved elsewhere, kept here now for testing
+# =============================================================================
+#         # Re-simulate with resilience losses due to windstorm, and including storage depletion
+# =============================================================================
         
-        RNetloadt = RNetload[t]
-
-        period_start = min(0, t-StormDuration)
-        RStoraget_1 = Storage[period_start] + RCharge[period_start:t].sum() * resolution * efficiency - RDischarge[period_start:t].sum() * resolution if t>0 else 0.5*Scapacity
-                
-        RStorageDt_1 = StorageD[period_start] + RCharge[period_start:t].sum() * resolution * efficiencyD - RDischarge[period_start:t].sum() * resolution if t>0 else 0.5*Scapacity
-        # State of charge is taken as the state of charge {StormDuration} steps ago 
-        # +/- the charging that occurs under the modified generation capacity 
+        # Subtract ordinary wind power and add storm condition wind power
+        RNetloadt = RNetload[t] 
+        
+          # State of charge is taken as the state of charge {StormDuration} steps ago 
+          # +/- the charging that occurs under the modified generation capacity   
+        storageAdj = sum([windDiff[:,i][min(0, t-stormDur[i]):t].sum() for i in range(windDiff.shape[1])])
+    
+        RStoraget_1 = max(0, Storaget_1 + storageAdj)
+        RStorageDt_1 = max(0, StorageDt_1 + Storaget_1 + storageAdj)
+        # RDeficitt = max(0, -(StorageDt_1 + Storaget_1 + storageAdj))
         
         RDischarget = min(max(0, RNetloadt), Pcapacity, RStoraget_1 / resolution)
         RCharget = min(-1 * min(0, RNetloadt), Pcapacity, (Scapacity - RStoraget_1) / efficiency / resolution)
         RStoraget = RStoraget_1 - RDischarget * resolution + RCharget * resolution * efficiency
-    
+       
         RDischargeDt = min(ConsumeDt, StorageDt_1 / resolution)
         RChargeDt = min(-1 * min(0, RNetloadt + Charget), PcapacityD, (ScapacityD - StorageDt_1) / efficiencyD / resolution)
         RStorageDt = RStorageDt_1 - RDischargeDt * resolution + RChargeDt * resolution * efficiencyD
@@ -95,6 +95,7 @@ def Resilience(solution, flexible, start=None, end=None):
         RDischargeD[t] = RDischargeDt
         RChargeD[t] = RChargeDt
         RStorageD[t] = RStorageDt
+        # RDeficit[t] = RDeficit[t]
     
 
     Deficit = np.maximum(Netload - Discharge + P2V, 0)

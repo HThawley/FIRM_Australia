@@ -14,7 +14,7 @@ parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4
 parser.add_argument('-p', default=1, type=int, required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=12, type=int, required=False, help='11, 12, 13, ...')
+parser.add_argument('-s', default=11, type=int, required=False, help='11, 12, 13, ...')
 args = parser.parse_args()
 
 scenario = args.s
