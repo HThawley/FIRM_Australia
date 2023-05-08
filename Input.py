@@ -27,7 +27,7 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
 windFrag = np.genfromtxt('Data/fragility PoC.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
-windFrag, stormDur = windFrag
+windFrag, stormDur = windFrag[0], windFrag[1].astype(int)
 
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
@@ -125,14 +125,14 @@ def cost(solution):
     return StormDeficit, PenHydro + PenDeficit + PenDC #+ PenSurplus
 
 
-def LCOE(solution):
+def LCOE(S):
     
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(solution, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
+    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
     Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
     Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
     PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
     
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(solution, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
+    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
     
     TDC = Transmission(S) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
@@ -184,7 +184,7 @@ class Solution:
 
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 
-        self.cost, self.StormDeficit, self.Penalties = cost(self)
+        self.cost, self.StormDeficit, self.penalties = LCOE(self)
 
         # self.fragility = self.StormDeficit/(a constant?)
 

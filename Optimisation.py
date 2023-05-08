@@ -34,7 +34,7 @@ def R(x, cost_constraint):
 # if __name__=='__main__':
 if 1==0:
 
-    for cost_constraint in (110, 121, 132, 143):
+    for cost_constraint in (89, 89*1.05, 89*1.1, 89*1.2):
         starttime = dt.datetime.now()
         print("Optimisation starts at", starttime)
 
