@@ -11,7 +11,7 @@ from tqdm import tqdm
 import numpy as np
 from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor as NestablePool
-
+from datetime import datetime as dt
 
 
 #%%
@@ -38,7 +38,10 @@ def readData(repo):
     
     print(f'{repo[9:]} ', end='')
     
-    stn = pd.read_csv('C:/Users/hmtha/OneDrive/Desktop/data - Copy/AWS_Wind-NT/HM01X_StnDet_9999999910323091.txt',
+    stnDet = [path for path in os.listdir() if 'StnDet' in path]
+    assert len(stnDet) == 1
+    
+    stn = pd.read_csv(stnDet[0],
                       header = None,
                       usecols = [1,3,6,7])
     stn.columns = ['stn no.', 'stn Name', 'Lat', 'Lon']
@@ -66,14 +69,23 @@ def readData(repo):
     
 def readFile(path):
     
-    x = pd.read_csv(path, usecols = [16],dtype=str)
-    gust = pd.to_numeric(x['Speed of maximum windgust in last 10 minutes in  km/h'],
-                          errors = 'coerce').dropna()
-    gust = gust / 3.6# km/h to m/s
+    x = pd.read_csv(path, usecols = [2,3,4,5,6,16])
     
-    frac = len(gust[gust > 25])/len(gust) if len(gust) > 0 else 0 
+    x = x.rename(columns={'Speed of maximum windgust in last 10 minutes in  km/h':'speed'})
+    
+    x['dt'] = x[x.columns[0:5]].apply(lambda row: lambdaDt(*row), axis=1)
+    
+    x['speed'] = pd.to_numeric(x['speed'], errors = 'coerce')
+    x['speed'] = x['speed'] / 3.6# km/h to m/s
+    
+    x = x[['dt', 'speed']].dropna()    
+    
+    # frac = len(x['speed'][x['speed'] > 25])/len(x['speed']) if len(x['speed']) > 0 else 0 
 
-    return (path[11:17], frac, gust)
+    # return (path[11:17], frac, x)
+
+def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
+
 
 #%%
 def fracFromCoord(lat, lon, stn, k='max'):
@@ -125,6 +137,8 @@ def Haversine(lat1,lon1,lat2,lon2):
     d = R * c
     return d
  
+#%%    
+ 
 if __name__=='__main__':
     stn = readAllRepo(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy')
     # stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NT')   
@@ -149,7 +163,12 @@ def weibullNormaliseDistribution(dist):
     return stats.exponweib.fit(dist)
     
 
-xrange = np.arange(0,30000)/1000.
+def boundedWeibullIntegral(a, b, l, k):
+    
+    
+    
+
+xrange = np.arange(-1000,50000)/1000.
 yrange = [weibull(x, 12, 1.5, 0, 2.) for x in xrange]
 yrange2 = [weibull(x, 10, 1.5, 0, 2.) for x in xrange]
 
