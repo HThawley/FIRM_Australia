@@ -11,7 +11,7 @@ import csv
 
 parser = ArgumentParser()
 parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4000, 400')
-parser.add_argument('-p', default=1, type=int, required=False, help='popsize=2, 10')
+parser.add_argument('-p', default=2, type=int, required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
 parser.add_argument('-s', default=11, type=int, required=False, help='11, 12, 13, ...')
@@ -21,27 +21,29 @@ scenario = args.s
 
 from Input import *
 
-def R(x, cost_constraint):
+def R(x, cost_constraint, stormZone):
     """This is the new Resilience objective function""" 
     
-    S = Solution(x) 
+    S = Solution(x, stormZone) 
     
-    if S.cost > cost_constraint:
-        return 1000*(S.StormDeficit + S.Penalties)
-    return S.StormDeficit + S.Penalties 
+    # if S.cost > cost_constraint:
+    #     return 10000*(S.StormDeficit + S.penalties) +S.cost
+    return S.StormDeficit + S.penalties + S.cost
 
 
-# if __name__=='__main__':
-if 1==0:
+if __name__=='__main__':
 
-    for cost_constraint in (89, 89*1.05, 89*1.1, 89*1.2):
+    #for cost_constraint in (89*1.02, 89*1.05, 89*1.1, 89*1.2):
+    for stormZone in range(8):
+        stormZone = np.array(stormZone, dtype=int)
+        cost_constraint = 89*2
         starttime = dt.datetime.now()
         print("Optimisation starts at", starttime)
 
         lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
         ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
 
-        result = differential_evolution(func=R, bounds=list(zip(lb, ub)), args =[cost_constraint], tol=0,
+        result = differential_evolution(func=R, bounds=list(zip(lb, ub)), args =(cost_constraint, stormZone), tol=0, 
                                         maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
                                         disp=True, polish=False, updating='deferred', workers=-1)
 
@@ -49,14 +51,14 @@ if 1==0:
             writer = csv.writer(csvfile)
             writer.writerow(result.x)
 
-        with open('/Results/Otestx.csv'.format(scenario), 'a', newline="") as csvfile:
+        with open('Results/Otestx{}.csv'.format(scenario), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([scenario,cost_constraint, result.fun, Solution(result.x).StormDeficit])
+            writer.writerow([scenario,cost_constraint, result.fun, Solution(result.x, stormZone).StormDeficit, stormZone])
             writer.writerow(result.x)
 
         endtime = dt.datetime.now()
         print("Optimisation took", endtime - starttime)
 
         from Dispatch import Analysis
-        Analysis(result.x)
+        Analysis(result.x, stormZone)
     

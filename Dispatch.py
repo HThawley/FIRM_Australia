@@ -11,11 +11,10 @@ from multiprocessing import Pool, cpu_count
 
 def Flexible(instance):
     """Energy source of high flexibility"""
-
     year, x = instance
     print('Dispatch works on', year)
 
-    S = Solution(x)
+    S = Solution(x, sZone)
 
     startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
     endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
@@ -33,9 +32,10 @@ def Flexible(instance):
 
     return flexible
 
-def Analysis(x):
+def Analysis(x, stormZone):
     """Dispatch.Analysis(result.x)"""
-
+    global sZone
+    sZone = stormZone
     starttime = dt.datetime.now()
     print('Dispatch starts at', starttime)
 
@@ -52,7 +52,7 @@ def Analysis(x):
     print('Dispatch took', endtime - starttime)
 
     from Statistics import Information
-    Information(x, Flex)
+    Information(x, Flex, stormZone)
 
     return True
 

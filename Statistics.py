@@ -167,13 +167,13 @@ def GGTA(solution):
 
     return True
 
-def Information(x, flexible):
+def Information(x, flexible, stormZone):
     """Dispatch: Statistics.Information(x, Flex)"""
 
     start = dt.datetime.now()
     print("Statistics start at", start)
 
-    S = Solution(x)
+    S = Solution(x, stormZone)
     Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=flexible)
 
     try:

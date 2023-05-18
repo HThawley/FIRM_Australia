@@ -155,8 +155,9 @@ def LCOE(S):
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
-    def __init__(self, x):
+    def __init__(self, x, stormZone):
         self.x = x
+        self.stormZone = stormZone
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
         self.resolution = resolution
@@ -177,10 +178,18 @@ class Solution:
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
         self.CHydro = CHydro # GW, GWh
         
-        self.stormDur = stormDur
-        self.CWindR = self.CWind*(windFrag)
+        self.windFrag = np.ones(windFrag.shape[0])
+        self.windFrag[stormZone] = windFrag[stormZone]
+
+        self.stormDur = np.zeros(stormDur.shape[0])
+        self.stormDur[stormZone] = stormDur[stormZone]
+
+        self.stormDur = self.stormDur.astype(int)
+
+        self.CWindR = self.CWind*(self.windFrag)
         self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
-        self.WindDiff =  self.GWindR - self.GWind
+        self.WindDiff =  self.GWindR[:,stormZone] - self.GWind[:,stormZone]
+        
 
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 

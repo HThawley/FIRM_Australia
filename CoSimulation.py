@@ -11,9 +11,12 @@ def Resilience(solution, flexible, start=None, end=None):
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
               - flexible # Sj-ENLoad(j, t), MW
 
-    windDiff, stormDur = solution.WindDiff, solution.stormDur
+    windDiff, stormDur, stormZone = solution.WindDiff, solution.stormDur, solution.stormZone
 
-    RNetload = Netload + windDiff.sum(axis=1)
+    if stormZone.shape:
+      RNetload = Netload + windDiff.sum(axis=1) 
+    else: 
+      RNetload = Netload + windDiff.flatten()
 
     length = len(Netload)
     solution.flexible = flexible # MW
@@ -70,8 +73,13 @@ def Resilience(solution, flexible, start=None, end=None):
         
           # State of charge is taken as the state of charge {StormDuration} steps ago 
           # +/- the charging that occurs under the modified generation capacity   
-        storageAdj = sum([windDiff[:,i][min(0, t-stormDur[i]):t].sum() for i in range(windDiff.shape[1])])
+        if stormZone.shape:
+          storageAdj = sum([windDiff[min(0, t-stormDur[i]):t,i].sum() for i in stormZone])
+        else: 
+          storageAdj = windDiff[min(0, t-stormDur[stormZone]):t].sum()
     
+        assert isinstance(storageAdj, float)
+
         RStoraget_1 = max(0, Storaget_1 + storageAdj)
         RStorageDt_1 = max(0, StorageDt_1 + Storaget_1 + storageAdj)
         # RDeficitt = max(0, -(StorageDt_1 + Storaget_1 + storageAdj))
