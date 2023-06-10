@@ -25,7 +25,7 @@ def readAll(location):
     active_dir = os.getcwd()
     os.chdir(location)
     
-    folders = [path for path in os.listdir() if '.zip' not in path]
+    folders = [path for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
     print('Reading and processing data\nCompleted: ', end = '')
     pool = NestablePool(max_workers=min(cpu_count(), len(folders)))
@@ -38,8 +38,6 @@ def readAll(location):
     return stn
 
 def readStnDetail(folder):
-
-    print(f'{folder[9:]} ', end='')
     
     stnDet = [path for path in os.listdir() if 'StnDet' in path]
     
@@ -54,15 +52,18 @@ def readStnDetail(folder):
                                           if not pd.isna(x)
                                           else pd.NA)    
 
+    stn['latitude'] = pd.to_numeric(stn['latitude'])
+    stn['longitude'] = pd.to_numeric(stn['longitude'])
     return stn
 
 def get100mMeans(stn):
-    global windMap
+    windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
 
     coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
 
     stn['mean-100m'] = [x[0] for x in windMap.sample(coord_list)]
 
+    windMap.close()   
     return stn
 
 def readData(folder, multiprocess=True):
@@ -75,25 +76,25 @@ def readData(folder, multiprocess=True):
     
     argTuples = [(path, stn) for path in os.listdir() if 'Data' in path]
 
+    # result=[]
+    # if multiprocess:
+    #     with Pool(processes = min(cpu_count(), len(argTuples))) as p:
+    #         with tqdm(total=len(argTuples), desc=f"Processing: {folder}") as pbar:
+    #             for inst in p.imap_unordered(readFile, argTuples):
+    #                 pbar.update()
+    #                 result.append(inst)
+    # else: 
+    #     for argTuple in tqdm(argTuples):
+    #         result.append(readFile(argTuple))
+    
     result=[]
     if multiprocess:
         with Pool(processes = min(cpu_count(), len(argTuples))) as p:
-            with tqdm(total=len(argTuples), desc=f"Processing: {folder}") as pbar:
-                for inst in p.imap_unordered(readFile, argTuples):
-                    pbar.update()
-                    result.append(inst)
+            for inst in p.imap_unordered(readFile, argTuples):
+                result.append(inst)
     else: 
-        for argTuple in tqdm(argTuples):
+        for argTuple in argTuples:
             result.append(readFile(argTuple))
-    
-    # result=[]
-    # if multiprocess:
-    #     with Pool(processes = min(cpu_count(), len(files))) as p:
-    #         for inst in p.imap_unordered(readFile, files):
-    #             result.append(inst)
-    # else: 
-    #     for path in files:
-    #         result.append(readFile(path))
             
     result = pd.DataFrame(result, 
                           columns = ['station no.', 'highWindFrac', 'scaleFactor',
@@ -105,6 +106,7 @@ def readData(folder, multiprocess=True):
     
     stn = stn.drop(columns = 'indicator')
     
+    print(f'{folder[9:]}; ', end='')
     os.chdir(active_dir)
     return stn    
     
@@ -220,13 +222,13 @@ def Haversine(lat1,lon1,lat2,lon2):
 #%%    
  
 if __name__=='__main__':
-    global windMap
-    windMap = rasterio.open('Data/AUS_wind-speed_100m.tif')
-    
+ 
     stn = readAll(r'BOM Wind Data')
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', multiprocess=True)   
 
-    windMap.close()
+
+
+    stn.to_csv(r'Data/WindStats.csv', index = False)
 #%%
 
 
