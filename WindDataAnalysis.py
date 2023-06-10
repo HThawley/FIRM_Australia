@@ -23,8 +23,8 @@ import rasterio
 
 def readAll(location):
     active_dir = os.getcwd()
-    
     os.chdir(location)
+    
     folders = [path for path in os.listdir() if '.zip' not in path]
     
     print('Reading and processing data\nCompleted: ', end = '')
@@ -38,12 +38,11 @@ def readAll(location):
     return stn
 
 def readStnDetail(folder):
-    active_dir = os.getcwd()
-    os.chdir(folder)
-    
+
     print(f'{folder[9:]} ', end='')
     
     stnDet = [path for path in os.listdir() if 'StnDet' in path]
+    
     assert len(stnDet) == 1
     
     stn = pd.read_csv(stnDet[0],
@@ -55,27 +54,24 @@ def readStnDetail(folder):
                                           if not pd.isna(x)
                                           else pd.NA)    
 
-    os.chdir(active_dir)
-    
     return stn
 
 def get100mMeans(stn):
-    data = rasterio.open('C:/Users/hmtha/Downloads/AUS_wind-speed_100m.tif')
-    
+    global windMap
+
     coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
 
-    stn['mean-100m'] = [x[0] for x in data.sample(coord_list)]
+    stn['mean-100m'] = [x[0] for x in windMap.sample(coord_list)]
 
-    data.close()
     return stn
 
-def readData(folder, multiprocess=False):
-
-    stn = readStnDetail(folder)
-    stn = get100mMeans(stn)
+def readData(folder, multiprocess=True):
 
     active_dir = os.getcwd()
     os.chdir(folder)
+    
+    stn = readStnDetail(folder)
+    stn = get100mMeans(stn)
     
     argTuples = [(path, stn) for path in os.listdir() if 'Data' in path]
 
@@ -224,15 +220,13 @@ def Haversine(lat1,lon1,lat2,lon2):
 #%%    
  
 if __name__=='__main__':
-    # stn = readAll(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy')
-    stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NSW', multiprocess=True)   
-    # x = fracFromCoord(-12, 130, stn, 'max')
+    global windMap
+    windMap = rasterio.open('Data/AUS_wind-speed_100m.tif')
     
-    # stnDet = pd.read_csv('C:/Users/hmtha/OneDrive/Desktop/data - Copy/AWS_Wind-NSW/HM01X_StnDet_9999999910323018.txt',
-    #                      header = None, usecols = [1,3,6,7])
-    # dist = pd.read_csv('C:/Users/hmtha/OneDrive/Desktop/data - Copy/AWS_Wind-NSW/HM01X_Data_046012_9999999910323018.txt',
-    #                    usecols = [2,3,4,5,6,16], dtype = float)
-    
+    stn = readAll(r'BOM Wind Data')
+    # stn = readData(r'BOM Wind Data\AWS_Wind-NT', multiprocess=True)   
+
+    windMap.close()
 #%%
 
 
