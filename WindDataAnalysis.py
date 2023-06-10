@@ -12,19 +12,24 @@ import numpy as np
 from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor as NestablePool
 from datetime import datetime as dt
+from math import exp
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import gumbel_r
+import rasterio
 
 
 #%%
 
-def readAllRepo(location):
+def readAll(location):
     active_dir = os.getcwd()
     
     os.chdir(location)
-    repos = [path for path in os.listdir() if '.zip' not in path]
+    folders = [path for path in os.listdir() if '.zip' not in path]
     
     print('Reading and processing data\nCompleted: ', end = '')
-    pool = NestablePool(max_workers=min(cpu_count(), len(repos)))
-    results = pool.map(readData, repos)
+    pool = NestablePool(max_workers=min(cpu_count(), len(folders)))
+    results = pool.map(readData, folders)
     
     stn = pd.concat(results, ignore_index=True)
     
@@ -32,11 +37,11 @@ def readAllRepo(location):
     
     return stn
 
-def readData(repo):
+def readStnDetail(folder):
     active_dir = os.getcwd()
-    os.chdir(repo)
+    os.chdir(folder)
     
-    print(f'{repo[9:]} ', end='')
+    print(f'{folder[9:]} ', end='')
     
     stnDet = [path for path in os.listdir() if 'StnDet' in path]
     assert len(stnDet) == 1
@@ -44,50 +49,130 @@ def readData(repo):
     stn = pd.read_csv(stnDet[0],
                       header = None,
                       usecols = [1,3,6,7])
-    stn.columns = ['stn no.', 'stn Name', 'Lat', 'Lon']
+    stn.columns = ['station no.', 'station name', 'latitude', 'longitude']
     
-    stn['stn no.'] = stn['stn no.'].apply(lambda x: '0'*(6-len(str(x)))+str(x) 
+    stn['station no.'] = stn['station no.'].apply(lambda x: '0'*(6-len(str(x)))+str(x) 
                                           if not pd.isna(x)
-                                          else pd.NA)
+                                          else pd.NA)    
+
+    os.chdir(active_dir)
     
-    files = [path for path in os.listdir() if 'Data' in path]
+    return stn
+
+def get100mMeans(stn):
+    data = rasterio.open('C:/Users/hmtha/Downloads/AUS_wind-speed_100m.tif')
     
-    # pool = Pool(processes = min(cpu_count(), len(files)))
-    # result = pool.map(readFile, files)
-    # pool.terminate()
-    result = []
-    for path in tqdm(files):
-        result.append(readFile(path))
+    coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
+
+    stn['mean-100m'] = [x[0] for x in data.sample(coord_list)]
+
+    data.close()
+    return stn
+
+def readData(folder, multiprocess=False):
+
+    stn = readStnDetail(folder)
+    stn = get100mMeans(stn)
+
+    active_dir = os.getcwd()
+    os.chdir(folder)
     
-    stn['frac'] = stn['stn no.'].map(dict(zip([output[0] for output in result], 
-                                              [output[1] for output in result])))
-    stn['gust'] = stn['stn no.'].map(dict(zip([output[0]for output in result], 
-                                              [output[2] for output in result])))
+    argTuples = [(path, stn) for path in os.listdir() if 'Data' in path]
+
+    result=[]
+    if multiprocess:
+        with Pool(processes = min(cpu_count(), len(argTuples))) as p:
+            with tqdm(total=len(argTuples), desc=f"Processing: {folder}") as pbar:
+                for inst in p.imap_unordered(readFile, argTuples):
+                    pbar.update()
+                    result.append(inst)
+    else: 
+        for argTuple in tqdm(argTuples):
+            result.append(readFile(argTuple))
+    
+    # result=[]
+    # if multiprocess:
+    #     with Pool(processes = min(cpu_count(), len(files))) as p:
+    #         for inst in p.imap_unordered(readFile, files):
+    #             result.append(inst)
+    # else: 
+    #     for path in files:
+    #         result.append(readFile(path))
+            
+    result = pd.DataFrame(result, 
+                          columns = ['station no.', 'highWindFrac', 'scaleFactor',
+                                     'mean-10m', 'startTime', 'meanRes', 'Observations'])
+    stn = stn.merge(result, on = 'station no.', how = 'outer', indicator ='indicator')
+    
+    assert len(stn['indicator'].unique()) == 1 
+    assert stn['indicator'].unique()[0] == 'both'
+    
+    stn = stn.drop(columns = 'indicator')
     
     os.chdir(active_dir)
     return stn    
     
-def readFile(path):
+def readFile(argTuple):
+        
+    path, stn = argTuple
+    x = pd.read_csv(path, usecols = [2,3,4,5,6,16], dtype = str)
     
-    x = pd.read_csv(path, usecols = [2,3,4,5,6,16])
-    
+    for col in x.columns:
+        x[col] = pd.to_numeric(x[col], errors = 'coerce')
+        
     x = x.rename(columns={'Speed of maximum windgust in last 10 minutes in  km/h':'speed'})
     
     x['dt'] = x[x.columns[0:5]].apply(lambda row: lambdaDt(*row), axis=1)
     
-    x['speed'] = pd.to_numeric(x['speed'], errors = 'coerce')
+    # x['speed'] = pd.to_numeric(x['speed'], errors = 'coerce')
     x['speed'] = x['speed'] / 3.6# km/h to m/s
     
     x = x[['dt', 'speed']].dropna()    
     
-    # frac = len(x['speed'][x['speed'] > 25])/len(x['speed']) if len(x['speed']) > 0 else 0 
+    if len(x) == 0:
+        return [path[11:17], pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
+    
+    stnNo = path[11:17]
+    
+    try: 
+        scaleFactor = stn[stn['station no.']==stnNo]['mean-100m'].values[0] / x['speed'].mean()
+    except KeyError: 
+        return [path[11:17], pd.NA, pd.NA, x['speed'].mean(), x['dt'].min(), (x[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60, len(x)]
+    if pd.isna(scaleFactor):
+        return [path[11:17], pd.NA, pd.NA, x['speed'].mean(), x['dt'].min(), (x[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60, len(x)]
+    
+    x['speed 100m high res'] = scaleFactor * x['speed']
+    
+    highWindIntegral = gumbelModelling(x['speed 100m high res'])
+    meanSpeed = x['speed'].mean()
+    
+    
+    startTime = x['dt'].min()
+    meanRes = (x[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
+    
+    return [path[11:17], highWindIntegral, scaleFactor, meanSpeed, startTime, meanRes, len(x)]
 
-    # return (path[11:17], frac, x)
+def lambdaRollDiff(a,b): return a-b
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
 
+def gumbelModelling(dist, plot=False):    
+    a, c = gumbel_r.fit(dist)
+        
+    if plot:
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        
+        ax2.hist(dist, bins=50, alpha = 0.5)
+        
+        x = np.linspace(gumbel_r.ppf(0.000001, a, c),
+                    gumbel_r.ppf(0.999999, a, c), 200)
+        ax1.plot(x, gumbel_r.pdf(x, a, c),
+           'r-', lw=2, alpha=0.9, label='gumbel pdf')
+    
+    return 1 - gumbel_r.cdf(25, a, c)
 
-#%%
+
 def fracFromCoord(lat, lon, stn, k='max'):
     '''
     Determine frac as a weighted average of k-nearest neighbours.
@@ -127,65 +212,30 @@ def Haversine(lat1,lon1,lat2,lon2):
     where   φ is latitude, λ is longitude, R is earth’s radius (mean radius = 6,371km);
     note that angles need to be in radians to pass to trig functions!
     """
-    R = 6371.0088
     lat1,lon1,lat2,lon2 = map(np.radians, [lat1,lon1,lat2,lon2])
 
     dlat = lat2 - lat1
     dlon = lon2 - lon1
     a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2) **2
     c = 2 * np.arctan2(a**0.5, (1-a)**0.5)
-    d = R * c
+    d = 6371.0088 * c
     return d
  
 #%%    
  
 if __name__=='__main__':
-    stn = readAllRepo(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy')
-    # stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NT')   
+    # stn = readAll(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy')
+    stn = readData(r'C:\Users\hmtha\OneDrive\Desktop\data - Copy\AWS_Wind-NSW', multiprocess=True)   
     # x = fracFromCoord(-12, 130, stn, 'max')
+    
+    # stnDet = pd.read_csv('C:/Users/hmtha/OneDrive/Desktop/data - Copy/AWS_Wind-NSW/HM01X_StnDet_9999999910323018.txt',
+    #                      header = None, usecols = [1,3,6,7])
+    # dist = pd.read_csv('C:/Users/hmtha/OneDrive/Desktop/data - Copy/AWS_Wind-NSW/HM01X_Data_046012_9999999910323018.txt',
+    #                    usecols = [2,3,4,5,6,16], dtype = float)
     
 #%%
 
-from math import exp
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.stats as stats
 
-def weibull(x, c, k, loc, scale): 
-    if x <0:
-        return 0 
-    return ((k/c)*(((x-loc)/c)**(k-1))*(exp(-((x-loc)/c)**k)))/scale
 
-def weibullIntegral(a,b,l,k):
-    return exp(-(a/l)**k)-exp(-(b/l)**k)
-    
-def weibullNormaliseDistribution(dist):
-    return stats.exponweib.fit(dist)
-    
 
-def boundedWeibullIntegral(a, b, l, k):
-    
-    
-    
-
-xrange = np.arange(-1000,50000)/1000.
-yrange = [weibull(x, 12, 1.5, 0, 2.) for x in xrange]
-yrange2 = [weibull(x, 10, 1.5, 0, 2.) for x in xrange]
-
-fig = plt.figure(figsize=(12,8))
-ax = fig.add_subplot(111)
-ax.set_ylabel("Frequency")
-ax.set_xlabel("Wind speed  (m/s)")
-ax.set_title("Wind speed distribution")
-
-plt.plot(xrange, yrange, color = 'red')
-plt.plot(xrange, yrange2, color = 'blue') 
-
-s = np.arange(25000,30000)/1000
-
-plt.fill_between(x= xrange, y1= yrange, where= xrange > 25,color= "red",alpha= 0.2)
-plt.fill_between(x= xrange, y1= yrange2, where= xrange > 25,color= "blue",alpha= 0.2)
-
-plt.plot([25, 25], [-0.001, max(max(yrange), max(yrange2))*1.1], color = 'green')
-plt.plot([0, 30], [0,0], color = 'black')
 
