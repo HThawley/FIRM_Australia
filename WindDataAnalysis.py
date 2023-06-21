@@ -17,15 +17,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gumbel_r
 import rasterio
+import geopandas as gpd
+from shapely.geometry import Point, Polygon, MultiPolygon
 
 
 #%%
 
-def readAll(location):
+def readAll(location, speedThreshold):
     active_dir = os.getcwd()
     os.chdir(location)
     
-    folders = [path for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
+    folders = [(path, speedThreshold) for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
     print('Reading and processing data\nCompleted: ', end = '')
     pool = NestablePool(max_workers=min(cpu_count(), len(folders)))
@@ -56,25 +58,27 @@ def readStnDetail(folder):
     stn['longitude'] = pd.to_numeric(stn['longitude'])
     return stn
 
-def get100mMeans(stn):
-    windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
+def get_meanSpeed100m(stn):
+    # windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
+    windMap = rasterio.open(r'C:\Users\hmtha\OneDrive\Desktop\FIRM_Australia\Data\AUS_wind-speed_100m.tif')
 
     coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
 
-    stn['mean-100m'] = [x[0] for x in windMap.sample(coord_list)]
+    stn['meanSpeed-100m'] = [x[0] for x in windMap.sample(coord_list)]
+    stn['meanSpeed-100m'] = pd.to_numeric(stn['meanSpeed-100m'])
 
     windMap.close()   
     return stn
 
-def readData(folder, multiprocess=True):
+def readData(folder, speedThreshold, multiprocess=True):
 
     active_dir = os.getcwd()
     os.chdir(folder)
     
     stn = readStnDetail(folder)
-    stn = get100mMeans(stn)
+    stn = get_meanSpeed100m(stn)
     
-    argTuples = [(path, stn) for path in os.listdir() if 'Data' in path]
+    argTuples = [(path, stn, speedThreshold) for path in os.listdir() if 'Data' in path]
 
     # result=[]
     # if multiprocess:
@@ -98,7 +102,7 @@ def readData(folder, multiprocess=True):
             
     result = pd.DataFrame(result, 
                           columns = ['station no.', 'highWindFrac', 'scaleFactor',
-                                     'mean-10m', 'startTime', 'meanRes', 'Observations'])
+                                     'meanSpeed-10m', 'startTime', 'meanRes', 'Observations'])
     stn = stn.merge(result, on = 'station no.', how = 'outer', indicator ='indicator')
     
     assert len(stn['indicator'].unique()) == 1 
@@ -112,63 +116,69 @@ def readData(folder, multiprocess=True):
     
 def readFile(argTuple):
         
-    path, stn = argTuple
-    x = pd.read_csv(path, usecols = [2,3,4,5,6,16], dtype = str)
+    path, stn, speedThreshold = argTuple
+    stnNo = path[11:17]
+    
+    x = pd.read_csv(path, usecols = [2,3,4,5,6,12,16], dtype = str)
     
     for col in x.columns:
         x[col] = pd.to_numeric(x[col], errors = 'coerce')
         
-    x = x.rename(columns={'Speed of maximum windgust in last 10 minutes in  km/h':'speed'})
+    x = x.rename(columns={'Speed of maximum windgust in last 10 minutes in  km/h':'gustSpeed-10m', 
+                          'Wind speed in km/h':'meanSpeed-10m'})
     
     x['dt'] = x[x.columns[0:5]].apply(lambda row: lambdaDt(*row), axis=1)
     
     # x['speed'] = pd.to_numeric(x['speed'], errors = 'coerce')
-    x['speed'] = x['speed'] / 3.6# km/h to m/s
+    x['gustSpeed-10m'] = x['gustSpeed-10m'] / 3.6# km/h to m/s
+    x['meanSpeed-10m'] = x['meanSpeed-10m'] / 3.6# km/h to m/s
     
-    x = x[['dt', 'speed']].dropna()    
+    x = x[['dt', 'gustSpeed-10m', 'meanSpeed-10m']]
+
+    if len(x.dropna()) == 0: 
+        return [stnNo, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
     
-    if len(x) == 0:
-        return [path[11:17], pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
-    
-    stnNo = path[11:17]
+    longTermMeanSpeed = x['meanSpeed-10m'].dropna().mean()
+    startTime = x.dropna()['dt'].min()
+    meanRes = (x.dropna()[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
     
     try: 
-        scaleFactor = stn[stn['station no.']==stnNo]['mean-100m'].values[0] / x['speed'].mean()
+        scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
     except KeyError: 
-        return [path[11:17], pd.NA, pd.NA, x['speed'].mean(), x['dt'].min(), (x[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60, len(x)]
-    if pd.isna(scaleFactor):
-        return [path[11:17], pd.NA, pd.NA, x['speed'].mean(), x['dt'].min(), (x[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60, len(x)]
+        return [stnNo, pd.NA, pd.NA, pd.NA, longTermMeanSpeed, startTime, meanRes, len(x)]
+    if pd.isna(scaleFactor): 
+        return [stnNo, pd.NA, pd.NA, pd.NA, longTermMeanSpeed, startTime, meanRes, len(x)]
     
-    x['speed 100m high res'] = scaleFactor * x['speed']
+    x['gustSpeed-100m'] = scaleFactor * x['gustSpeed-10m']
     
-    highWindIntegral = gumbelModelling(x['speed 100m high res'])
-    meanSpeed = x['speed'].mean()
+    highWindIntegral = gumbelModelling(x['gustSpeed-100m'].dropna(), speedThreshold[0])
     
+    #define storm indicator initially
+    x['highSpeedInd'] = x['gustSpeed-100m'].apply(lambda gust: 2 if gust >=speedThreshold[0] else 1 if gust>=speedThreshold[1] else 0)
+    #smooth storm indicator to include adjacent instances within 10% of cutOffSpeed
+    x['highSpeedInd'] = x['highSpeedInd'].rolling(window=2).mean().apply(lambda ind: 1 if ind>=1.5 else 0)
     
-    startTime = x['dt'].min()
-    meanRes = (x[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
+    #https://stackoverflow.com/questions/37934399/identifying-consecutive-occurrences-of-a-value-in-a-column-of-a-pandas-dataframe
+    x['duration'] = x['highSpeedInd'].groupby((x['highSpeedInd'] != x['highSpeedInd'].shift()).cumsum()).transform('size') * x['highSpeedInd']
     
-    return [path[11:17], highWindIntegral, scaleFactor, meanSpeed, startTime, meanRes, len(x)]
-
-def lambdaRollDiff(a,b): return a-b
+    lengths = x['duration'].value_counts().drop(index=0)
+    meanDuration = np.mean(lengths/lengths.index)
+    
+    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x)]
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
 
-def gumbelModelling(dist, plot=False):    
+def gumbelModelling(dist, cutOffSpeed, plot=False):    
     a, c = gumbel_r.fit(dist)
         
     if plot:
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
-        
         ax2.hist(dist, bins=50, alpha = 0.5)
-        
-        x = np.linspace(gumbel_r.ppf(0.000001, a, c),
-                    gumbel_r.ppf(0.999999, a, c), 200)
-        ax1.plot(x, gumbel_r.pdf(x, a, c),
-           'r-', lw=2, alpha=0.9, label='gumbel pdf')
+        x = np.linspace(gumbel_r.ppf(0.000001, a, c), gumbel_r.ppf(0.999999, a, c), 200)
+        ax1.plot(x, gumbel_r.pdf(x, a, c), 'r-', lw=2, alpha=0.9, label='gumbel pdf')
     
-    return 1 - gumbel_r.cdf(25, a, c)
+    return 1 - gumbel_r.cdf(cutOffSpeed, a, c)
 
 
 def fracFromCoord(lat, lon, stn, k='max'):
@@ -187,7 +197,7 @@ def fracFromCoord(lat, lon, stn, k='max'):
     
     stnCopy = stn.copy()
     
-    stnCopy['distance'] = stnCopy[['Lat', 'Lon']].apply(lambda x: Haversine(*x, lat, lon), axis = 1)
+    stnCopy['distance'] = stnCopy[['latitude', 'longitude']].apply(lambda x: Haversine(*x, lat, lon), axis = 1)
     
     stnCopy = stnCopy.sort_values('distance', ascending = True).reset_index(drop=True)
 
@@ -222,16 +232,47 @@ def Haversine(lat1,lon1,lat2,lon2):
 #%%    
  
 if __name__=='__main__':
- 
-    stn = readAll(r'BOM Wind Data')
-    # stn = readData(r'BOM Wind Data\AWS_Wind-NT', multiprocess=True)   
+    speedThreshold=(25, #turbine cut-off speed 25 m/s
+                    25*0.9 #wind gust speed tolerance, 10% 
+                    )
+    
+    # stn = readAll(r'BOM Wind Data', speedThreshold)
+    stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
+    # stn.to_csv(r'Data/WindStats.csv', index = False)
+#%%
+def runGeoAnalysis(stn):
+    geoMap = gpd.read_file(r'Geometries/australia.geojson')
+       
+    stn = pd.read_csv(r'Data/WindStats.csv')
+    
+    stn = stn.dropna()
+    stn['mainland'] = stn[['longitude', 'latitude']].apply(lambda coord: geoMap.contains(Point(coord['longitude'], coord['latitude'])), axis=1)
+    stn = stn[stn['mainland']]
+    
+    return stn, geoMap
 
-
-    stn.to_csv(r'Data/WindStats.csv', index = False)
 #%%
 
-
-
+def plotMap(stn, geoMap):
+    active_dir = os.getcwd()
+    os.chdir('Geometries/wind')
+    
+    fig, ax = plt.subplots(figsize=(15,15), dpi = 1500)
+    ax.grid(alpha = 0.6, color = 'black', linewidth = 1)
+    
+    geoMap.plot(ax = ax)
+    
+    ax.scatter(x = stn['longitude'], y = stn['latitude'], color = 'red', alpha = 0.5, s =15)
+    
+    for zone in os.listdir():
+        zone = gpd.read_file(zone)
+        zone.plot(ax = ax, color = 'green', alpha = 0.3)
+    
+    ax.set_xticks(range(110, 155, 5))
+    ax.set_yticks(range(-45, -5, 5))
+    plt.show()
+    
+    os.chdir(active_dir)
 
 
