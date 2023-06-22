@@ -23,16 +23,22 @@ from shapely.geometry import Point, Polygon, MultiPolygon
 
 #%%
 
-def readAll(location, speedThreshold):
+def readAll(location, speedThreshold, multiprocess=False):
     active_dir = os.getcwd()
     os.chdir(location)
     
-    folders = [(path, speedThreshold) for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
+    folders = [(path, speedThreshold, True) for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
-    print('Reading and processing data\nCompleted: ', end = '')
-    pool = NestablePool(max_workers=min(cpu_count(), len(folders)))
-    results = pool.map(readData, folders)
-    
+    if multiprocess:
+        print('Reading and processing data\nCompleted: ', end = '')
+        with NestablePool(max_workers=min(cpu_count(), len(folders))) as processPool:
+            results = processPool.map(readData, folders)
+        print('')
+    else: 
+        results = []
+        for folderTuple in tqdm(folders, desc = 'Reading wind data folder-by-folder:'):
+            results.append(readData(folderTuple))
+
     stn = pd.concat(results, ignore_index=True)
     
     os.chdir(active_dir)
@@ -59,8 +65,11 @@ def readStnDetail(folder):
     return stn
 
 def get_meanSpeed100m(stn):
-    # windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
-    windMap = rasterio.open(r'C:\Users\hmtha\OneDrive\Desktop\FIRM_Australia\Data\AUS_wind-speed_100m.tif')
+    # The multiprocessing library doesn't play nicely with os.chdir(), hence a full path 
+    try:
+        windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
+    except FileNotFoundError:
+        windMap = rasterio.open(r'C:\Users\hmtha\OneDrive\Desktop\FIRM_Australia\Data\AUS_wind-speed_100m.tif')
 
     coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
 
@@ -70,8 +79,9 @@ def get_meanSpeed100m(stn):
     windMap.close()   
     return stn
 
-def readData(folder, speedThreshold, multiprocess=True):
-
+def readData(argTuple, folder=None, speedThreshold=None, multiprocess=True):
+    if argTuple: 
+        folder, speedThreshold, multiprocess = argTuple
     active_dir = os.getcwd()
     os.chdir(folder)
     
@@ -93,15 +103,15 @@ def readData(folder, speedThreshold, multiprocess=True):
     
     result=[]
     if multiprocess:
-        with Pool(processes = min(cpu_count(), len(argTuples))) as p:
-            for inst in p.imap_unordered(readFile, argTuples):
+        with Pool(processes = min(cpu_count(), len(argTuples))) as processPool:
+            for inst in processPool.imap_unordered(readFile, argTuples):
                 result.append(inst)
     else: 
         for argTuple in argTuples:
             result.append(readFile(argTuple))
             
     result = pd.DataFrame(result, 
-                          columns = ['station no.', 'highWindFrac', 'scaleFactor',
+                          columns = ['station no.', 'meanDuration', 'highWindFrac', 'scaleFactor',
                                      'meanSpeed-10m', 'startTime', 'meanRes', 'Observations'])
     stn = stn.merge(result, on = 'station no.', how = 'outer', indicator ='indicator')
     
@@ -236,10 +246,10 @@ if __name__=='__main__':
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    # stn = readAll(r'BOM Wind Data', speedThreshold)
-    stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    # stn.to_csv(r'Data/WindStats.csv', index = False)
+    stn.to_csv(r'Data/WindStats.csv', index = False)
 #%%
 def runGeoAnalysis(stn):
     geoMap = gpd.read_file(r'Geometries/australia.geojson')
