@@ -12,13 +12,15 @@ import numpy as np
 from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor as NestablePool
 from datetime import datetime as dt
-from math import exp
-import numpy as np
+# from math import exp
 import matplotlib.pyplot as plt
 from scipy.stats import gumbel_r
 import rasterio
+from rasterio import features
 import geopandas as gpd
-from shapely.geometry import Point, Polygon, MultiPolygon
+from shapely.geometry import Point#, Polygon#, MultiPolygon
+from shapely.ops import nearest_points
+import warnings
 
 
 #%%
@@ -45,6 +47,12 @@ def readAll(location, speedThreshold, multiprocess=False):
     
     return stn
 
+def formatStnNo(col):
+    outCol = col.apply(lambda x: '0'*(6-len(str(int(x))))+str(int(x)) 
+                    if not pd.isna(x)
+                    else pd.NA)
+    return outCol
+
 def readStnDetail(folder):
     
     stnDet = [path for path in os.listdir() if 'StnDet' in path]
@@ -56,10 +64,8 @@ def readStnDetail(folder):
                       usecols = [1,3,6,7])
     stn.columns = ['station no.', 'station name', 'latitude', 'longitude']
     
-    stn['station no.'] = stn['station no.'].apply(lambda x: '0'*(6-len(str(x)))+str(x) 
-                                          if not pd.isna(x)
-                                          else pd.NA)    
-
+    stn['station no.'] = formatStnNo(['station no.'])
+    
     stn['latitude'] = pd.to_numeric(stn['latitude'])
     stn['longitude'] = pd.to_numeric(stn['longitude'])
     return stn
@@ -68,7 +74,7 @@ def get_meanSpeed100m(stn):
     # The multiprocessing library doesn't play nicely with os.chdir(), hence a full path 
     try:
         windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
-    except FileNotFoundError:
+    except (FileNotFoundError, rasterio.errors.RasterioIOError):
         windMap = rasterio.open(r'C:\Users\hmtha\OneDrive\Desktop\FIRM_Australia\Data\AUS_wind-speed_100m.tif')
 
     coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
@@ -149,8 +155,8 @@ def readFile(argTuple):
         return [stnNo, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
     
     longTermMeanSpeed = x['meanSpeed-10m'].dropna().mean()
-    startTime = x.dropna()['dt'].min()
-    meanRes = (x.dropna()[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
+    startTime = x.dropna(subset='gustSpeed-10m')['dt'].min()
+    meanRes = (x.dropna(subset='gustSpeed-10m')[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
     
     try: 
         scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
@@ -173,8 +179,10 @@ def readFile(argTuple):
     
     lengths = x['duration'].value_counts().drop(index=0)
     meanDuration = np.mean(lengths/lengths.index)
+    if pd.isna(meanDuration):
+        meanDuration=0
     
-    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x)]
+    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x.dropna())]
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
 
@@ -218,7 +226,9 @@ def fracFromCoord(lat, lon, stn, k='max'):
     
     return stnCopy['weightedFrac'].sum()/((1/stnCopy['distance']).sum())
 
-def Haversine(lat1,lon1,lat2,lon2):
+def hav(angle): return np.sin(angle/2)**2
+
+def Haversine(lat, lon, lat2, lon2):
     """
     This uses the ‘haversine’ formula to calculate the great-circle distance between two points – that is, 
     the shortest distance over the earth’s surface – giving an ‘as-the-crow-flies’ distance between the points 
@@ -230,46 +240,111 @@ def Haversine(lat1,lon1,lat2,lon2):
     where   φ is latitude, λ is longitude, R is earth’s radius (mean radius = 6,371km);
     note that angles need to be in radians to pass to trig functions!
     """
-    lat1,lon1,lat2,lon2 = map(np.radians, [lat1,lon1,lat2,lon2])
+    lat, lon, lat2, lon2 = map(np.radians, [lat, lon, lat2, lon2])
 
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2) **2
+    a = hav(lat - lat2) + np.cos(lat) * np.cos(lat2) * hav(lon - lon2)
     c = 2 * np.arctan2(a**0.5, (1-a)**0.5)
     d = 6371.0088 * c
     return d
- 
-#%%    
- 
-if __name__=='__main__':
-    speedThreshold=(25, #turbine cut-off speed 25 m/s
-                    25*0.9 #wind gust speed tolerance, 10% 
-                    )
-    
-    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
-    # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    stn.to_csv(r'Data/WindStats.csv', index = False)
+def derivativeHaversineLatitude(lat, lon, lat2, lon2):
+    """
+    wolfram alpha gives this as the derivative (w.r.t. a) where a=lat, b=lat2, c=lon1, d=lon2
+    
+    2 (sin(a - b) - 2 sin(a) cos(b) hav(c - d))/(4 sqrt(-(cos(a) cos(b) hav(c - d) + hav(a - b) - 1) (cos(a) cos(b) hav(c - d) + hav(a - b))))
+    """
+    return (6371.0088 * 2 * np.divide(
+            
+        np.sin(lat-lat2) - 2 * np.sin(lat) * np.cos(lat2) * hav(lon-lon2),
+            
+        4*((-(np.cos(lat) * np.cos(lat2) * hav(lon-lon2) + hav(lat-lat2) - 1) *(
+              np.cos(lat) * np.cos(lat2) * hav(lon-lon2) + hav(lat-lat2)))**0.5)))
+
+def derivativeHaversineLongitude(lat, lon, lat2, lon2):
+    """
+    wolfram alpha gives this as the derivative (w.r.t. c) where a=lat1, b=lat2, c=lon, d=lon2
+ 
+    2 (cos(a) cos(b) sin(c - d))/(4 sqrt(-(cos(a) cos(b) hav(c - d) + hav(a - b) - 1) (cos(a) cos(b) hav(c - d) + hav(a - b))))
+    """
+
+    return (6371.0088 * 2 * np.divide(
+        
+        np.cos(lat) * np.cos(lat2) * np.sin(lon-lon2),
+        
+        4*((-(np.cos(lat) * np.cos(lat2) * hav(lon-lon2) + hav(lat-lat2) - 1) *(
+              np.cos(lat) * np.cos(lat2) * hav(lon-lon2) + hav(lat-lat2)))**0.5)))
+
+
+    
 #%%
-def runGeoAnalysis(stn):
+def filterBadStations(stn):
     geoMap = gpd.read_file(r'Geometries/australia.geojson')
-       
-    stn = pd.read_csv(r'Data/WindStats.csv')
-    
     stn = stn.dropna()
-    stn['mainland'] = stn[['longitude', 'latitude']].apply(lambda coord: geoMap.contains(Point(coord['longitude'], coord['latitude'])), axis=1)
-    stn = stn[stn['mainland']]
     
-    return stn, geoMap
+    warnings.filterwarnings('ignore', category = pd.errors.SettingWithCopyWarning)
+    stn['mainland'] = stn[['longitude', 'latitude']].apply(lambda coord: geoMap.contains(Point(*coord)), axis=1)
+    warnings.filterwarnings('default', category = pd.errors.SettingWithCopyWarning)
 
-#%%
+    stn = stn[stn['mainland']]
+    stn = stn.drop(columns = ['mainland'])
+    return stn
 
-def plotMap(stn, geoMap):
+def lambdaDistance(point, polygon): 
+    p1, p2 = nearest_points(polygon, point)
+    #x is longitude, y is latitude
+    return Haversine(p1.y, p1.x, p2.y, p2.x)
+
+def lambdaDuplicateZones(old, new):
+    if isinstance(old, list):
+        old.append(new)
+        return old
+    else: 
+        return [old, new]
+    
+def findClosestZones(stn, distanceThreshold):
+
+    stn['point'] = stn[['longitude', 'latitude']].apply(lambda coord: Point(*coord), axis = 1)
+    
+    stn['closestZone'] = pd.NA
+    stn['distanceToZone'] = np.inf
+    
     active_dir = os.getcwd()
     os.chdir('Geometries/wind')
     
+    for zone in os.listdir():
+        poly = gpd.read_file(zone)['geometry'][0]
+        distances = stn['point'].apply(lambda point: lambdaDistance(point, poly))
+        
+        distanceMask = (distances < stn['distanceToZone'])
+        
+        #a couple of zones are duplicated
+        duplicateMask = (distances == stn['distanceToZone'])
+        
+        stn.loc[distanceMask,'distanceToZone'] = distances[distanceMask]
+        
+        stn.loc[duplicateMask, 'closestZone'] = stn.loc[duplicateMask, 'closestZone'].apply(
+            lambda firstZone: lambdaDuplicateZones(firstZone, zone.split('.')[0]))
+        
+        stn.loc[distanceMask,'closestZone'] = zone.split('.')[0]
+        
+    stn = stn.explode('closestZone').reset_index(drop=True)
+    stn = stn[stn['distanceToZone'] < distanceThreshold]    
+    stn = stn.drop(columns=['point'])
+    os.chdir(active_dir)
+    
+    return stn
+
+#%%
+
+def plotMap(stn):
+    
+    geoMap = gpd.read_file(r'Geometries/australia.geojson')
+    active_dir = os.getcwd()
+    
+    os.chdir('Geometries/wind')
+    
     fig, ax = plt.subplots(figsize=(15,15), dpi = 1500)
-    ax.grid(alpha = 0.6, color = 'black', linewidth = 1)
+    ax.grid(alpha = 0.5, color = 'black', linewidth = 1)
     
     geoMap.plot(ax = ax)
     
@@ -279,10 +354,59 @@ def plotMap(stn, geoMap):
         zone = gpd.read_file(zone)
         zone.plot(ax = ax, color = 'green', alpha = 0.3)
     
-    ax.set_xticks(range(110, 155, 5))
-    ax.set_yticks(range(-45, -5, 5))
+    ax.set_xticks(np.divide(range(110*2, 160*2, 5),2.))
+    ax.set_yticks(np.divide(range(-45*2, -5*2, 5),2.))
     plt.show()
     
     os.chdir(active_dir)
 
 
+def distanceWeightedAverage(stn, poly):pass
+    # distances = Haversine(poly.centroid.x, poly.centroid.y, lon, lat)   
+    
+    # return ave
+
+
+def weightedAverage(stn):
+    active_dir = os.getcwd()
+    os.chdir('Geometries/wind')
+    # zone = os.listdir()[0]
+    
+    for zone in os.listdir():
+        poly = gpd.read_file(zone)['geometry'][0]
+        zone = zone.split('.')[0]
+        
+        zoneDf = stn[stn['closestZone'] == zone]
+        
+        zoneDf = distanceWeightedAverage(zoneDf, poly)
+            
+        
+        stn.groupby('zone')
+    
+    
+    
+    
+    os.chdir(active_dir)
+    return zoneDf
+
+
+    
+
+
+#%%
+ 
+if __name__=='__main__':
+
+    # speedThreshold=(25, #turbine cut-off speed 25 m/s
+    #                 25*0.9 #wind gust speed tolerance, 10% 
+    #                 )
+    
+    # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
+
+    # stn.to_csv(r'Data/WindStats.csv', index = False)
+    stn = pd.read_csv(r'Data/WindStats.csv')
+    stn['station no.'] = formatStnNo(stn['station no.'])
+    # stn = filterBadStations(stn)
+    stn = findClosestZones(stn, 50) #km
+    # plotMap(stn)
