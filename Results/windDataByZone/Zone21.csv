@@ -1,0 +1,2 @@
+,station no.,station name,latitude,longitude,meanSpeed-100m,meanDuration,highWindFrac,scaleFactor,meanSpeed-10m,startTime,meanRes,Observations,closestZone,distanceToZone,distanceToCentroid,inZone
+509,098017,KING ISLAND AIRPORT                     ,-39.8804,143.8857,8.519295,39.857142857142854,0.04483755553688307,1.3710709286565546,6.213606138609599,1990-11-21 15:00:00,29.87315065,354193,21,0.0,10.021744396071574,True

@@ -65,7 +65,7 @@ def readStnDetail(folder):
                       usecols = [1,3,6,7])
     stn.columns = ['station no.', 'station name', 'latitude', 'longitude']
     
-    stn['station no.'] = formatStnNo(['station no.'])
+    stn['station no.'] = formatStnNo(stn['station no.'])
     
     stn['latitude'] = pd.to_numeric(stn['latitude'])
     stn['longitude'] = pd.to_numeric(stn['longitude'])
@@ -156,8 +156,8 @@ def readFile(argTuple):
         return [stnNo, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
     
     longTermMeanSpeed = x['meanSpeed-10m'].dropna().mean()
-    startTime = x.dropna(subset='gustSpeed-10m')['dt'].min()
-    meanRes = (x.dropna(subset='gustSpeed-10m')[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
+    startTime = x.dropna(subset=['gustSpeed-10m'])['dt'].min()
+    meanRes = (x.dropna(subset=['gustSpeed-10m'])[['dt']].diff(periods=1, axis=0).sum()[0]/len(x)).total_seconds()/60
     
     try: 
         scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
@@ -410,15 +410,15 @@ def zoneAnalysis(stn):
  
 if __name__=='__main__':
 
-    # speedThreshold=(25, #turbine cut-off speed 25 m/s
-    #                 25*0.9 #wind gust speed tolerance, 10% 
-    #                 )
+    speedThreshold=(25, #turbine cut-off speed 25 m/s
+                    25*0.9 #wind gust speed tolerance, 10% 
+                    )
     
-    # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    # stn.to_csv(r'Data/WindStats.csv', index = False)
-    stn = pd.read_csv(r'Data/WindStats.csv')
+    stn.to_csv(r'Data/WindStats.csv', index = False)
+    # stn = pd.read_csv(r'Data/WindStats.csv')
     stn['station no.'] = formatStnNo(stn['station no.'])
     # stn = filterBadStations(stn)
     stn = findClosestZones(stn, 50) #km
@@ -434,4 +434,4 @@ if __name__=='__main__':
     # grpby.to_csv('Results/zoneWindStats.csv')
     
     for i, df in stn.groupby('closestZone'):
-        df.to_csv(f'Results/windData-Zone{i}.csv')
+        df.to_csv(f'Results/windDataByZone/Zone{i}.csv')
