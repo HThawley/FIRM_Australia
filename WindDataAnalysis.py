@@ -21,6 +21,7 @@ import geopandas as gpd
 from shapely.geometry import Point#, Polygon#, MultiPolygon
 from shapely.ops import nearest_points
 import warnings
+from photutils.utils import ShepardIDWInterpolator as idw
 
 
 #%%
@@ -75,7 +76,7 @@ def get_meanSpeed100m(stn):
     try:
         windMap = rasterio.open('/media/fileshare/FIRM_Australia_Resilience/Data/AUS_wind-speed_100m.tif')
     except (FileNotFoundError, rasterio.errors.RasterioIOError):
-        windMap = rasterio.open(r'C:\Users\hmtha\OneDrive\Desktop\FIRM_Australia\Data\AUS_wind-speed_100m.tif')
+        windMap = rasterio.open(r'C:\Users\hmtha\Desktop\FIRM_Australia\Data\AUS_wind-speed_100m.tif')
 
     coord_list = [(x,y) for x, y in zip(stn['longitude'], stn['latitude'])]
 
@@ -289,10 +290,13 @@ def filterBadStations(stn):
     stn = stn.drop(columns = ['mainland'])
     return stn
 
-def lambdaDistance(point, polygon): 
+def lambdaDistanceEdge(point, polygon): 
     p1, p2 = nearest_points(polygon, point)
     #x is longitude, y is latitude
     return Haversine(p1.y, p1.x, p2.y, p2.x)
+
+def lambdaDistancePoints(p1, p2):
+    return Haversine(p1.x, p1.y, p2.x, p2.y)
 
 def lambdaDuplicateZones(old, new):
     if isinstance(old, list):
@@ -307,20 +311,25 @@ def findClosestZones(stn, distanceThreshold):
     
     stn['closestZone'] = pd.NA
     stn['distanceToZone'] = np.inf
+    stn['distanceToCentroid'] = np.inf
     
     active_dir = os.getcwd()
     os.chdir('Geometries/wind')
     
     for zone in os.listdir():
         poly = gpd.read_file(zone)['geometry'][0]
-        distances = stn['point'].apply(lambda point: lambdaDistance(point, poly))
+        distance = stn['point'].apply(lambda point: lambdaDistanceEdge(point, poly))
+        centroidDistance = stn['point'].apply(lambda point: lambdaDistancePoints(point, poly.centroid))
+        inZone = stn['point'].apply(lambda point: poly.contains(point))
         
-        distanceMask = (distances < stn['distanceToZone'])
+        distanceMask = (distance < stn['distanceToZone'])
         
         #a couple of zones are duplicated
-        duplicateMask = (distances == stn['distanceToZone'])
+        duplicateMask = (distance == stn['distanceToZone'])
         
-        stn.loc[distanceMask,'distanceToZone'] = distances[distanceMask]
+        stn.loc[distanceMask,'distanceToZone'] = distance[distanceMask]
+        stn.loc[distanceMask,'distanceToCentroid'] = centroidDistance[distanceMask]
+        stn.loc[distanceMask,'inZone'] = inZone[distanceMask]
         
         stn.loc[duplicateMask, 'closestZone'] = stn.loc[duplicateMask, 'closestZone'].apply(
             lambda firstZone: lambdaDuplicateZones(firstZone, zone.split('.')[0]))
@@ -328,6 +337,7 @@ def findClosestZones(stn, distanceThreshold):
         stn.loc[distanceMask,'closestZone'] = zone.split('.')[0]
         
     stn = stn.explode('closestZone').reset_index(drop=True)
+    stn['closestZone'] = pd.to_numeric(stn['closestZone'])
     stn = stn[stn['distanceToZone'] < distanceThreshold]    
     stn = stn.drop(columns=['point'])
     os.chdir(active_dir)
@@ -348,12 +358,15 @@ def plotMap(stn):
     
     geoMap.plot(ax = ax)
     
-    ax.scatter(x = stn['longitude'], y = stn['latitude'], color = 'red', alpha = 0.5, s =15)
+    ax.scatter(x = stn['longitude'], y = stn['latitude'], color = 'red', alpha = 0.5, s =15) 
     
+    warnings.filterwarnings('ignore', category = UserWarning)
     for zone in os.listdir():
-        zone = gpd.read_file(zone)
-        zone.plot(ax = ax, color = 'green', alpha = 0.3)
-    
+        poly = gpd.read_file(zone)     
+        poly.plot(ax = ax, color = 'green', alpha = 0.3)
+        ax.scatter(poly.centroid.x, poly.centroid.y, color = 'black', alpha=1, s=5)
+    warnings.filterwarnings('default', category = UserWarning)
+
     ax.set_xticks(np.divide(range(110*2, 160*2, 5),2.))
     ax.set_yticks(np.divide(range(-45*2, -5*2, 5),2.))
     plt.show()
@@ -361,37 +374,37 @@ def plotMap(stn):
     os.chdir(active_dir)
 
 
-def distanceWeightedAverage(stn, poly):pass
-    # distances = Haversine(poly.centroid.x, poly.centroid.y, lon, lat)   
+def IdwAverage(stn, poly):
+    coords = np.array(list(zip(stn['longitude'], stn['latitude'])))
+    highWindFrac = np.array(stn['highWindFrac'])
+    meanDuration = np.array(stn['meanDuration'])
     
-    # return ave
-
-
-def weightedAverage(stn):
-    active_dir = os.getcwd()
-    os.chdir('Geometries/wind')
-    # zone = os.listdir()[0]
+    highWindFrac = idw(coords, highWindFrac)
+    meanDuration = idw(coords, meanDuration)
     
-    for zone in os.listdir():
-        poly = gpd.read_file(zone)['geometry'][0]
-        zone = zone.split('.')[0]
-        
-        zoneDf = stn[stn['closestZone'] == zone]
-        
-        zoneDf = distanceWeightedAverage(zoneDf, poly)
-            
-        
-        stn.groupby('zone')
+    zoneDf = pd.DataFrame(
+        [[stn['closestZone'].unique()[0], 
+         highWindFrac((poly.centroid.x, poly.centroid.y)), 
+         meanDuration((poly.centroid.x, poly.centroid.y))]], 
+        columns = ['zone', 'highWindFrac', 'meanDuration'])
     
-    
-    
-    
-    os.chdir(active_dir)
     return zoneDf
 
 
-    
+def zoneAnalysis(stn):
+    active_dir = os.getcwd()
+    os.chdir('Geometries/wind')
 
+    zoneDf = pd.DataFrame([])
+        
+    for zone in os.listdir():
+        poly = gpd.read_file(zone)['geometry'][0]
+        zone = int(zone.split('.')[0])
+        
+        zoneDf = pd.concat([zoneDf, IdwAverage(stn[stn['closestZone'] == int(zone)], poly)])
+    
+    os.chdir(active_dir)
+    return zoneDf
 
 #%%
  
@@ -409,4 +422,16 @@ if __name__=='__main__':
     stn['station no.'] = formatStnNo(stn['station no.'])
     # stn = filterBadStations(stn)
     stn = findClosestZones(stn, 50) #km
+    stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
+    zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True)
     # plotMap(stn)
+    
+    #Manual Analysis
+    # grpby = stn.groupby('closestZone')[['meanSpeed-10m','meanSpeed-100m','meanDuration',
+    #     'highWindFrac','scaleFactor','meanRes','Observations']].describe()
+    # grpby = grpby.drop(columns=[col for col in grpby.columns if '%' in col[1] \
+    #         or 'std' in col[1] or 'count'==col[1] and 'meanSpeed-10m'!=col[0]])
+    # grpby.to_csv('Results/zoneWindStats.csv')
+    
+    for i, df in stn.groupby('closestZone'):
+        df.to_csv(f'Results/windData-Zone{i}.csv')
