@@ -9,12 +9,12 @@ from Simulation import Reliability
 import datetime as dt
 from multiprocessing import Pool, cpu_count
 
-def Flexible(instance):
+def Flexible(instance, stormZone = None):
     """Energy source of high flexibility"""
     year, x = instance
     print('Dispatch works on', year)
 
-    S = Solution(x, sZone)
+    S = Solution(x, stormZone)
 
     startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
     endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
@@ -34,15 +34,14 @@ def Flexible(instance):
 
 def Analysis(x, stormZone):
     """Dispatch.Analysis(result.x)"""
-    global sZone
-    sZone = stormZone
+
     starttime = dt.datetime.now()
     print('Dispatch starts at', starttime)
 
     # Multiprocessing
     pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
     instances = map(lambda y: [y] + [x], range(firstyear, finalyear + 1))
-    Dispresult = pool.map(Flexible, instances)
+    Dispresult = pool.starmap(Flexible, [(inst, stormZone) for inst in instances])
     pool.terminate()
 
     Flex = np.concatenate(Dispresult)

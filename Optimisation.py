@@ -7,6 +7,7 @@ from scipy.optimize import differential_evolution
 from argparse import ArgumentParser
 import datetime as dt
 import csv
+import numpy as np 
 
 
 parser = ArgumentParser()
@@ -19,15 +20,16 @@ args = parser.parse_args()
 
 scenario = args.s
 
-from Input import *
+from Input import Solution, pzones, wzones, contingency, nodes
 
 def R(x, cost_constraint, stormZone):
     """This is the new Resilience objective function""" 
     
     S = Solution(x, stormZone) 
     
-    # if S.cost > cost_constraint:
-    #     return 10000*(S.StormDeficit + S.penalties) +S.cost
+    if S.cost > cost_constraint:
+        return 10000*(S.StormDeficit + S.penalties) + S.cost
+    
     return S.StormDeficit + S.penalties + S.cost
 
 
@@ -35,7 +37,7 @@ if __name__=='__main__':
 
     #for cost_constraint in (89*1.02, 89*1.05, 89*1.1, 89*1.2):
     for stormZone in range(8):
-        stormZone = np.array(stormZone, dtype=int)
+        stormZone = np.array(list(stormZone), dtype=int)
         cost_constraint = 89*2
         starttime = dt.datetime.now()
         print("Optimisation starts at", starttime)
@@ -53,8 +55,7 @@ if __name__=='__main__':
 
         with open('Results/Otestx{}.csv'.format(scenario), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([scenario,cost_constraint, result.fun, Solution(result.x, stormZone).StormDeficit, stormZone])
-            writer.writerow(result.x)
+            writer.writerow([scenario,stormZone,cost_constraint, result.fun, result.x])
 
         endtime = dt.datetime.now()
         print("Optimisation took", endtime - starttime)

@@ -174,7 +174,7 @@ def Information(x, flexible, stormZone):
     print("Statistics start at", start)
 
     S = Solution(x, stormZone)
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=flexible)
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
     try:
         assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
@@ -182,7 +182,7 @@ def Information(x, flexible, stormZone):
         pass
 
     if scenario>=21:
-        S.TDC = Transmission(S, output=True) # TDC(t, k), MW
+        S.TDC, S.TDCR = Transmission(S, output=True, resilience=True) # TDC(t, k), MW
     else:
         S.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
 
@@ -191,7 +191,6 @@ def Information(x, flexible, stormZone):
 
         S.MPV = S.GPV.sum(axis=1) if S.GPV.shape[1]>0 else np.zeros((intervals, 1))
         S.MWind = S.GWind.sum(axis=1) if S.GWind.shape[1]>0 else np.zeros((intervals, 1))
-        S.MWindR = S.GWindR.sum(axis=1) if S.GWindR.shape[1]>0 else np.zeros((intervals, 1))
 
         S.MDischarge = np.tile(S.Discharge, (nodes, 1)).transpose()
         S.MDeficit = np.tile(S.Deficit, (nodes, 1)).transpose()
@@ -201,9 +200,23 @@ def Information(x, flexible, stormZone):
 
         S.MChargeD = np.tile(S.ChargeD, (nodes, 1)).transpose()
         S.MP2V = np.tile(S.P2V, (nodes, 1)).transpose()
+        
+        S.MWindR = S.GWindR.sum(axis=1) if S.GWindR.shape[1]>0 else np.zeros((intervals, 1))
+        
+        S.MDischargeR = np.tile(S.RDischarge, (nodes, 1)).transpose()
+        S.MDeficitR = np.tile(S.RDeficit, (nodes, 1)).transpose()
+        S.MChargeR = np.tile(S.RCharge, (nodes, 1)).transpose()
+        S.MStorageR = np.tile(S.RStorage, (nodes, 1)).transpose()
+        S.MSpillageR = np.tile(S.RSpillage, (nodes, 1)).transpose()
+
+        S.MChargeDR = np.tile(S.RChargeD, (nodes, 1)).transpose()
+        S.MP2VR = np.tile(S.RP2V, (nodes, 1)).transpose()
 
     S.CDC = np.amax(abs(S.TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
+    S.CDC = np.amax(abs(S.TDCR), axis = 0) * pow(10, -3)
     S.FQ, S.NQ, S.NS, S.NV, S.AS, S.SW, S.TV = map(lambda k: S.TDC[:, k], range(S.TDC.shape[1]))
+    S.FQR, S.NQR, S.NSR, S.NVR, S.ASR, S.SWR, S.TVR = map(lambda k: S.TDCR[:, k], range(S.TDCR.shape[1]))
+    
 
     S.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
     S.MHydro = np.minimum(S.MHydro, S.MPeak)
@@ -211,6 +224,7 @@ def Information(x, flexible, stormZone):
     S.MHydro += S.MBaseload
 
     S.Topology = np.array([-1 * S.FQ, -1 * (S.NQ + S.NS + S.NV), -1 * S.AS, S.FQ + S.NQ, S.NS + S.AS - S.SW, -1 * S.TV, S.NV + S.TV, S.SW])
+    S.TopologyR = np.array([-1 * S.FQR, -1 * (S.NQR + S.NSR + S.NVR), -1 * S.ASR, S.FQR + S.NQR, S.NSR + S.ASR - S.SWR, -1 * S.TVR, S.NVR + S.TVR, S.SWR])
 
     LPGM(S)
     GGTA(S)

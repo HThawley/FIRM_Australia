@@ -5,6 +5,7 @@
 
 import numpy as np
 
+
 def Resilience(solution, flexible, start=None, end=None):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
 
@@ -13,10 +14,10 @@ def Resilience(solution, flexible, start=None, end=None):
 
     windDiff, stormDur, stormZone = solution.WindDiff, solution.stormDur, solution.stormZone
 
-    if stormZone.shape:
-      RNetload = Netload + windDiff.sum(axis=1) 
-    else: 
-      RNetload = Netload + windDiff.flatten()
+    # if stormZone.shape:
+    RNetload = Netload + windDiff.sum(axis=1) 
+    # else: 
+    #   RNetload = Netload + windDiff.flatten()
 
     length = len(Netload)
     solution.flexible = flexible # MW
@@ -27,14 +28,14 @@ def Resilience(solution, flexible, start=None, end=None):
     ScapacityD = sum(solution.CDS) * pow(10, 3) # S-CDS(j), GWh to MWh
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
 
-    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V, Surplus, SurplusD = map(np.zeros, [length] * 9)
+    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V = map(np.zeros, [length] * 7)
+    # Surplus, SurplusD = map(np.zeros, [length]*2)
     RDischarge, RCharge, RStorage, RDischargeD, RChargeD, RStorageD, RP2V = map(np.zeros, [length]*7)
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
-    for t in range(length):
+    for t in range(100):
 
         Netloadt = Netload[t]
-        
         Storaget_1 = Storage[t-1] if t>0 else 0.5 * Scapacity
         StorageDt_1 = StorageD[t-1] if t>0 else 0.5 * ScapacityD
 
@@ -67,44 +68,43 @@ def Resilience(solution, flexible, start=None, end=None):
 # =============================================================================
 #         # Re-simulate with resilience losses due to windstorm, and including storage depletion
 # =============================================================================
-        
-        # Subtract ordinary wind power and add storm condition wind power
-        RNetloadt = RNetload[t] 
-        
-          # State of charge is taken as the state of charge {StormDuration} steps ago 
-          # +/- the charging that occurs under the modified generation capacity   
-        if stormZone.shape:
-          storageAdj = sum([windDiff[min(0, t-stormDur[i]):t,i].sum() for i in stormZone])
-        else: 
-          storageAdj = windDiff[min(0, t-stormDur[stormZone]):t].sum()
+    if len(stormZone) > 0:    
+        # State of charge is taken as the state of charge {StormDuration} steps ago 
+        # +/- the charging that occurs under the modified generation capacity   
+        storageAdj = [
+            np.lib.stride_tricks.sliding_window_view(
+                np.concatenate([np.zeros(stormDur[i] - 1), #function only recognises full length windows -> pad with zeros
+                                windDiff[:,i]]), 
+                stormDur[i]).sum(axis=1) 
+            for i in stormZone]
+        if len(storageAdj) == 1: 
+            storageAdj = storageAdj[0]
+        elif len(storageAdj) > 1:
+            storageAdj = np.stack(storageAdj, axis = 1).sum(axis=1)
     
-        assert isinstance(storageAdj, float)
-
-        RStoraget_1 = max(0, Storaget_1 + storageAdj)
-        RStorageDt_1 = max(0, StorageDt_1 + Storaget_1 + storageAdj)
-        # RDeficitt = max(0, -(StorageDt_1 + Storaget_1 + storageAdj))
+        Storage_1, StorageD_1 = np.roll(Storage, 1, axis = 0), np.roll(StorageD, 1, axis = 0)
+        Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD
         
-        RDischarget = min(max(0, RNetloadt), Pcapacity, RStoraget_1 / resolution)
-        RCharget = min(-1 * min(0, RNetloadt), Pcapacity, (Scapacity - RStoraget_1) / efficiency / resolution)
-        RStoraget = RStoraget_1 - RDischarget * resolution + RCharget * resolution * efficiency
-       
-        RDischargeDt = min(ConsumeDt, StorageDt_1 / resolution)
-        RChargeDt = min(-1 * min(0, RNetloadt + Charget), PcapacityD, (ScapacityD - StorageDt_1) / efficiencyD / resolution)
-        RStorageDt = RStorageDt_1 - RDischargeDt * resolution + RChargeDt * resolution * efficiencyD
+        RStorage_1 = np.maximum(0, Storage_1 + storageAdj)
+        RStorageD_1 = np.maximum(0, StorageD_1 + Storage_1 + storageAdj)
+        RDeficit = np.maximum(0, -(StorageD_1 + Storage_1 + storageAdj))
         
-        Rdiff = ConsumeDt - RDischargeDt
-        RP2Vt = min(Rdiff / efficiencyD, Pcapacity - RDischarget - RCharget) if Rdiff > 0 and RStoraget / resolution > Rdiff / efficiencyD else 0
-
-        RDischarge[t] = RDischarget + RP2Vt
-        RP2V[t] = RP2Vt
-        RCharge[t] = RCharget
-        RStorage[t] = RStoraget - RP2Vt * resolution
+        RDischarge = np.minimum(np.minimum(np.maximum(0, RNetload), Pcapacity), RStorage_1 / resolution)
+        RCharge = np.minimum(np.minimum(-1 * np.minimum(0, RNetload), Pcapacity), (Scapacity - RStorage_1) /efficiency /resolution)        
+        RStorage = RStorage_1 - RDischarge * resolution + RCharge * resolution * efficiency
+        
+        RDischargeD = np.minimum(ConsumeD, StorageD_1 / resolution)
+        RChargeD = np.minimum(np.minimum(-1 * np.minimum(0, RNetload + RCharge), PcapacityD), (ScapacityD - RStorageD_1) /efficiencyD /resolution)
+        RStorageD = RStorageD_1 - RDischargeD * resolution + RChargeD * resolution * efficiencyD
     
-        RDischargeD[t] = RDischargeDt
-        RChargeD[t] = RChargeDt
-        RStorageD[t] = RStorageDt
-        # RDeficit[t] = RDeficit[t]
+        Rdiff = ConsumeD - RDischargeD 
+        RP2V = np.minimum(Rdiff / efficiencyD, Pcapacity - RDischarge - RCharge) 
+        RP2V[np.where((Rdiff <= 0) | (RStorage / resolution <= Rdiff / efficiencyD))] = 0
     
+    
+        RDischarge = RDischarge + RP2V
+        RStorage = RStorage - RP2V * resolution
+      
 
     Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
@@ -131,6 +131,6 @@ def Resilience(solution, flexible, start=None, end=None):
     solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (RDischarge, RCharge, RStorage, RP2V)
     solution.RDischargeD, solution.RChargeD, solution.RStorageD = (RDischargeD, RChargeD, RStorageD)
     solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage) 
-    solution.Surplus, solution.SurplusD = (Surplus, SurplusD)
+    # solution.Surplus, solution.SurplusD = (Surplus, SurplusD)
 
-    return Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD
+    return Deficit, DeficitD, RDeficit, RDeficitD#, Surplus, SurplusD

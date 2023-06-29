@@ -62,8 +62,8 @@ def readStnDetail(folder):
     
     stn = pd.read_csv(stnDet[0],
                       header = None,
-                      usecols = [1,3,6,7])
-    stn.columns = ['station no.', 'station name', 'latitude', 'longitude']
+                      usecols = [1,3,6,7,10])
+    stn.columns = ['station no.', 'station name', 'latitude', 'longitude', 'altitude']
     
     stn['station no.'] = formatStnNo(stn['station no.'])
     
@@ -406,6 +406,33 @@ def zoneAnalysis(stn):
     os.chdir(active_dir)
     return zoneDf
 
+def removeAnomalousStns(stn):
+    """removes stations which are very different to nearby stations."""
+    
+    badStns = ['053000',#only 16068 observations
+               '041560',#only 26776 observations
+               '068076', #only 2746 observations
+               '030024', #only 24 observations
+               '016092', #only 33740 observations, and results not very well in line with nearby stations
+               '023849', #only 208 observations and not well in line with nearby stations 023849
+               '018207', #only 32425 observations and not well in line with nearby 018200 and 018012
+               '092037', #only 36 observations 
+               #'097085', #although this is geographically very different to nearby sites, 
+               #geography is closer to that of wind farms and results are not very anomalous
+               '094250',#11972 obs
+               '091375',#5587 obs
+               '092133',#24694 obs
+               '092163',#12619 obs
+               #'094087,#although geograpgicall very different to nearby sites, geography is closer
+               #to that of wind farms and results are rather similar to (e.g.) 094195, 094008, 092100, 096003
+               '087185',#22956 obs
+               '078072',#2648 obs
+               '078031'#42 obs
+               ]
+    
+    stn = stn[~stn['station no.'].isin(badStns)]
+    return stn
+
 #%%
  
 if __name__=='__main__':
@@ -414,17 +441,21 @@ if __name__=='__main__':
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    stn.to_csv(r'Data/WindStats.csv', index = False)
-    # stn = pd.read_csv(r'Data/WindStats.csv')
+    # stn.to_csv(r'Data/WindStats.csv', index = False)
+    stn = pd.read_csv(r'Data/WindStats.csv')
     stn['station no.'] = formatStnNo(stn['station no.'])
-    # stn = filterBadStations(stn)
+    # # stn = filterBadStations(stn)
     stn = findClosestZones(stn, 50) #km
     stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
+    stn = removeAnomalousStns(stn)
+    
+
     zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True)
-    # plotMap(stn)
+    zones.to_csv('Results/windDataByZone/_zoneData.csv', index=False)
+    plotMap(stn) 
     
     #Manual Analysis
     # grpby = stn.groupby('closestZone')[['meanSpeed-10m','meanSpeed-100m','meanDuration',
@@ -434,4 +465,4 @@ if __name__=='__main__':
     # grpby.to_csv('Results/zoneWindStats.csv')
     
     for i, df in stn.groupby('closestZone'):
-        df.to_csv(f'Results/windDataByZone/Zone{i}.csv')
+        df.to_csv(f'Results/windDataByZone/Zone{i}.csv', index=False)

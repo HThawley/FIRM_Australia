@@ -1,2 +1,2 @@
-,station no.,station name,latitude,longitude,meanSpeed-100m,meanDuration,highWindFrac,scaleFactor,meanSpeed-10m,startTime,meanRes,Observations,closestZone,distanceToZone,distanceToCentroid,inZone
-526,017110,LEIGH CREEK AIRPORT                     ,-30.5963,138.4219,7.4333596,20.436363636363637,0.04167153845535587,1.6863160325095194,4.408046581810198,1992-07-29 09:30:00,29.99994425,336634,14,0.0,90.60418599786759,True
+station no.,station name,latitude,longitude,altitude,meanSpeed-10m,meanSpeed-100m,scaleFactor,startTime,meanRes,Observations,meanDuration,highWindFrac,closestZone,distanceToZone,distanceToCentroid,inZone
+017110,LEIGH CREEK AIRPORT                     ,-30.5963,138.4219,258.8,4.408046581810198,7.4333596,1.6863160325095194,1992-07-29 09:30:00,29.99994425,336634.0,20.43636363636364,0.0416715384553558,14,0.0,90.60418599786759,True

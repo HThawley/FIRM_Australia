@@ -6,12 +6,12 @@
 import numpy as np
 import pandas as pd
 from Optimisation import scenario
-# from Simulation import Reliability
+from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
 
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
-PVl =   np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
+PVl   = np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
 Windl = np.array(['NSW']*8 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*2 + ['SA']*8 + ['TAS']*4 + ['VIC']*4 + ['WA']*3 + ['NT']*1)
 resolution = 0.5
 
@@ -26,7 +26,7 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
-windFrag = np.genfromtxt('Data/fragility PoC.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
+windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
 windFrag, stormDur = windFrag[0], windFrag[1].astype(int)
 
 
@@ -105,53 +105,34 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 windFrag = np.array(pd.Series(windFrag).map(dict(zip(np.sort(windFrag), np.flip(np.sort(windFrag))))))
 
 def cost(solution): 
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(solution, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
-    
+
+    Deficit, DeficitD = Reliability(solution, flexible=np.zeros(intervals)) # solutionj-EDE(t, j), MW
     Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
     Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
     PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
 
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(solution, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # solutionj-EDE(t, j), GW to MW
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-
-    PenSurplus = max(0, (Surplus + SurplusD / efficiencyD).sum() * resolution) # MWh
-
     StormDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
 
     TDC = Transmission(solution) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
     CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
     PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
 
-    return StormDeficit, PenHydro + PenDeficit + PenDC #+ PenSurplus
-
-
-def LCOE(S):
-    
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
-    Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
-    Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
-    PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
-    
-    Deficit, DeficitD, RDeficit, RDeficitD, Surplus, SurplusD = Resilience(S, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
-    PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-    
-    TDC = Transmission(S) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
-    CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
-    PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
-    
-    stormDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
-    
-    cost = factor * np.array([sum(S.CPV), sum(S.CWind), sum(S.CPHP), S.CPHS] + list(CDC) + [sum(S.CPV), sum(S.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
+    cost = factor * np.array([sum(solution.CPV), sum(solution.CWind), sum(solution.CPHP), solution.CPHsolution] + list(CDC) + [sum(solution.CPV), sum(solution.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
     if scenario<=17:
         cost[-1], cost[-2] = [0] * 2
     cost = cost.sum()
     loss = np.sum(abs(TDC), axis=0) * DCloss
     loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
     LCOE = cost / abs(energy - loss)
- 
-    return LCOE, stormDeficit, PenHydro + PenDC + PenDeficit
+
+    penalties = PenHydro + PenDeficit + PenDC
+
+    return StormDeficit, LCOE, penalties
 
 
+#%%
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
@@ -193,7 +174,7 @@ class Solution:
 
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 
-        self.cost, self.StormDeficit, self.penalties = LCOE(self)
+        self.StormDeficit, self.cost, self.penalties = cost(self)
 
         # self.fragility = self.StormDeficit/(a constant?)
 
