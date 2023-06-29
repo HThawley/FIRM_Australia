@@ -158,9 +158,9 @@ def GGTA(solution):
     print('\u2022 LCOB-Spillage & loss:', LCOBL)
 
     D = np.zeros((1, 22))
-    D[0, :] = [Energy * pow(10, 3), Loss * pow(10, 3), CPV, GPV, CWind, GWind, CapHydrobio, GHydrobio, CPHP, CPHS] \
-              + list(solution.CDC) \
-              + [LCOE, LCOG, LCOBS, LCOBT, LCOBL]
+    D[0, :] = ([Energy * pow(10, 3), Loss * pow(10, 3), CPV, GPV, CWind, GWind, CapHydrobio, GHydrobio, CPHP, CPHS] 
+              + list(solution.CDC) 
+              + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
     np.savetxt('Results/GGTA{}.csv'.format(scenario), D, fmt='%f', delimiter=',')
     print('Energy generation, storage and transmission information is produced.')

@@ -46,8 +46,7 @@ def Transmission(solution, output=False, resilience=False):
     pcfactorD = np.tile(CDP, (intervals, 1)) / sum(CDP) if sum(CDP) != 0 else 0
     MChargeD = np.tile(solution.ChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
 
-    MImport = MLoad + MCharge + MChargeD + MSpillage \
-              - MPV - MWind - MBaseload - MPeak - MDischarge + MP2V - MDeficit # EIM(t, j), MW
+    MImport = MLoad + MCharge + MChargeD + MSpillage - MPV - MWind - MBaseload - MPeak - MDischarge + MP2V - MDeficit # EIM(t, j), MW
               
     FQ = -1 * MImport[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
     AS = -1 * MImport[:, np.where(Nodel=='NT')[0][0]] if 'NT' in Nodel else np.zeros(intervals)
@@ -78,8 +77,7 @@ def Transmission(solution, output=False, resilience=False):
         
         MChargeDR = np.tile(solution.RChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
         
-        MImportR = MLoad + MChargeR + MChargeDR + MSpillageR \
-                  - MPV - MWindR - MBaseload - MPeak -MDischargeR + MP2VR - MDeficitR 
+        MImportR = MLoad + MChargeR + MChargeDR + MSpillageR - MPV - MWindR - MBaseload - MPeak -MDischargeR + MP2VR - MDeficitR 
                   
         FQR = -1 * MImportR[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
         ASR = -1 * MImportR[:, np.where(Nodel=='NT')[0][0]] if 'NT' in Nodel else np.zeros(intervals)

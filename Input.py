@@ -29,7 +29,6 @@ TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=ra
 windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
 windFrag, stormDur = windFrag[0], windFrag[1].astype(int)
 
-
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
 CBaseload = np.array([0, 0, 0, 0, 0, 1.0, 0, 0]) # 24/7, GW
@@ -104,6 +103,12 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 # Reorder windfrags, we want the most probable place to have the biggest reduction in output
 windFrag = np.array(pd.Series(windFrag).map(dict(zip(np.sort(windFrag), np.flip(np.sort(windFrag))))))
 
+try: 
+    #if possible, use the original result as the first guess
+    x0 = np.genfromtxt(f'OptimisationResultx/Optimisation_resultx{scenario}.csv', delimiter = ',')
+except FileNotFoundError:
+    x0 = None
+    
 def cost(solution): 
 
     Deficit, DeficitD = Reliability(solution, flexible=np.zeros(intervals)) # solutionj-EDE(t, j), MW
@@ -119,7 +124,7 @@ def cost(solution):
     CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
     PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
 
-    cost = factor * np.array([sum(solution.CPV), sum(solution.CWind), sum(solution.CPHP), solution.CPHsolution] + list(CDC) + [sum(solution.CPV), sum(solution.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
+    cost = factor * np.array([sum(solution.CPV), sum(solution.CWind), sum(solution.CPHP), solution.CPHS] + list(CDC) + [sum(solution.CPV), sum(solution.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
     if scenario<=17:
         cost[-1], cost[-2] = [0] * 2
     cost = cost.sum()

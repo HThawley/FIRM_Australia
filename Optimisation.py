@@ -15,12 +15,12 @@ parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4
 parser.add_argument('-p', default=2, type=int, required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=11, type=int, required=False, help='11, 12, 13, ...')
+parser.add_argument('-s', default=12, type=int, required=False, help='11, 12, 13, ...')
 args = parser.parse_args()
 
 scenario = args.s
 
-from Input import Solution, pzones, wzones, contingency, nodes
+from Input import *
 
 def R(x, cost_constraint, stormZone):
     """This is the new Resilience objective function""" 
@@ -37,7 +37,10 @@ if __name__=='__main__':
 
     #for cost_constraint in (89*1.02, 89*1.05, 89*1.1, 89*1.2):
     for stormZone in range(8):
-        stormZone = np.array(list(stormZone), dtype=int)
+        if isinstance(stormZone, (int,float)): 
+            stormZone = np.array([stormZone], dtype=int)
+        else: 
+            stormZone = np.array(stormZone, dtype=int)
         cost_constraint = 89*2
         starttime = dt.datetime.now()
         print("Optimisation starts at", starttime)
@@ -47,7 +50,7 @@ if __name__=='__main__':
 
         result = differential_evolution(func=R, bounds=list(zip(lb, ub)), args =(cost_constraint, stormZone), tol=0, 
                                         maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
-                                        disp=True, polish=False, updating='deferred', workers=-1)
+                                        disp=True, polish=False, updating='deferred', workers=-1, x0 = x0)
 
         with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)

@@ -9,8 +9,7 @@ import numpy as np
 def Resilience(solution, flexible, start=None, end=None):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
 
-    Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
-              - flexible # Sj-ENLoad(j, t), MW
+    Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] - flexible # Sj-ENLoad(j, t), MW
 
     windDiff, stormDur, stormZone = solution.WindDiff, solution.stormDur, solution.stormZone
 
