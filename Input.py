@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario
+from Optimisation import scenario, stormZone
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
@@ -55,7 +55,6 @@ if scenario<=17:
     TSPV = TSPV[:, np.where(PVl==node)[0]]
     TSWind = TSWind[:, np.where(Windl==node)[0]]
     windFrag = windFrag[np.where(Windl==node)[0]]
-    windFrag = windFrag / windFrag.sum()
     stormDur = stormDur[np.where(Windl==node)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(Nodel==node)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
@@ -78,7 +77,6 @@ if scenario>=21:
     TSPV = TSPV[:, np.where(np.in1d(PVl, coverage)==True)[0]]
     TSWind = TSWind[:, np.where(np.in1d(Windl, coverage)==True)[0]]
     windFrag = windFrag[np.where(np.in1d(Windl, coverage)==True)[0]]
-    windFrag = windFrag / windFrag.sum()
     stormDur = stormDur[np.where(Windl==node)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
@@ -105,13 +103,15 @@ windFrag = np.array(pd.Series(windFrag).map(dict(zip(np.sort(windFrag), np.flip(
 
 try: 
     #if possible, use the original result as the first guess
-    x0 = np.genfromtxt(f'OptimisationResultx/Optimisation_resultx{scenario}.csv', delimiter = ',')
+    x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
 except FileNotFoundError:
     x0 = None
     
+OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
+
 def cost(solution): 
 
-    Deficit, DeficitD = Reliability(solution, flexible=np.zeros(intervals)) # solutionj-EDE(t, j), MW
+    Deficit, DeficitD = Reliability(solution, flexible=np.zeros(intervals), output=True) # solutionj-EDE(t, j), MW
     Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
     Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
     PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
@@ -141,7 +141,7 @@ def cost(solution):
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
-    def __init__(self, x, stormZone):
+    def __init__(self, x, stormZone=None):
         self.x = x
         self.stormZone = stormZone
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
@@ -165,22 +165,26 @@ class Solution:
         self.CHydro = CHydro # GW, GWh
         
         self.windFrag = np.ones(windFrag.shape[0])
-        self.windFrag[stormZone] = windFrag[stormZone]
-
         self.stormDur = np.zeros(stormDur.shape[0])
-        self.stormDur[stormZone] = stormDur[stormZone]
-
-        self.stormDur = self.stormDur.astype(int)
-
+        
+        if stormZone is not None:
+            self.windFrag[stormZone] = 1-windFrag[stormZone]
+            self.stormDur[stormZone] = stormDur[stormZone]
+        
+        self.stormDur = np.rint(self.stormDur).astype(int)
         self.CWindR = self.CWind*(self.windFrag)
         self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
-        self.WindDiff =  self.GWindR[:,stormZone] - self.GWind[:,stormZone]
         
-
+        if stormZone is not None:
+            self.WindDiff = self.GWindR[:,stormZone] - self.GWind[:,stormZone]
+        else: 
+            self.WindDiff = np.zeros(len(self.GWind))
+        
+        self.OptimisedCost = OptimisedCost
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 
         self.StormDeficit, self.cost, self.penalties = cost(self)
-
+        
         # self.fragility = self.StormDeficit/(a constant?)
 
     def __repr__(self):

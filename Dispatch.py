@@ -24,7 +24,7 @@ def Flexible(instance, stormZone = None):
 
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
-        Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx) # Sj-EDE(t, j), MW
+        Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=True) # Sj-EDE(t, j), MW
         if (Deficit + DeficitD).sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
 
@@ -45,7 +45,7 @@ def Analysis(x, stormZone):
     pool.terminate()
 
     Flex = np.concatenate(Dispresult)
-    np.savetxt('Results/Dispatch_Flexible{}.csv'.format(scenario), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    np.savetxt('Results/Dispatch_Flexible{}-{}.csv'.format(scenario, stormZone), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.datetime.now()
     print('Dispatch took', endtime - starttime)
@@ -56,5 +56,17 @@ def Analysis(x, stormZone):
     return True
 
 if __name__ == '__main__':
-    capacities = np.genfromtxt('Results/Optimisation_resultx11.csv'.format(scenario), delimiter=',', skip_header=1)
-    Analysis(capacities)
+    from re import sub
+    from ast import literal_eval
+    
+    def readPrintedArray(txt):      
+        txt = sub(r"([^[])\s+([^]])", r"\1, \2", txt)
+        return np.array(literal_eval(txt))
+    
+    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',')
+    stormZone = None
+    
+    # capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',')[1:]
+    # stormZone = readPrintedArray(np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', usecols=[0], dtype=str).item())
+    
+    Analysis(capacities, stormZone)

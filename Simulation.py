@@ -5,14 +5,13 @@
 
 import numpy as np
 
-def Reliability(solution, flexible, start=None, end=None):
+def Reliability(solution, flexible, start=None, end=None, output=False):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
 
-    Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
-              - flexible # Sj-ENLoad(j, t), MW
+    Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] - flexible # Sj-ENLoad(j, t), MW
 
     length = len(Netload)
-    solution.flexible = flexible # MW
+    if output: solution.flexible = flexible # MW
 
     Pcapacity = sum(solution.CPHP) * pow(10, 3) # S-CPHP(j), GW to MW
     Scapacity = solution.CPHS * pow(10, 3) # S-CPHS(j), GWh to MWh
@@ -20,7 +19,8 @@ def Reliability(solution, flexible, start=None, end=None):
     ScapacityD = sum(solution.CDS) * pow(10, 3) # S-CDS(j), GWh to MWh
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
 
-    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V, Surplus, SurplusD = map(np.zeros, [length] * 9)
+    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V = map(np.zeros, [length] * 7)
+    # Surplus, SurplusD = map(np.zeros, [length] * 2)
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
     for t in range(length):
@@ -53,25 +53,25 @@ def Reliability(solution, flexible, start=None, end=None):
         StorageD[t] = StorageDt
         
         # Calculate surplus
-        Surplus[t] = max(0, -1*min(0,Netloadt) - Charget) * resolution #MWh
-        SurplusD[t] = max(0, min(0,-1 * min(0, Netloadt + Charget) - ChargeDt)) * resolution 
+        # Surplus[t] = max(0, -1*min(0,Netloadt) - Charget) * resolution #MWh
+        # SurplusD[t] = max(0, min(0,-1 * min(0, Netloadt + Charget) - ChargeDt)) * resolution 
        
-    
-
     Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
     Spillage = -1 * np.minimum(Netload + Charge + ChargeD, 0)
 
+    if output:
+        assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
+        assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
+        assert np.amin(Deficit) >= 0, 'Deficit below zero'
+        assert np.amin(DeficitD) > -0.1, 'DeficitD below zero: {}'.format(np.amin(DeficitD))
+        assert np.amin(Spillage) >= 0, 'Spillage below zero'
 
-    assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
-    assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
-    assert np.amin(Deficit) >= 0, 'Deficit below zero'
-    assert np.amin(DeficitD) > -0.1, 'DeficitD below zero: {}'.format(np.amin(DeficitD))
-    assert np.amin(Spillage) >= 0, 'Spillage below zero'
+        solution.Discharge, solution.Charge, solution.Storage, solution.P2V = (Discharge, Charge, Storage, P2V)
+        solution.DischargeD, solution.ChargeD, solution.StorageD = (DischargeD, ChargeD, StorageD)
+        solution.Deficit, solution.DeficitD, solution.Spillage = (Deficit, DeficitD, Spillage)
 
-
-    solution.Discharge, solution.Charge, solution.Storage, solution.P2V = (Discharge, Charge, Storage, P2V)
-    solution.DischargeD, solution.ChargeD, solution.StorageD = (DischargeD, ChargeD, StorageD)
-    solution.Deficit, solution.DeficitD, solution.Spillage = (Deficit, DeficitD, Spillage)
-
-    return Deficit, DeficitD
+        return Deficit, DeficitD
+    
+    else: 
+        return (Netload, Storage, StorageD, Deficit, DeficitD, Spillage, Discharge, DischargeD, Charge, ChargeD, P2V)
