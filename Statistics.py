@@ -250,7 +250,7 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',')[1:]
     # stormZone = readPrintedArray(np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', usecols=[0], dtype=str).item())
     
-    flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-{}.csv'.format(scenario, stormZone), delimiter=',', skip_header=1)
+    flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario, stormZone), delimiter=',', skip_header=1)
 
     
     Information(capacities, flexible, stormZone)
