@@ -8,7 +8,8 @@ from argparse import ArgumentParser
 import datetime as dt
 import csv
 import numpy as np 
-
+from re import sub
+from ast import literal_eval    
 
 parser = ArgumentParser()
 parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4000, 400')
@@ -17,12 +18,17 @@ parser.add_argument('-m', default=0.5, type=float, required=False, help='mutatio
 parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
 parser.add_argument('-s', default=12, type=int, required=False, help='11, 12, 13, ...')
 parser.add_argument('-c', default=1.5, type=float, required=False, help='cost constraint as multiplier of optimised cost')
-parser.add_argument('-z', default=[1], type=list, required=False, help='list of zones (by int)')
+parser.add_argument('-z', default='[0 1]', type=str, required=False, help='space (" ") seperated list of zones (as int)')
 args = parser.parse_args()
 
 scenario = args.s
 cost_constraint = args.c
-stormZone = np.array([0])
+
+def readPrintedArray(txt):      
+    txt = sub(r"([^[])\s+([^]])", r"\1, \2", txt)
+    return np.array(literal_eval(txt))
+
+stormZone = readPrintedArray(args.z)
 
 from Input import *
 

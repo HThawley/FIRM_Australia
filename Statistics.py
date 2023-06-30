@@ -244,13 +244,12 @@ if __name__ == '__main__':
         txt = sub(r"([^[])\s+([^]])", r"\1, \2", txt)
         return np.array(literal_eval(txt))
     
-    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',')
+    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
+    flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=',', skip_header=1)
     stormZone = None
     
-    # capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',')[1:]
-    # stormZone = readPrintedArray(np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', usecols=[0], dtype=str).item())
-    
-    flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario, stormZone), delimiter=',', skip_header=1)
+    # capacities a = np.genfromtxt('Results/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',')[1:]
+    # stormZone = readPrintedArray(np.genfromtxt('Results/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',', usecols=[0], dtype=str).item())
+    # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-{}.csv'.format(scenario, stormZone), delimiter=',', skip_header=1)
 
-    
     Information(capacities, flexible, stormZone)

@@ -176,9 +176,9 @@ class Solution:
         self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
         
         if stormZone is not None:
-            self.WindDiff = self.GWindR[:,stormZone] - self.GWind[:,stormZone]
+            self.WindDiff = self.GWindR - self.GWind
         else: 
-            self.WindDiff = np.zeros(len(self.GWind))
+            self.WindDiff = np.zeros(self.GWind.shape)
         
         self.OptimisedCost = OptimisedCost
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
