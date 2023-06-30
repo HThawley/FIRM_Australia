@@ -16,21 +16,25 @@ parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4
 parser.add_argument('-p', default=2, type=int, required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=12, type=int, required=False, help='11, 12, 13, ...')
+parser.add_argument('-s', default=11, type=int, required=False, help='11, 12, 13, ...')
 parser.add_argument('-c', default=1.5, type=float, required=False, help='cost constraint as multiplier of optimised cost')
-parser.add_argument('-z', default='[0 1]', type=str, required=False, help='space (" ") seperated list of zones (as int)')
+parser.add_argument('-z', default='all', type=str, required=False, help='\'all\' or space/comma seperated list of zones (as int)')
+parser.add_argument('-relative', default=True, type=bool, required=False,help='whether to use relative probability or pure highWindFrac')
 args = parser.parse_args()
 
 scenario = args.s
-cost_constraint = args.c
+costConstraintFactor = args.c
+relative = args.relative
 
 def readPrintedArray(txt):      
-    txt = sub(r"([^[])\s+([^]])", r"\1, \2", txt)
-    return np.array(literal_eval(txt))
+    txt = sub(r"(?<!\[)\s+(?!\])", r",", txt)
+    return np.array(literal_eval(txt), dtype =int)
 
-stormZone = readPrintedArray(args.z)
+stormZone = 'all' if args.z == 'all' else readPrintedArray(args.z)
 
 from Input import *
+
+stormZone = np.arange(wzones) if stormZone == 'all' else stormZone
 
 def R(x):
     """This is the new Resilience objective function""" 
@@ -43,12 +47,11 @@ def R(x):
     
     func = StormDeficit + penalties + cost
     
-    if cost > cost_constraint: func = func*pow(10,6)
+    if cost > costConstraint: func = func*pow(10,6)
     
     return func
 
 if __name__=='__main__':
-    cost_constraint = cost_constraint*OptimisedCost
     
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
@@ -60,14 +63,14 @@ if __name__=='__main__':
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
                                     disp=True, polish=False, updating='deferred', workers=-1, x0 = x0)
 
-    with open('Results/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), 'a', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([stormZone] + list(result.x))
+        writer.writerow(list(result.x))
         
     S = Solution(result.x, stormZone)
-    with open('Results/Otestx{}-{}.csv'.format(scenario, stormZone), 'a', newline="") as csvfile:
+    with open('Results/Otestx{}-{}-{}.csv'.format(scenario, stormZone, relative), 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([scenario,stormZone,cost_constraint, S.cost, S.penalties, S.StormDeficit, result.fun, result.x])
+        writer.writerow([cost_constraint, S.cost, S.penalties, S.StormDeficit, result.fun, result.x])
     del S, csvfile
     
     endtime = dt.datetime.now()
@@ -77,4 +80,4 @@ if __name__=='__main__':
     Analysis(result.x, stormZone)
     
     # from Statistics import Information
-    # Information(result.x, np.zeros((175344,)), stormZone)
+    # Information(result.x, np.zeros((175344,)))

@@ -32,7 +32,7 @@ def Flexible(instance, stormZone = None):
 
     return flexible
 
-def Analysis(x, stormZone):
+def Analysis(x):
     """Dispatch.Analysis(result.x)"""
 
     starttime = dt.datetime.now()
@@ -45,7 +45,7 @@ def Analysis(x, stormZone):
     pool.terminate()
 
     Flex = np.concatenate(Dispresult)
-    np.savetxt('Results/Dispatch_Flexible{}-{}.csv'.format(scenario, stormZone), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, relative), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.datetime.now()
     print('Dispatch took', endtime - starttime)
@@ -56,17 +56,10 @@ def Analysis(x, stormZone):
     return True
 
 if __name__ == '__main__':
-    from re import sub
-    from ast import literal_eval
-    
-    def readPrintedArray(txt):      
-        txt = sub(r"([^[])\s+([^]])", r"\1, \2", txt)
-        return np.array(literal_eval(txt))
-    
-    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',')
+
+    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     stormZone = None
     
-    # capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',')[1:]
-    # stormZone = readPrintedArray(np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', usecols=[0], dtype=str).item())
+    # capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
     
-    Analysis(capacities, stormZone)
+    Analysis(capacities)

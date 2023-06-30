@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, stormZone
+from Optimisation import scenario, costConstraintFactor, relative
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
@@ -98,9 +98,6 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
-# Reorder windfrags, we want the most probable place to have the biggest reduction in output
-windFrag = np.array(pd.Series(windFrag).map(dict(zip(np.sort(windFrag), np.flip(np.sort(windFrag))))))
-
 try: 
     #if possible, use the original result as the first guess
     x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
@@ -108,6 +105,7 @@ except FileNotFoundError:
     x0 = None
     
 OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
+costConstraint = costConstraintFactor*OptimisedCost
 
 def cost(solution): 
 
@@ -143,7 +141,8 @@ class Solution:
 
     def __init__(self, x, stormZone=None):
         self.x = x
-        self.stormZone = stormZone
+        self.stormZone = np.arange(wzones) if stormZone == 'all' else stormZone
+        
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
         self.resolution = resolution
@@ -164,12 +163,18 @@ class Solution:
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
         self.CHydro = CHydro # GW, GWh
         
-        self.windFrag = np.ones(windFrag.shape[0])
-        self.stormDur = np.zeros(stormDur.shape[0])
+        self.windFrag = np.ones(windFrag.shape)
+        self.stormDur = np.zeros(stormDur.shape)
+        
+        stormZoneFrag = windFrag.copy()[self.stormZone]
+        if relative: 
+            stormZoneFrag = stormZoneFrag/stormZoneFrag.sum()
+            stormZoneFrag = np.array(pd.Series(stormZoneFrag).map(dict(zip(np.sort(stormZoneFrag), np.flip(np.sort(stormZoneFrag))))))
+        stormZoneFrag = 1 - stormZoneFrag
         
         if stormZone is not None:
-            self.windFrag[stormZone] = 1-windFrag[stormZone]
-            self.stormDur[stormZone] = stormDur[stormZone]
+            self.windFrag[self.stormZone] = stormZoneFrag
+            self.stormDur[self.stormZone] = stormDur[self.stormZone]
         
         self.stormDur = np.rint(self.stormDur).astype(int)
         self.CWindR = self.CWind*(self.windFrag)
@@ -180,7 +185,7 @@ class Solution:
         else: 
             self.WindDiff = np.zeros(self.GWind.shape)
         
-        self.OptimisedCost = OptimisedCost
+        self.OptimisedCost, self.costConstraint = OptimisedCost, costConstraint
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 
         self.StormDeficit, self.cost, self.penalties = cost(self)
@@ -191,4 +196,26 @@ class Solution:
         """S = Solution(list(np.ones(64))) >> print(S)"""
         return 'Solution({})'.format(self.x)
     
+#%%
+def printInfo(x, zone):
+    S = Solution(x,zone)
+    print(f"""
+          stormZone: {S.stormZone}
+          cost: {S.cost}
+          penalties: {S.penalties}
+          stormDef: {S.StormDeficit}
+          ObjectiveFunction: {RSolution(S)}
+          windFrag: {S.windFrag[S.stormZone]}
+          stormDur: {S.stormDur[S.stormZone]}
+          capacity: {np.array(S.CWind)[S.stormZone]}""")
 
+def RSolution(S):
+    StormDeficit, penalties, cost = S.StormDeficit, S.penalties, S.cost
+    
+    if penalties > 0: penalties = penalties*pow(10,6)
+    
+    func = StormDeficit + penalties + cost
+    
+    if cost > costConstraint: func = func*pow(10,6)
+    
+    return func

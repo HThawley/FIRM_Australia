@@ -12,9 +12,9 @@ from Network import Transmission
 import numpy as np
 import datetime as dt
 
-def Debug(solution, stormZone):
+def Debug(solution):
     """Debugging"""
-
+    
     Load, PV, Wind = (solution.MLoad.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1))
     Baseload, Peak = (solution.MBaseload.sum(axis=1), solution.MPeak.sum(axis=1))
 
@@ -56,7 +56,7 @@ def Debug(solution, stormZone):
 
     return True
 
-def LPGM(solution, stormZone):
+def LPGM(solution):
     """Load profiles and generation mix data"""
 
     Debug(solution, stormZone)
@@ -77,7 +77,7 @@ def LPGM(solution, stormZone):
              'PHES-Storage,StormDeficit,StormStorage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
-    np.savetxt('Results/S{}-{}.csv'.format(scenario, stormZone), C, fmt='%s', delimiter=',', header=header, comments='')
+    np.savetxt('Results/S{}-{}-{}.csv'.format(scenario, stormZone, relative), C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
@@ -95,13 +95,13 @@ def LPGM(solution, stormZone):
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            np.savetxt('Results/S{}{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone), C, fmt='%s', delimiter=',', header=header, comments='')
+            np.savetxt('Results/S{}{}-{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone, relative), C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
     return True
 
-def GGTA(solution, stormZone):
+def GGTA(solution):
     """GW, GWh, TWh p.a. and A$/MWh information"""
 
     factor = np.genfromtxt('Data/factor.csv', dtype=None, delimiter=',', encoding=None)
@@ -163,12 +163,12 @@ def GGTA(solution, stormZone):
               + list(solution.CDC) 
               + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
-    np.savetxt('Results/GGTA{}-{}.csv'.format(scenario,stormZone), D, fmt='%f', delimiter=',')
+    np.savetxt('Results/GGTA{}-{}-{}.csv'.format(scenario,stormZone, relative), D, fmt='%f', delimiter=',')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
 
-def Information(x, flexible, stormZone=None):
+def Information(x, flexible):
     """Dispatch: Statistics.Information(x, Flex)"""
 
     start = dt.datetime.now()
@@ -237,19 +237,12 @@ def Information(x, flexible, stormZone=None):
     return True
 
 if __name__ == '__main__':
-    from re import sub
-    from ast import literal_eval
-    
-    def readPrintedArray(txt):      
-        txt = sub(r"([^[])\s+([^]])", r"\1, \2", txt)
-        return np.array(literal_eval(txt))
     
     capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=',', skip_header=1)
     stormZone = None
     
-    # capacities a = np.genfromtxt('Results/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',')[1:]
-    # stormZone = readPrintedArray(np.genfromtxt('Results/Optimisation_resultx{}-{}.csv'.format(scenario, stormZone), delimiter=',', usecols=[0], dtype=str).item())
-    # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-{}.csv'.format(scenario, stormZone), delimiter=',', skip_header=1)
+    # capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
+    # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',', skip_header=1)
 
-    Information(capacities, flexible, stormZone)
+    Information(capacities, flexible)
