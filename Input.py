@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, relative
+from Optimisation import scenario, costConstraintFactor, relative, stormZone
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
@@ -93,6 +93,8 @@ years = int(resolution * intervals / 8760)
 pzones, wzones = (TSPV.shape[1], TSWind.shape[1])
 pidx, widx, sidx = (pzones, pzones + wzones, pzones + wzones + nodes)
 
+stormZone = np.arange(wzones) if stormZone == 'all' else stormZone
+
 energy = (MLoad + MLoadD).sum() * pow(10, -9) * resolution / years # PWh p.a.
 contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 
@@ -139,9 +141,11 @@ def cost(solution):
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
-    def __init__(self, x, stormZone=None):
+    def __init__(self, x):
         self.x = x
-        self.stormZone = np.arange(wzones) if stormZone == 'all' else stormZone
+        if isinstance(stormZone, str):
+            self.stormZone = np.arange(wzones) if stormZone == 'all' else None if stormZone == 'None' else 'Error'
+            if stormZone == 'Error': raise Exception('StormZone not valid')
         
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
@@ -166,13 +170,13 @@ class Solution:
         self.windFrag = np.ones(windFrag.shape)
         self.stormDur = np.zeros(stormDur.shape)
         
-        stormZoneFrag = windFrag.copy()[self.stormZone]
-        if relative: 
-            stormZoneFrag = stormZoneFrag/stormZoneFrag.sum()
-            stormZoneFrag = np.array(pd.Series(stormZoneFrag).map(dict(zip(np.sort(stormZoneFrag), np.flip(np.sort(stormZoneFrag))))))
-        stormZoneFrag = 1 - stormZoneFrag
-        
         if stormZone is not None:
+            stormZoneFrag = windFrag.copy()[self.stormZone]
+            if relative: 
+                stormZoneFrag = stormZoneFrag/stormZoneFrag.sum()
+                stormZoneFrag = np.array(pd.Series(stormZoneFrag).map(dict(zip(np.sort(stormZoneFrag), np.flip(np.sort(stormZoneFrag))))))
+            stormZoneFrag = 1 - stormZoneFrag
+            
             self.windFrag[self.stormZone] = stormZoneFrag
             self.stormDur[self.stormZone] = stormDur[self.stormZone]
         
@@ -197,8 +201,8 @@ class Solution:
         return 'Solution({})'.format(self.x)
     
 #%%
-def printInfo(x, zone):
-    S = Solution(x,zone)
+def printInfo(x):
+    S = Solution(x)
     print(f"""
           stormZone: {S.stormZone}
           cost: {S.cost}

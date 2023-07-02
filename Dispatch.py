@@ -9,12 +9,12 @@ from Simulation import Reliability
 import datetime as dt
 from multiprocessing import Pool, cpu_count
 
-def Flexible(instance, stormZone = None):
+def Flexible(instance):
     """Energy source of high flexibility"""
     year, x = instance
     print('Dispatch works on', year)
 
-    S = Solution(x, stormZone)
+    S = Solution(x)
 
     startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
     endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
@@ -41,7 +41,7 @@ def Analysis(x):
     # Multiprocessing
     pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
     instances = map(lambda y: [y] + [x], range(firstyear, finalyear + 1))
-    Dispresult = pool.starmap(Flexible, [(inst, stormZone) for inst in instances])
+    Dispresult = pool.map(Flexible, instances)
     pool.terminate()
 
     Flex = np.concatenate(Dispresult)
@@ -51,15 +51,15 @@ def Analysis(x):
     print('Dispatch took', endtime - starttime)
 
     from Statistics import Information
-    Information(x, Flex, stormZone)
+    Information(x, Flex)
 
     return True
 
 if __name__ == '__main__':
 
-    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    stormZone = None
+    # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
+    # stormZone = None
     
-    # capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
     
     Analysis(capacities)

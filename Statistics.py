@@ -59,7 +59,7 @@ def Debug(solution):
 def LPGM(solution):
     """Load profiles and generation mix data"""
 
-    Debug(solution, stormZone)
+    Debug(solution)
 
     C = np.stack([(solution.MLoad + solution.MLoadD).sum(axis=1), (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1),
                   solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1), solution.GWindR.sum(axis=1),
@@ -174,7 +174,7 @@ def Information(x, flexible):
     start = dt.datetime.now()
     print("Statistics start at", start)
 
-    S = Solution(x, stormZone)
+    S = Solution(x)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
     try:
@@ -226,10 +226,10 @@ def Information(x, flexible):
     S.MHydro += S.MBaseload
 
     S.Topology = np.array([-1 * S.FQ, -1 * (S.NQ + S.NS + S.NV), -1 * S.AS, S.FQ + S.NQ, S.NS + S.AS - S.SW, -1 * S.TV, S.NV + S.TV, S.SW])
-    S.TopologyR = np.array([-1 * S.FQR, -1 * (S.NQR + S.NSR + S.NVR), -1 * S.ASR, S.FQR + S.NQR, S.NSR + S.ASR - S.SWR, -1 * S.TVR, S.NVR + S.TVR, S.SWR])
+    S.TopologyR = np.array([-1 *S.FQR, -1 *(S.NQR +S.NSR +S.NVR), -1 *S.ASR,S.FQR +S.NQR,S.NSR +S.ASR -S.SWR, -1 *S.TVR,S.NVR +S.TVR,S.SWR])
 
-    LPGM(S, stormZone)
-    GGTA(S, stormZone)
+    LPGM(S)
+    GGTA(S)
 
     end = dt.datetime.now()
     print("Statistics took", end - start)
@@ -240,9 +240,10 @@ if __name__ == '__main__':
     
     capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=',', skip_header=1)
-    stormZone = None
+    # stormZone = None
     
     # capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
     # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',', skip_header=1)
+    # flexible = np.zeros(intervals)
 
     Information(capacities, flexible)
