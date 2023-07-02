@@ -144,9 +144,12 @@ class Solution:
     def __init__(self, x):
         self.x = x
         if isinstance(stormZone, str):
-            self.stormZone = np.arange(wzones) if stormZone == 'all' else None if stormZone == 'None' else 'Error'
-            if stormZone == 'Error': raise Exception('StormZone not valid')
-        
+            if stormZone == 'all': self.stormZone = np.arange(wzones) 
+            elif stormZone == 'None': self.stormZone = None
+            else: raise Exception('StormZone not valid')
+        elif stormZone is None: self.stormZone = None
+        else: self.stormZone = stormZone
+
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
         self.resolution = resolution
