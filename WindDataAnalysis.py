@@ -180,10 +180,14 @@ def readFile(argTuple):
     #https://stackoverflow.com/questions/37934399/identifying-consecutive-occurrences-of-a-value-in-a-column-of-a-pandas-dataframe
     x['duration'] = x['highSpeedInd'].groupby((x['highSpeedInd'] != x['highSpeedInd'].shift()).cumsum()).transform('size') * x['highSpeedInd']
     
-    lengths = x['duration'].value_counts().drop(index=0)
-    meanDuration = np.mean(lengths/lengths.index)
-    if pd.isna(meanDuration):
-        meanDuration=0
+    lengths = x['duration'].value_counts().drop(index=[0,1,2])
+    lengths = (lengths/lengths.index).reset_index().rename(columns={0:'count'})
+    try: 
+        meanDuration = (lengths.prod(axis=1)).sum()/lengths['count'].sum()
+    except ZeroDivisionError: 
+        meanDuration = 0
+    # if pd.isna(meanDuration):
+    #     meanDuration=0
     
     return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x.dropna()), len(lengths), lengths]
 
@@ -481,16 +485,16 @@ if __name__=='__main__':
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
     stn.to_csv(r'Data/WindStats.csv', index = False)
-    stn = pd.read_csv(r'Data/WindStats.csv')
-    stn['station no.'] = formatStnNo(stn['station no.'])
+    # stn = pd.read_csv(r'Data/WindStats.csv')
+    # stn['station no.'] = formatStnNo(stn['station no.'])
     # stn = filterBadStations(stn)
-    stn = findClosestZones(stn, 50) #km
-    stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
+    # stn = findClosestZones(stn, 50) #km
+    # stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
 
-    stn = removeAnomalousStns(stn)
+    # stn = removeAnomalousStns(stn)
 
-    zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True) 
-    zones.to_csv('Results/windDataByZone/_zoneData_.csv', index=False)
+    # zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True) 
+    # zones.to_csv('Results/windDataByZone/_zoneData_.csv', index=False)
     
     # plotMap(stn)     
 
