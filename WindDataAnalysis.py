@@ -121,7 +121,7 @@ def readData(argTuple, folder=None, speedThreshold=None, multiprocess=True):
             
     result = pd.DataFrame(result, 
                           columns = ['station no.', 'meanDuration', 'highWindFrac', 'scaleFactor',
-                                     'meanSpeed-10m', 'startTime', 'meanRes', 'Observations', 'len(lengths)', 'lengths'])
+                                     'meanSpeed-10m', 'startTime', 'meanRes', 'Observations'])
     stn = stn.merge(result, on = 'station no.', how = 'outer', indicator ='indicator')
     
     assert len(stn['indicator'].unique()) == 1 
@@ -180,16 +180,19 @@ def readFile(argTuple):
     #https://stackoverflow.com/questions/37934399/identifying-consecutive-occurrences-of-a-value-in-a-column-of-a-pandas-dataframe
     x['duration'] = x['highSpeedInd'].groupby((x['highSpeedInd'] != x['highSpeedInd'].shift()).cumsum()).transform('size') * x['highSpeedInd']
     
-    lengths = x['duration'].value_counts().drop(index=[0,1,2])
+    lengths = x['duration'].value_counts()
+    for len_excl in (0,1,2,3,4):
+        try: lengths = lengths.drop(index=len_excl)    
+        except KeyError: pass
     lengths = (lengths/lengths.index).reset_index().rename(columns={0:'count'})
     try: 
-        meanDuration = (lengths.prod(axis=1)).sum()/lengths['count'].sum()
+        meanDuration = lengths.prod(axis=1).sum()/lengths['count'].sum()
     except ZeroDivisionError: 
         meanDuration = 0
-    # if pd.isna(meanDuration):
-    #     meanDuration=0
+    if pd.isna(meanDuration):
+        meanDuration=0
     
-    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x.dropna()), len(lengths), lengths]
+    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x.dropna())]
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
 
@@ -481,20 +484,21 @@ if __name__=='__main__':
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    stn.to_csv(r'Data/WindStats.csv', index = False)
-    # stn = pd.read_csv(r'Data/WindStats.csv')
-    # stn['station no.'] = formatStnNo(stn['station no.'])
+    # stn.to_csv(r'Data/WindStats.csv', index = False)
+    
+    stn = pd.read_csv(r'Data/WindStats.csv')
+    stn['station no.'] = formatStnNo(stn['station no.'])
     # stn = filterBadStations(stn)
-    # stn = findClosestZones(stn, 50) #km
-    # stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
+    stn = findClosestZones(stn, 50) #km
+    stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
 
-    # stn = removeAnomalousStns(stn)
+    stn = removeAnomalousStns(stn)
 
-    # zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True) 
-    # zones.to_csv('Results/windDataByZone/_zoneData_.csv', index=False)
+    zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True) 
+    zones.to_csv('Results/windDataByZone/_zoneData_.csv', index=False)
     
     # plotMap(stn)     
 
@@ -505,5 +509,5 @@ if __name__=='__main__':
     #         or 'std' in col[1] or 'count'==col[1] and 'meanSpeed-10m'!=col[0]])
     # grpby.to_csv('Results/zoneWindStats.csv')
     
-    # for i, df in stn.groupby('closestZone'):
-    #     df.to_csv(f'Results/windDataByZone/Zone{i}.csv', index=False)
+    for i, df in stn.groupby('closestZone'):
+        df.to_csv(f'Results/windDataByZone/Zone{i}.csv', index=False)
