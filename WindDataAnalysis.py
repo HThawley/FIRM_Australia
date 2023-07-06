@@ -21,7 +21,7 @@ import rasterio
 import geopandas as gpd
 from shapely.geometry import Point, Polygon#, MultiPolygon
 from shapely.ops import nearest_points
-from shapely import distance
+# from shapely import distance
 import warnings
 
 
