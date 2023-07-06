@@ -15,13 +15,15 @@ from datetime import datetime as dt
 # from math import exp
 import matplotlib.pyplot as plt
 from scipy.stats import gumbel_r
+from scipy.interpolate import LinearNDInterpolator
+from scipy.spatial import ConvexHull, Delaunay
 import rasterio
-from rasterio import features
 import geopandas as gpd
-from shapely.geometry import Point#, Polygon#, MultiPolygon
+from shapely.geometry import Point, Polygon#, MultiPolygon
 from shapely.ops import nearest_points
+from shapely import distance
 import warnings
-from photutils.utils import ShepardIDWInterpolator as idw
+
 
 
 #%%
@@ -119,7 +121,7 @@ def readData(argTuple, folder=None, speedThreshold=None, multiprocess=True):
             
     result = pd.DataFrame(result, 
                           columns = ['station no.', 'meanDuration', 'highWindFrac', 'scaleFactor',
-                                     'meanSpeed-10m', 'startTime', 'meanRes', 'Observations'])
+                                     'meanSpeed-10m', 'startTime', 'meanRes', 'Observations', 'len(lengths)', 'lengths'])
     stn = stn.merge(result, on = 'station no.', how = 'outer', indicator ='indicator')
     
     assert len(stn['indicator'].unique()) == 1 
@@ -183,7 +185,7 @@ def readFile(argTuple):
     if pd.isna(meanDuration):
         meanDuration=0
     
-    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x.dropna())]
+    return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(x.dropna()), len(lengths), lengths]
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
 
@@ -318,16 +320,16 @@ def findClosestZones(stn, distanceThreshold):
     
     for zone in os.listdir():
         poly = gpd.read_file(zone)['geometry'][0]
-        distance = stn['point'].apply(lambda point: lambdaDistanceEdge(point, poly))
+        distances = stn['point'].apply(lambda point: lambdaDistanceEdge(point, poly))
         centroidDistance = stn['point'].apply(lambda point: lambdaDistancePoints(point, poly.centroid))
         inZone = stn['point'].apply(lambda point: poly.contains(point))
         
-        distanceMask = (distance < stn['distanceToZone'])
+        distanceMask = (distances < stn['distanceToZone'])
         
         #a couple of zones are duplicated
-        duplicateMask = (distance == stn['distanceToZone'])
+        duplicateMask = (distances == stn['distanceToZone'])
         
-        stn.loc[distanceMask,'distanceToZone'] = distance[distanceMask]
+        stn.loc[distanceMask,'distanceToZone'] = distances[distanceMask]
         stn.loc[distanceMask,'distanceToCentroid'] = centroidDistance[distanceMask]
         stn.loc[distanceMask,'inZone'] = inZone[distanceMask]
         
@@ -347,7 +349,7 @@ def findClosestZones(stn, distanceThreshold):
 #%%
 
 def plotMap(stn):
-    
+    # global fig, ax 
     geoMap = gpd.read_file(r'Geometries/australia.geojson')
     active_dir = os.getcwd()
     
@@ -358,7 +360,7 @@ def plotMap(stn):
     
     geoMap.plot(ax = ax)
     
-    ax.scatter(x = stn['longitude'], y = stn['latitude'], color = 'red', alpha = 0.5, s =15) 
+    ax.scatter(x = stn['longitude'], y = stn['latitude'], color = 'red', alpha = 0.9, s =4) 
     
     warnings.filterwarnings('ignore', category = UserWarning)
     for zone in os.listdir():
@@ -374,21 +376,55 @@ def plotMap(stn):
     os.chdir(active_dir)
 
 
-def IdwAverage(stn, poly):
+def interpolate(stn, poly):
     coords = np.array(list(zip(stn['longitude'], stn['latitude'])))
     highWindFrac = np.array(stn['highWindFrac'])
     meanDuration = np.array(stn['meanDuration'])
+    centroid = poly.centroid.x, poly.centroid.y
     
-    highWindFrac = idw(coords, highWindFrac)
-    meanDuration = idw(coords, meanDuration)
+    if coords.shape[0] > 3: 
+        hull = ConvexHull(coords)
+        highWindFrac = LinearNDInterpolator(coords, highWindFrac)
+        meanDuration = LinearNDInterpolator(coords, meanDuration)
+
+        if Delaunay(hull.points).find_simplex(centroid) >= 0:
+            #centroid within interpolation space
+            highWindFrac = highWindFrac(*centroid)
+            meanDuration = meanDuration(*centroid)
+        
+        else: #centroid not within interpolation space
+            #find nearest point inside interpolation space
+            nearNeighbour = nearest_points(poly.centroid, Polygon(hull.points[hull.vertices]))[1]
+            #Take the nearest point (nearest neighbour), rounding avoids issue where point 
+            # is ~10^-15 m away from the interpolating area
+            i = 20
+            while i > 2:    
+                hwf = highWindFrac(round(nearNeighbour.x,i), round(nearNeighbour.y,i))
+                mdr = meanDuration(round(nearNeighbour.x,i), round(nearNeighbour.y,i))
+                if pd.isna(hwf) or pd.isna(mdr):
+                    i-=1
+                    continue
+                else: 
+                    highWindFrac, meanDuration = hwf, mdr
+                    break
+    else: 
+        highWindFrac = distanceWeightedAverage(coords, highWindFrac, centroid)
+        meanDuration = distanceWeightedAverage(coords, meanDuration, centroid)
     
     zoneDf = pd.DataFrame(
         [[stn['closestZone'].unique()[0], 
-         highWindFrac((poly.centroid.x, poly.centroid.y)), 
-         meanDuration((poly.centroid.x, poly.centroid.y))]], 
+         highWindFrac, 
+         meanDuration]], 
         columns = ['zone', 'highWindFrac', 'meanDuration'])
     
     return zoneDf
+
+def distanceWeightedAverage(points, values, sample_point):    
+    weights = 1/ Haversine(points[:,0], points[:,1], sample_point[0], sample_point[1])
+    
+    return (sum(values * weights) / sum(weights))    
+
+
 
 
 def zoneAnalysis(stn):
@@ -401,7 +437,7 @@ def zoneAnalysis(stn):
         poly = gpd.read_file(zone)['geometry'][0]
         zone = int(zone.split('.')[0])
         
-        zoneDf = pd.concat([zoneDf, IdwAverage(stn[stn['closestZone'] == int(zone)], poly)])
+        zoneDf = pd.concat([zoneDf, interpolate(stn[stn['closestZone'] == int(zone)], poly)])
     
     os.chdir(active_dir)
     return zoneDf
@@ -441,22 +477,23 @@ if __name__=='__main__':
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    # stn.to_csv(r'Data/WindStats.csv', index = False)
+    stn.to_csv(r'Data/WindStats.csv', index = False)
     stn = pd.read_csv(r'Data/WindStats.csv')
     stn['station no.'] = formatStnNo(stn['station no.'])
-    # # stn = filterBadStations(stn)
+    # stn = filterBadStations(stn)
     stn = findClosestZones(stn, 50) #km
     stn = stn.dropna(subset=['highWindFrac', 'meanDuration'], how='any')
-    stn = removeAnomalousStns(stn)
-    
 
-    zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True)
-    zones.to_csv('Results/windDataByZone/_zoneData.csv', index=False)
-    plotMap(stn) 
+    stn = removeAnomalousStns(stn)
+
+    zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True) 
+    zones.to_csv('Results/windDataByZone/_zoneData_.csv', index=False)
     
+    # plotMap(stn)     
+
     #Manual Analysis
     # grpby = stn.groupby('closestZone')[['meanSpeed-10m','meanSpeed-100m','meanDuration',
     #     'highWindFrac','scaleFactor','meanRes','Observations']].describe()
@@ -464,5 +501,5 @@ if __name__=='__main__':
     #         or 'std' in col[1] or 'count'==col[1] and 'meanSpeed-10m'!=col[0]])
     # grpby.to_csv('Results/zoneWindStats.csv')
     
-    for i, df in stn.groupby('closestZone'):
-        df.to_csv(f'Results/windDataByZone/Zone{i}.csv', index=False)
+    # for i, df in stn.groupby('closestZone'):
+    #     df.to_csv(f'Results/windDataByZone/Zone{i}.csv', index=False)
