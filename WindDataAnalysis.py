@@ -181,7 +181,8 @@ def readFile(argTuple):
     x['duration'] = x['highSpeedInd'].groupby((x['highSpeedInd'] != x['highSpeedInd'].shift()).cumsum()).transform('size') * x['highSpeedInd']
     
     lengths = x['duration'].value_counts()
-    for len_excl in (0,1,2,3,4):
+    #exclude storms 1.5 hours or less in duration
+    for len_excl in (0,1,2,3):
         try: lengths = lengths.drop(index=len_excl)    
         except KeyError: pass
     lengths = (lengths/lengths.index).reset_index().rename(columns={0:'count'})
@@ -395,7 +396,7 @@ def interpolate(stn, poly):
         meanDuration = LinearNDInterpolator(coords, meanDuration)
 
         if Delaunay(hull.points).find_simplex(centroid) >= 0:
-            #centroid within interpolation space
+            #centroid within interpolated space
             highWindFrac = highWindFrac(*centroid)
             meanDuration = meanDuration(*centroid)
         
@@ -403,7 +404,7 @@ def interpolate(stn, poly):
             #find nearest point inside interpolation space
             nearNeighbour = nearest_points(poly.centroid, Polygon(hull.points[hull.vertices]))[1]
             #Take the nearest point (nearest neighbour), rounding avoids issue where point 
-            # is ~10^-15 m away from the interpolating area
+            # is ~10^-15 m away from the interpolated space
             i = 20
             while i > 2:    
                 hwf = highWindFrac(round(nearNeighbour.x,i), round(nearNeighbour.y,i))
@@ -466,7 +467,7 @@ def removeAnomalousStns(stn):
                '091375',#5587 obs
                '092133',#24694 obs
                '092163',#12619 obs
-               #'094087,#although geograpgicall very different to nearby sites, geography is closer
+               #'094087,#although geograpgically very different to nearby sites, geography is closer
                #to that of wind farms and results are rather similar to (e.g.) 094195, 094008, 092100, 096003
                '087185',#22956 obs
                '078072',#2648 obs
@@ -484,12 +485,12 @@ if __name__=='__main__':
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
 
-    # stn.to_csv(r'Data/WindStats.csv', index = False)
+    stn.to_csv(r'Data/WindStats.csv', index = False)
     
-    stn = pd.read_csv(r'Data/WindStats.csv')
+    # stn = pd.read_csv(r'Data/WindStats.csv')
     stn['station no.'] = formatStnNo(stn['station no.'])
     # stn = filterBadStations(stn)
     stn = findClosestZones(stn, 50) #km
@@ -498,7 +499,7 @@ if __name__=='__main__':
     stn = removeAnomalousStns(stn)
 
     zones = zoneAnalysis(stn).sort_values('zone').reset_index(drop=True) 
-    zones.to_csv('Results/windDataByZone/_zoneData_.csv', index=False)
+    zones.to_csv('Results/windDataByZone/_zoneData.csv', index=False)
     
     # plotMap(stn)     
 
