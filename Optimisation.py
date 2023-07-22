@@ -16,7 +16,7 @@ parser.add_argument('-i', default=400,  type=int,   required=False, help='maxite
 parser.add_argument('-p', default=2,    type=int,   required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5,  type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3,  type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=11,   type=int,   required=False, help='11, 12, 13, ...')
+parser.add_argument('-s', default=31,   type=int,   required=False, help='11, 12, 13, ...')
 parser.add_argument('-c', default=1.5,  type=float, required=False, help='cost constraint as multiplier of optimised cost')
 parser.add_argument('-z', default='None',type=str,   required=False, help="'None','all', or space/comma seperated list of zones (as int)")
 parser.add_argument('-y', default=1,    type=int,   required=False, help='boolean whether to use relative probability or pure highWindFrac')
@@ -67,12 +67,7 @@ if __name__=='__main__':
     with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
-        
-    S = Solution(result.x)
-    with open('Results/Otestx{}-{}-{}.csv'.format(scenario, stormZone, relative), 'a', newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([costConstraint, S.cost, S.penalties, S.StormDeficit, result.fun, result.x])
-    del S, csvfile
+    del csvfile
     
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)

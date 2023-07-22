@@ -77,7 +77,7 @@ if scenario>=21:
     TSPV = TSPV[:, np.where(np.in1d(PVl, coverage)==True)[0]]
     TSWind = TSWind[:, np.where(np.in1d(Windl, coverage)==True)[0]]
     windFrag = windFrag[np.where(np.in1d(Windl, coverage)==True)[0]]
-    stormDur = stormDur[np.where(Windl==node)[0]]
+    stormDur = stormDur[np.where(np.in1d(Windl, coverage)==True)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
     if 'FNQ' not in coverage:
@@ -92,8 +92,6 @@ intervals, nodes = MLoad.shape
 years = int(resolution * intervals / 8760)
 pzones, wzones = (TSPV.shape[1], TSWind.shape[1])
 pidx, widx, sidx = (pzones, pzones + wzones, pzones + wzones + nodes)
-
-stormZone = np.arange(wzones) if stormZone == 'all' else stormZone
 
 energy = (MLoad + MLoadD).sum() * pow(10, -9) * resolution / years # PWh p.a.
 contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW

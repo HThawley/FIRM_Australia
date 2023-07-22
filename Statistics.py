@@ -89,9 +89,10 @@ def LPGM(solution):
 
         for j in range(nodes):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
-                          solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.MWindR[:, j],
+                          solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.RMWind[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
-                          solution.MStorage[:, j], solution.MSurplus[:, j], solution.MRDeficit[:, j], solution.MRStorage[:, j]])
+                          solution.MStorage[:, j], #solution.MSurplus[:, j], 
+                          solution.RMDeficit[:, j], solution.RMStorage[:, j]])
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)

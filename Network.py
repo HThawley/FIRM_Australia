@@ -13,12 +13,12 @@ def Transmission(solution, output=False, resilience=False):
     
     MPV, MWind= map(np.zeros, [(nodes, intervals)] * 2)
     
-    if resilience: MWindR = np.zeros((nodes, intervals))
+    if resilience: RMWind = np.zeros((nodes, intervals))
     
     for i, j in enumerate(Nodel):
         MPV[i, :] = solution.GPV[:, np.where(PVl==j)[0]].sum(axis=1)
         MWind[i, :] = solution.GWind[:, np.where(Windl==j)[0]].sum(axis=1)
-        if resilience: MWindR[i, :] = solution.GWindR[:, np.where(Windl==j)[0]].sum(axis=1)
+        if resilience: RMWind[i, :] = solution.GWindR[:, np.where(Windl==j)[0]].sum(axis=1)
     MPV, MWind = MPV.transpose(), MWind.transpose() # Sij-GPV(t, i), Sij-GWind(t, i), MW
 
     MBaseload = solution.GBaseload # MW
@@ -63,35 +63,35 @@ def Transmission(solution, output=False, resilience=False):
     TDC = np.array([FQ, NQ, NS, NV, AS, SW, TV]).transpose() # TDC(t, k), MW
     
     if resilience: 
-        MWindR = MWindR.transpose()
-        MDeficitR = np.tile(solution.StormDeficit, (nodes, 1)).transpose()  * defactor 
+        RMWind = RMWind.transpose()
+        RMDeficit = np.tile(solution.StormDeficit, (nodes, 1)).transpose()  * defactor 
         
-        MPWR = MPV + MWindR
-        spfactorR = np.divide(MPWR, MPWR.sum(axis=1)[:,None], where=MPWR.sum(axis=1)[:,None]!=0)
-        MSpillageR = np.tile(solution.RSpillage, (nodes,1)).transpose() * spfactorR 
+        RMPW = MPV + RMWind
+        spfactorR = np.divide(RMPW, RMPW.sum(axis=1)[:,None], where=RMPW.sum(axis=1)[:,None]!=0)
+        RMSpillage = np.tile(solution.RSpillage, (nodes,1)).transpose() * spfactorR 
 
-        MDischargeR = np.tile(solution.RDischarge, (nodes, 1)).transpose() * pcfactor # MDischarge: DPH(j, t)
-        MChargeR = np.tile(solution.RCharge, (nodes, 1)).transpose() * pcfactor # MCharge: CHPH(j, t)
+        RMDischarge = np.tile(solution.RDischarge, (nodes, 1)).transpose() * pcfactor # MDischarge: DPH(j, t)
+        RMCharge = np.tile(solution.RCharge, (nodes, 1)).transpose() * pcfactor # MCharge: CHPH(j, t)
 
-        MP2VR = np.tile(solution.RP2V, (nodes, 1)).transpose() * pcfactor # MP2V: DP2V(j, t)
+        RMP2V = np.tile(solution.RP2V, (nodes, 1)).transpose() * pcfactor # MP2V: DP2V(j, t)
         
-        MChargeDR = np.tile(solution.RChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
+        RMChargeD = np.tile(solution.RChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
         
-        MImportR = MLoad + MChargeR + MChargeDR + MSpillageR - MPV - MWindR - MBaseload - MPeak -MDischargeR + MP2VR - MDeficitR 
+        RMImport = MLoad + RMCharge + RMChargeD + RMSpillage - MPV - RMWind - MBaseload - MPeak -RMDischarge + RMP2V - RMDeficit 
                   
-        FQR = -1 * MImportR[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
-        ASR = -1 * MImportR[:, np.where(Nodel=='NT')[0][0]] if 'NT' in Nodel else np.zeros(intervals)
-        SWR = MImportR[:, np.where(Nodel=='WA')[0][0]] if 'WA' in Nodel else np.zeros(intervals)
-        TVR = -1 * MImportR[:, np.where(Nodel=='TAS')[0][0]]
+        RFQ = -1 * RMImport[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
+        RAS = -1 * RMImport[:, np.where(Nodel=='NT')[0][0]] if 'NT' in Nodel else np.zeros(intervals)
+        RSW = RMImport[:, np.where(Nodel=='WA')[0][0]] if 'WA' in Nodel else np.zeros(intervals)
+        RTV = -1 * RMImport[:, np.where(Nodel=='TAS')[0][0]]
 
-        NQR = MImportR[:, np.where(Nodel=='QLD')[0][0]] - FQR
-        NVR = MImportR[:, np.where(Nodel=='VIC')[0][0]] - TVR
+        RNQ = RMImport[:, np.where(Nodel=='QLD')[0][0]] - RFQ
+        RNV = RMImport[:, np.where(Nodel=='VIC')[0][0]] - RTV
 
-        NSR = -1 * MImportR[:, np.where(Nodel=='NSW')[0][0]] - NQR - NVR
-        NS1R = MImportR[:, np.where(Nodel=='SA')[0][0]] - ASR + SWR
-        assert abs(NSR - NS1R).max()<=0.1, print(abs(NSR - NS1R).max())
+        RNS = -1 * RMImport[:, np.where(Nodel=='NSW')[0][0]] - RNQ - RNV
+        RNS1 = RMImport[:, np.where(Nodel=='SA')[0][0]] - RAS + RSW
+        assert abs(RNS - RNS1).max()<=0.1, print(abs(RNS - RNS1).max())
         
-        TDCR = np.array([FQR, NQR, NSR, NVR, ASR, SWR, TVR]).transpose() # TDC(t, k), MW
+        RTDC = np.array([RFQ, RNQ, RNS, RNV, RAS, RSW, RTV]).transpose() # TDC(t, k), MW
 
     if output:
         MStorage = np.tile(solution.Storage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
@@ -104,14 +104,14 @@ def Transmission(solution, output=False, resilience=False):
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)
         
         if resilience: 
-            MStorageR = np.tile(solution.RStorage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
-            MDischargeDR = np.tile(solution.RDischargeD, (nodes, 1)).transpose() * pcfactorD  # MDischarge: DD(j, t)
-            MStorageDR = np.tile(solution.RStorageD, (nodes, 1)).transpose() * pcfactorD  # SD(t, j), MWhD
+            RMStorage = np.tile(solution.RStorage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
+            RMDischargeD = np.tile(solution.RDischargeD, (nodes, 1)).transpose() * pcfactorD  # MDischarge: DD(j, t)
+            RMStorageD = np.tile(solution.RStorageD, (nodes, 1)).transpose() * pcfactorD  # SD(t, j), MWhD
             
-            solution.MWindR = MWindR
-            solution.MDischargeR, solution.MChargeR, solution.MStorageR, solution.RMP2V = (MDischargeR, MChargeR, MStorageR, MP2VR)
-            solution.MDischargeDR, solution.MChargeDR, solution.MStorageDR = (MDischargeDR, MChargeDR, MStorageDR)
-            solution.MDeficitR, solution.MSpillageR = (MDeficitR, MSpillageR)
+            solution.RMWind = RMWind
+            solution.RMDischarge, solution.RMCharge, solution.RMStorage, solution.RMP2V = (RMDischarge, RMCharge, RMStorage, RMP2V)
+            solution.RMDischargeD, solution.RMChargeD, solution.RMStorageD = (RMDischargeD, RMChargeD, RMStorageD)
+            solution.RMDeficit, solution.RMSpillage = (RMDeficit, RMSpillage)
         
-    if resilience: return TDC, TDCR
+    if resilience: return TDC, RTDC
     return TDC
