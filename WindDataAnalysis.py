@@ -22,7 +22,7 @@ from shapely.geometry import Point, Polygon#, MultiPolygon
 from shapely.ops import nearest_points
 # from shapely import distance
 import warnings
-from scipy.stats import exponweib, weibull_min, expon, genextreme, goodness_of_fit
+from scipy.stats import exponweib, weibull_min, expon, genextreme, goodness_of_fit, weibull_max
 
 import geometricUtils as gmu
 
@@ -42,7 +42,7 @@ def readAll(location, speedThreshold, multiprocess=False, goodnessOfFit=None):
         print('')
     else: 
         results = []
-        for folderTuple in tqdm(folders, desc = 'Reading wind data folder-by-folder:'):
+        for folderTuple in tqdm(folders, desc = 'Reading wind data folder-by-folder'):
             results.append(readData(folderTuple))
 
     stn = pd.concat(results, ignore_index=True)
@@ -99,7 +99,8 @@ def readData(argTuple, folder=None, speedThreshold=None, multiprocess=True, good
     
     result=[]
     if multiprocess:
-        with Pool(processes = min(cpu_count(), len(argTuples))) as processPool:
+        with Pool(processes = 4#min(cpu_count(), len(argTuples))) 
+        )as processPool:
             for inst in processPool.imap_unordered(readFile, argTuples):
                 result.append(inst)
     else: 
@@ -143,7 +144,7 @@ def readFile(argTuple, path=None, stn=None, speedThreshold=None, goodnessOfFit=N
     df = df[['dt', 'gustSpeed-10m', 'meanSpeed-10m']]
 
     if len(df.dropna()) == 0: 
-        return [stnNo, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
+        return readFileBadReturn([stnNo, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA], goodnessOfFit, stnNo)
     
     longTermMeanSpeed = df['meanSpeed-10m'].dropna().mean()
     startTime = df.dropna(subset=['gustSpeed-10m'])['dt'].min()
@@ -152,9 +153,9 @@ def readFile(argTuple, path=None, stn=None, speedThreshold=None, goodnessOfFit=N
     try: 
         scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
     except KeyError: 
-        return readFileBadReturn([stnNo, pd.NA, pd.NA, pd.NA, longTermMeanSpeed, startTime, meanRes, len(df)], goodnessOfFit)
+        return readFileBadReturn([stnNo, pd.NA, pd.NA, pd.NA, longTermMeanSpeed, startTime, meanRes, len(df)], goodnessOfFit, stnNo)
     if pd.isna(scaleFactor): 
-        return readFileBadReturn([stnNo, pd.NA, pd.NA, pd.NA, longTermMeanSpeed, startTime, meanRes, len(df)], goodnessOfFit)
+        return readFileBadReturn([stnNo, pd.NA, pd.NA, pd.NA, longTermMeanSpeed, startTime, meanRes, len(df)], goodnessOfFit, stnNo)
     
     df['gustSpeed-100m'] = scaleFactor * df['gustSpeed-10m']
    
@@ -167,32 +168,37 @@ def readFile(argTuple, path=None, stn=None, speedThreshold=None, goodnessOfFit=N
          
     lengths = df['duration'].value_counts()
     #exclude storms 1.5 hours or less in duration
-    for len_excl in (0,):#,1,2,3):
+    for len_excl in (0,1):#,1,2,3):
         try: lengths = lengths.drop(index=len_excl)    
         except KeyError: pass
-    lengths = lengths.reset_index().rename(columns={0:'count'})
+    lengths = lengths.reset_index().rename(columns={0:'count', 'index':'count'})
     mask = lengths['duration']>0
     lengths.loc[mask, 'count'] = lengths.loc[mask, 'count']/lengths.loc[mask,'duration']
     
     if goodnessOfFit is not None: 
         highWindGoodness, durationGoodness = goodnessOfFitTesting(goodnessOfFit, df, lengths)
-        return [stnNo, len(df['gustSpeed-100m'].dropna()), lengths['count'].sum(), startTime, meanRes, highWindGoodness, durationGoodness]
+        try: gustObs = len(df['gustSpeed-100m'].dropna())
+        except: gustObs = pd.NA
+        try: durObs = lengths['count'].sum()
+        except: durObs = pd.NA
+        return [stnNo, gustObs, durObs, startTime, meanRes, highWindGoodness, durationGoodness]
+        
     else: 
         highWindIntegral, meanDuration = statisticalAnalysis(df, lengths, speedThreshold, stnNo)
     
     return [stnNo, meanDuration, highWindIntegral, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(df.dropna())]
 
-def readFileBadReturn(dfRow, distribution):
-    if distribution is not None: return np.nan
+def readFileBadReturn(dfRow, distribution, stnNo):
+    if distribution is not None: return [stnNo, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA]
     else: return dfRow
 
 def goodnessOfFitTesting(distribution, df, lengths):    
     try: 
-        highWindGoodness = goodness_of_fit(distribution, df['gustSpeed-100m'].dropna(), n_mc_samples=1000)[2] #pvalue
+        highWindGoodness = goodness_of_fit(distribution, df['gustSpeed-100m'].dropna(), n_mc_samples=100)[2] #pvalue
     except: 
         highWindGoodness = pd.NA
     try: 
-        durationGoodness = goodness_of_fit(distribution, np.repeat(lengths['duration'], lengths['count']), n_mc_samples=1000)[2]
+        durationGoodness = goodness_of_fit(distribution, np.repeat(lengths['duration'], lengths['count']), n_mc_samples=100)[2]
     except: 
         durationGoodness = pd.NA
     return highWindGoodness, durationGoodness
@@ -366,7 +372,14 @@ if __name__=='__main__':
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=False, goodnessOfFit=gumbel_r)
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True, goodnessOfFit=genextreme)
+    stn.to_csv(r'Results/statModels/genextreme.csv')
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=False, goodnessOfFit=exponweibull)
+    stn.to_csv(r'Results/statModels/exponweibull.csv')
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=False, goodnessOfFit=weibull_min)
+    stn.to_csv(r'Results/statModels/weibullmin.csv')    
+    stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=False, goodnessOfFit=weibull_max)
+    stn.to_csv(r'Results/statModels/weibullmax.csv')
     
     # stn = readAll(r'BOM Wind Data', speedThreshold, multiprocess=True)
     # stn = readData(r'BOM Wind Data\AWS_Wind-NT', speedThreshold, multiprocess=True)   
