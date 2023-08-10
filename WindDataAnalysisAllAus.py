@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Apr 13 11:50:04 2023
+Created on Thu Aug  3 14:13:07 2023
 
 @author: hmtha
 """
@@ -36,23 +36,36 @@ def readAll(location, speedThreshold, n_years, stn=None, multiprocess=False):
     if stn is None:
         stn = readStnDetail(location)
 
-    folders = [(path, stn, speedThreshold, n_years, False) 
+    folders = [(path, speedThreshold, stn, False) 
                for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
     if multiprocess:
         print('Reading and processing data\nCompleted: ', end = '')
         with NestablePool(max_workers=min(cpu_count(), len(folders))) as processPool:
-            results = processPool.map(readData, folders)
+            results = list(processPool.map(readData, folders))
         print('')
     else: 
         results = []
         for folderTuple in tqdm(folders, desc = 'Reading wind data folder-by-folder'):
             results.append(readData(folderTuple))
 
-    stn = pd.concat(results, ignore_index=True)
+    coverage = sum([result[1] for result in results])
+    stormDurations = pd.concat([result[0] for result in results])
+    stormDurations = stormDurations.sort_values().reset_index(drop=True)
+    
+    stormsPerYear = len(stormDurations)/coverage 
+    percentiles = [1/(stormsPerYear*N) for N in n_years]
+    
+    speeds = [stormSpeed(stormDurations, perc) for perc in percentiles]
     
     os.chdir(active_dir)
-    return stn
+    return stormDurations, speeds
+
+
+def stormSpeed(dist, perc): 
+    return dist.tail(int(perc*len(dist))).iloc[0]
+    
+
 
 def formatStnNo(col):
     return col.apply(lambda x: '0'*(6-len(str(int(x))))+str(int(x)) if not pd.isna(x) else pd.NA)
@@ -99,50 +112,40 @@ def readStnDetail(location):
     os.chdir(active_dir)
     return stn
 
-def readData(argTuple, folder=None, stn=None, speedThreshold=None, n_years=None, multiprocess=None):
+def readData(argTuple, folder=None, speedThreshold=None, stn=None, multiprocess=None):
     if argTuple is not None: 
-        folder, stn, speedThreshold, n_years, multiprocess = argTuple
-    for arg in (folder, stn, speedThreshold, multiprocess):
+        folder, speedThreshold, stn, multiprocess = argTuple
+    for arg in (folder, speedThreshold, stn, multiprocess):
         assert arg is not None
-        
     active_dir = os.getcwd()
     os.chdir(folder)
     
-    argTuples = [(path, stn, speedThreshold, n_years) for path in os.listdir() if 'Data' in path]
+    argTuples = [(path, speedThreshold, stn) for path in os.listdir() if 'Data' in path]
     
-
     if multiprocess:
         with Pool(processes = min(cpu_count(), len(argTuples))) as processPool:
-            result = processPool.map(readFile, argTuples)
+            resultGen = processPool.map(readFile, argTuples)
+            results = list(resultGen)
 
     else: 
-        result=[readFile(argTuple) for argTuple in argTuples]
+        results = [readFile(argTuple) for argTuple in argTuples]
     
-    result = pd.DataFrame(result, columns = ['station no.', 'scaleFactor', 'meanSpeed-10m', 
-                                             'startTime', 'meanRes', 'Observations', 'Storm no.']
-                          +[f'1-in-{N}-year duration' for N in n_years])
-    
-    stn = stn.dropna(subset = 'station no.')
-    stn = stn.merge(result, on = 'station no.', how = 'inner', indicator ='indicator')
-    
-    assert len(stn['indicator'].unique()) == 1
-    assert stn['indicator'].unique()[0] == 'both'
-    
-    stn = stn.drop(columns = 'indicator')
-    
-    print(f'{folder[9:]}; ', end='')
+    coverage = sum([result[1] for result in results])
+    stormDurations = pd.concat([result[0] for result in results])
+
     os.chdir(active_dir)
-    return stn    
+    return stormDurations, coverage
+
     
-def readFile(argTuple=None, path=None, stn=None, speedThreshold=None, n_years=None):
+def readFile(argTuple=None, path=None, speedThreshold=None, stn=None):
     if argTuple is not None: 
-        path, stn, speedThreshold, n_years = argTuple
+        path, speedThreshold, stn = argTuple
     for arg in (path, stn, speedThreshold):
         assert arg is not None
-            
+
     stnNo = path[11:17]
     if stnNo not in set(stn['station no.']):
-        return [pd.NA] * (7+ len(n_years))
+        return pd.Series([]), 0
     
     df = pd.read_csv(path, usecols = [2,3,4,5,6,12,16], dtype = str)
     for col in df.columns:
@@ -157,7 +160,7 @@ def readFile(argTuple=None, path=None, stn=None, speedThreshold=None, n_years=No
     df = df[['dt', 'gustSpeed-10m', 'meanSpeed-10m']]
 
     if len(df.dropna()) == 0: 
-        return [stnNo] + [pd.NA] * (6 + len(n_years))
+        return pd.Series([]), 0
     
     df = df.dropna(subset=['gustSpeed-10m'])
     df = df.sort_values(by=['dt', 'gustSpeed-10m'])
@@ -165,14 +168,14 @@ def readFile(argTuple=None, path=None, stn=None, speedThreshold=None, n_years=No
     
     longTermMeanSpeed = df['meanSpeed-10m'].mean()    
     startTime, endTime = df.dropna(subset=['gustSpeed-10m'])['dt'].min(), df.dropna(subset=['gustSpeed-10m'])['dt'].max()
-    meanRes = (df.dropna(subset=['gustSpeed-10m'])[['dt']].diff(periods=1, axis=0).sum()[0]/len(df)).total_seconds()/60
+    # meanRes = (df.dropna(subset=['gustSpeed-10m'])[['dt']].diff(periods=1, axis=0).sum()[0]/len(df)).total_seconds()/60
     
     try: 
         scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
     except KeyError: 
-        return [stnNo, pd.NA, longTermMeanSpeed, startTime, meanRes, len(df), pd.NA] + [pd.NA] * len(n_years)
+        return pd.Series([]), 0
     if pd.isna(scaleFactor): 
-        return [stnNo, pd.NA, longTermMeanSpeed, startTime, meanRes, len(df), pd.NA] + [pd.NA] * len(n_years)
+        return pd.Series([]), 0
 
     df['gustSpeed-100m'] = scaleFactor * df['gustSpeed-10m']
 
@@ -182,7 +185,7 @@ def readFile(argTuple=None, path=None, stn=None, speedThreshold=None, n_years=No
     df['highSpeedInd'] = df['highSpeedInd'].rolling(window=2).mean().apply(lambda ind: 1 if ind>=1.5 else 0)
     # Calculate time between rows 
     df['timeDiff'] = (df['dt'].shift(-1) - df['dt']).apply(lambda td: td.days*24 + td.seconds/3600)
-    df['timeDiff'].iloc[-1] = df['timeDiff'].mean()
+    df.iloc[-1, df.columns.get_indexer(['timeDiff'])] = df['timeDiff'].mean()
 
     # Where a time period is greater than 2 hours, do not let it be a storm
     # This prevents some incorrect 600+ hour storms 
@@ -199,133 +202,11 @@ def readFile(argTuple=None, path=None, stn=None, speedThreshold=None, n_years=No
     timeSpan = endTime-startTime
     coverage = (((timeSpan.seconds/86400.) + timeSpan.days)/365.25) - ((df['timeDiff'][df['timeDiff']>2].sum())/8766)
 
-    try: 
-        stormsPerYear = len(stormDurations)/coverage
-        durations = paretoModelling(stormDurations, n_years, stormsPerYear)
-    except ZeroDivisionError:
-        durations = [0 for N in n_years]
-    
-    return [stnNo, scaleFactor, longTermMeanSpeed, startTime, meanRes, len(df.dropna()), len(stormDurations)] + durations
+    return stormDurations, coverage
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
-
-#%%
-
-def poissonModelling(data, n_years, stormsPerYear):
-    
-    mean = data.mean()
-   
-    try: return [poisson.ppf((1-1/(N*stormsPerYear)), mean) for N in n_years]
-    
-    except ZeroDivisionError: return [0 for N in n_years]
-    
-def paretoModelling(data, n_years, stormsPerYear):
-    
-    try: p = pareto.fit(data)
-    except ValueError: return [0 for N in n_years]
-    
-    try: return [pareto.ppf((1-1/(N*stormsPerYear)), *p) for N in n_years]
-    except ZeroDivisionError: return [0 for N in n_years]
-    
-    
-    
-    
     
 #%%
-def lambdaDistanceEdge(point, polygon): 
-    p1, p2 = nearest_points(polygon, point)
-    return gmu.Haversine(p1.y, p1.x, p2.y, p2.x)
-
-def lambdaDistancePoints(p1, p2):
-    return gmu.Haversine(p1.x, p1.y, p2.x, p2.y)
-
-def lambdaDuplicateZones(old, new):
-    if isinstance(old, list):
-        old.append(new)
-        return old
-    else: 
-        return [old, new]
-    
-def findClosestZones(stn, distanceThreshold):
-
-    stn['point'] = stn[['longitude', 'latitude']].apply(lambda coord: Point(*coord), axis = 1)
-    
-    stn['closestZone'] = pd.NA
-    stn['distanceToZone'] = np.inf
-    stn['distanceToCentroid'] = np.inf
-    
-    active_dir = os.getcwd()
-    os.chdir('Geometries/wind')
-    
-    for zone in os.listdir():
-        poly = gpd.read_file(zone)['geometry'][0]
-        distances = stn['point'].apply(lambda point: lambdaDistanceEdge(point, poly))
-        centroidDistance = stn['point'].apply(lambda point: lambdaDistancePoints(point, poly.centroid))
-        inZone = stn['point'].apply(lambda point: poly.contains(point))
-        
-        distanceMask = (distances < stn['distanceToZone'])
-        
-        #a couple of zones are duplicated
-        duplicateMask = (distances == stn['distanceToZone'])
-        
-        stn.loc[distanceMask,'distanceToZone'] = distances[distanceMask]
-        stn.loc[distanceMask,'distanceToCentroid'] = centroidDistance[distanceMask]
-        stn.loc[distanceMask,'inZone'] = inZone[distanceMask]
-        
-        stn.loc[duplicateMask, 'closestZone'] = stn.loc[duplicateMask, 'closestZone'].apply(
-            lambda firstZone: lambdaDuplicateZones(firstZone, zone.split('.')[0]))
-        
-        stn.loc[distanceMask,'closestZone'] = zone.split('.')[0]
-        
-    stn = stn.explode('closestZone').reset_index(drop=True)
-    stn['closestZone'] = pd.to_numeric(stn['closestZone'])
-    stn = stn[stn['distanceToZone'] < distanceThreshold]    
-    stn = stn.drop(columns=['point'])
-    os.chdir(active_dir)
-    
-    return stn
-
-#%%
-
-def interpolate(stn, zone, poly):
-    stn = stn[stn['closestZone'] == zone]
-    
-    coords = np.array(list(zip(stn['longitude'], stn['latitude'])))
-    highWindFrac = np.array(stn['highWindFrac'])
-    meanDuration = np.array(stn['meanDuration'])
-    centroid = poly['geometry'][0].centroid.x, poly['geometry'][0].centroid.y
-    
-    hwf = RBFInterpolator(coords, highWindFrac, kernel = 'linear', degree = 0)
-    mdr = RBFInterpolator(coords, meanDuration, kernel = 'linear', degree = 0)
-    
-    highWindFrac = hwf(np.array([centroid]))
-    meanDuration = mdr(np.array([centroid]))
-        
-    zoneDf = pd.DataFrame(
-        [[stn['closestZone'].unique()[0], 
-         highWindFrac[0], 
-         meanDuration[0]]], 
-        columns = ['zone', 'highWindFrac', 'meanDuration'])
-    
-    return zoneDf
-
-def zoneAnalysis(stn, plot = False):
-    active_dir = os.getcwd()
-    os.chdir('Geometries/wind')
-    zoneFiles = os.listdir()
-    
-    os.chdir(active_dir)
-    
-    zoneDf = pd.DataFrame([])    
-    for zone in zoneFiles:
-        poly = gpd.read_file('Geometries/wind/'+zone)
-        zone = int(zone.split('.')[0])
-        
-        zoneDf = pd.concat([zoneDf, interpolate(stn, zone, poly, plot)])
-    
-    os.chdir(active_dir)
-    return zoneDf
-
 def removeAnomalousStns(stn):
     badStns = ['053000','041560','068076','030024','016092','023849','018207', 
                '092037','094250','091375','092133','092163','087185','078072','078031']
@@ -342,10 +223,9 @@ if __name__=='__main__':
     n_years=(5,10,20,25,50,100)
     
     stn = readStnDetail(r'BOM Wind Data')
-    stn = findClosestZones(stn, 50)
     
-    stn = readAll(r'BOM Wind Data', speedThreshold, n_years, stn=stn, multiprocess=True)
-    stn.to_csv(r'Results/statModels/ParetoWindStats1.csv')
+    stormDurations, cutOffs = readAll(r'BOM Wind Data', speedThreshold, n_years, stn=stn, multiprocess=True)
+
 
 
     # stn.to_csv(r'Data/WindStats.csv', index = False)

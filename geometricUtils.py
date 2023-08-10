@@ -4,7 +4,6 @@ Created on Fri Jul 21 15:56:27 2023
 
 @author: hmtha
 """
-
 import numpy as np
 
 def hav(angle): return np.sin(angle/2)**2
