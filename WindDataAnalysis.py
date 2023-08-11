@@ -144,7 +144,7 @@ def readFile(argTuple=None, path=None, stn=None, speedThreshold=None, n_years=No
     if stnNo not in set(stn['station no.']):
         return [pd.NA] * (7+ len(n_years))
     
-    df = pd.read_csv(path, usecols = [2,3,4,5,6,12,16], dtype = str)
+    df = pd.read_csv(path, usecols = [7,8,9,10,11,12,16], dtype = str)
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors = 'coerce')  
     df = df.rename(columns={'Speed of maximum windgust in last 10 minutes in  km/h':'gustSpeed-10m', 

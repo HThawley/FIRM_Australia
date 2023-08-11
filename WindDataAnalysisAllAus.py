@@ -8,23 +8,21 @@ Created on Thu Aug  3 14:13:07 2023
 import os 
 import pandas as pd
 from tqdm import tqdm
-import numpy as np
+# import numpy as np
 from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor as NestablePool
 from datetime import datetime as dt
 # from math import exp
-import matplotlib.pyplot as plt
-from scipy.stats import gumbel_r, poisson, pareto
-from scipy.interpolate import RBFInterpolator
+# import matplotlib.pyplot as plt
+# from scipy.stats import gumbel_r, poisson, pareto
+# from scipy.interpolate import RBFInterpolator
 import rasterio
-import geopandas as gpd
-from shapely.geometry import Point, Polygon#, MultiPolygon
-from shapely.ops import nearest_points
+# import geopandas as gpd
+# from shapely.geometry import Point, Polygon#, MultiPolygon
+# from shapely.ops import nearest_points
 # from shapely import distance
-import warnings
-
-
-import geometricUtils as gmu
+# import warnings
+# import geometricUtils as gmu
 
 
 #%%
@@ -40,10 +38,10 @@ def readAll(location, speedThreshold, n_years, stn=None, multiprocess=False):
                for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
     if multiprocess:
-        print('Reading and processing data\nCompleted: ', end = '')
+        print('Reading and processing data: ', end = '')
         with NestablePool(max_workers=min(cpu_count(), len(folders))) as processPool:
             results = list(processPool.map(readData, folders))
-        print('')
+        print('Completed.')
     else: 
         results = []
         for folderTuple in tqdm(folders, desc = 'Reading wind data folder-by-folder'):
@@ -59,13 +57,10 @@ def readAll(location, speedThreshold, n_years, stn=None, multiprocess=False):
     speeds = [stormSpeed(stormDurations, perc) for perc in percentiles]
     
     os.chdir(active_dir)
-    return stormDurations, speeds
-
+    return speeds, stormDurations, coverage
 
 def stormSpeed(dist, perc): 
     return dist.tail(int(perc*len(dist))).iloc[0]
-    
-
 
 def formatStnNo(col):
     return col.apply(lambda x: '0'*(6-len(str(int(x))))+str(int(x)) if not pd.isna(x) else pd.NA)
@@ -147,7 +142,7 @@ def readFile(argTuple=None, path=None, speedThreshold=None, stn=None):
     if stnNo not in set(stn['station no.']):
         return pd.Series([]), 0
     
-    df = pd.read_csv(path, usecols = [2,3,4,5,6,12,16], dtype = str)
+    df = pd.read_csv(path, usecols = [7,8,9,10,11,12,16], dtype = str)
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors = 'coerce')  
     df = df.rename(columns={'Speed of maximum windgust in last 10 minutes in  km/h':'gustSpeed-10m', 
@@ -224,9 +219,10 @@ if __name__=='__main__':
     
     stn = readStnDetail(r'BOM Wind Data')
     
-    stormDurations, cutOffs = readAll(r'BOM Wind Data', speedThreshold, n_years, stn=stn, multiprocess=True)
-
-
+    speeds, stormDurations, coverage = readAll(r'BOM Wind Data', speedThreshold, n_years, stn=stn, multiprocess=True)
+    
+    stormDurations.value_counts().to_csv('Data/stormDurations.csv', header=False)
+    pd.DataFrame([coverage]).to_csv('Data/stormCoverage.csv', index=False, header=False)
 
     # stn.to_csv(r'Data/WindStats.csv', index = False)
     

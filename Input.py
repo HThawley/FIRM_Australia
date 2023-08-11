@@ -5,11 +5,11 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, relative, stormZone
+from Optimisation import scenario, costConstraintFactor, relative, stormZone, n_year
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
-
+#%%
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
 PVl   = np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
 Windl = np.array(['NSW']*8 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*2 + ['SA']*8 + ['TAS']*4 + ['VIC']*4 + ['WA']*3 + ['NT']*1)
@@ -28,6 +28,20 @@ TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
 windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
 windFrag, stormDur = windFrag[0], windFrag[1].astype(int)
+
+if n_year is not None:
+    durations = np.genfromtxt('Data/stormDurations.csv', delimiter=',', usecols=[0,1])
+    durations = durations[durations[:, 0].argsort()]
+    
+    coverage = np.genfromtxt('Data/stormCoverage.csv')
+    durations = np.repeat(durations[:,0], durations[:,1].astype(int))
+    
+    stormsPerYear = len(durations)/coverage
+    percentile = 1/(stormsPerYear*n_year)
+    
+    durations = durations[-int(percentile*len(durations)):1-int(percentile*len(durations))]
+    
+    stormDur = np.repeat(int(durations[0]*2), len(stormDur))
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
