@@ -176,10 +176,7 @@ def Information(x, flexible, resilience = False):
     print("Statistics start at", start)
 
     S = Solution(x)
-    if resilience: 
-        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
-    else:
-        Deficit, DeficitD = Reliability(S, flexible=flexible, output=True, resilience=False)
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
     try:
         assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
@@ -245,12 +242,15 @@ def Information(x, flexible, resilience = False):
 
 if __name__ == '__main__':
     
-    capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=',', skip_header=1)
-    # stormZone = None
+    # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
+    # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=',', skip_header=1)
     
-    # capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
-    # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',', skip_header=1)
-    # flexible = np.zeros(intervals)
-
-    Information(capacities, flexible)
+    scenario = 11
+    n_year = 10
+    for i in (1,2,3,4,5,6,7, 'all'):
+        stormZone = np.array([i]) if isinstance(i, int) else 'all'
+        
+        capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+        flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',', skip_header=1)
+    
+        Information(capacities, flexible)

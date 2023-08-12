@@ -36,7 +36,7 @@ def readAll(location, stn, multiprocess=False):
                for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
     if multiprocess:
-        print('Reading and processing data:', end = '')
+        print('Reading and processing data: ', end = '')
         with NestablePool(max_workers=min(cpu_count(), len(folders))) as processPool:
             results = list(processPool.map(readData, folders))
         print('Completed.')
@@ -217,8 +217,24 @@ if __name__ == '__main__':
     corr = corr.explode(f'corrThresh - {corrThresh}', ignore_index=True).dropna()
     
     corr = pd.merge(stn, corr, on='station no.', how='outer')
-    
-    
     corr = pd.merge(corr[['station no.', 'closestZone']], corr, left_on='station no.', right_on= f'corrThresh - {corrThresh}', how = 'inner')
+    
+    corr = corr[corr['closestZone_x'] != corr['closestZone_y']]
+    corr['pair'] = corr[['closestZone_x', 'closestZone_y']].apply(lambda row: str(list(row.sort_values())),axis = 1)
+    
+    identicalZones = ('[3, 27]', '[6, 17]')
+    corr = corr[~corr['pair'].isin(identicalZones)]
+    
+    corr = pd.concat([corr, corr['pair'].str.replace('[','').str.replace(']','').str.split(',', expand = True)], axis = 1)
+    corr = corr.rename(columns={0:'zone2', 1:'zone1'})
+    
+    corr['zone1'], corr['zone2'] = corr['zone1'].astype(int), corr['zone2'].astype(int)
+     
+    zd = pd.read_csv(r'C:/Users/hmtha/Desktop/ENGN4712/Zone Dict.csv', usecols=[8,9])
+    zd.columns = ['zoneNo', 'name']   
+    
+    corr = pd.merge(corr, zd, left_on = 'zone1', right_on='zoneNo', suffixes=('', '1')).drop(columns=['zoneNo'])
+    corr = pd.merge(corr, zd, left_on = 'zone2', right_on='zoneNo', suffixes=('', '2')).drop(columns=['zoneNo'])
+    
     
     

@@ -60,6 +60,10 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     # stormZone = None
     
+    scenario = 11
+    n_year = 10
+    stormZone = np.array([0]) 
+        
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
     
     Analysis(capacities)

@@ -13,13 +13,15 @@ def Transmission(solution, output=False, resilience=False):
     
     MPV, MWind= map(np.zeros, [(nodes, intervals)] * 2)
     
-    if resilience: RMWind = np.zeros((nodes, intervals))
+    RMWind = np.zeros((nodes, intervals))
     
     for i, j in enumerate(Nodel):
         MPV[i, :] = solution.GPV[:, np.where(PVl==j)[0]].sum(axis=1)
         MWind[i, :] = solution.GWind[:, np.where(Windl==j)[0]].sum(axis=1)
-        if resilience: RMWind[i, :] = solution.GWindR[:, np.where(Windl==j)[0]].sum(axis=1)
+        RMWind[i, :] = solution.GWindR[:, np.where(Windl==j)[0]].sum(axis=1)
+    
     MPV, MWind = MPV.transpose(), MWind.transpose() # Sij-GPV(t, i), Sij-GWind(t, i), MW
+    RMWind = RMWind.transpose()
 
     MBaseload = solution.GBaseload # MW
     CPeak = solution.CPeak # GW
@@ -63,21 +65,20 @@ def Transmission(solution, output=False, resilience=False):
     
     TDC = np.array([FQ, NQ, NS, NV, AS, SW, TV]).transpose() # TDC(t, k), MW
     
+    RMDeficit = np.tile(solution.RDeficit, (nodes, 1)).transpose()  * defactor 
+    
+    RMPW = MPV + RMWind
+    Rspfactor = np.divide(RMPW, RMPW.sum(axis=1)[:,None], where=RMPW.sum(axis=1)[:,None]!=0)
+    RMSpillage = np.tile(solution.RSpillage, (nodes,1)).transpose() * Rspfactor
+
+    RMDischarge = np.tile(solution.RDischarge, (nodes, 1)).transpose() * pcfactor # MDischarge: DPH(j, t)
+    RMCharge = np.tile(solution.RCharge, (nodes, 1)).transpose() * pcfactor # MCharge: CHPH(j, t)
+
+    RMP2V = np.tile(solution.RP2V, (nodes, 1)).transpose() * pcfactor # MP2V: DP2V(j, t)
+    
+    RMChargeD = np.tile(solution.RChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
+
     if resilience: 
-        RMWind = RMWind.transpose()
-        RMDeficit = np.tile(solution.StormDeficit, (nodes, 1)).transpose()  * defactor 
-        
-        RMPW = MPV + RMWind
-        spfactorR = np.divide(RMPW, RMPW.sum(axis=1)[:,None], where=RMPW.sum(axis=1)[:,None]!=0)
-        RMSpillage = np.tile(solution.RSpillage, (nodes,1)).transpose() * spfactorR 
-
-        RMDischarge = np.tile(solution.RDischarge, (nodes, 1)).transpose() * pcfactor # MDischarge: DPH(j, t)
-        RMCharge = np.tile(solution.RCharge, (nodes, 1)).transpose() * pcfactor # MCharge: CHPH(j, t)
-
-        RMP2V = np.tile(solution.RP2V, (nodes, 1)).transpose() * pcfactor # MP2V: DP2V(j, t)
-        
-        RMChargeD = np.tile(solution.RChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
-        
         RMImport = MLoad + RMCharge + RMChargeD + RMSpillage - MPV - RMWind - MBaseload - MPeak - RMDischarge + RMP2V - RMDeficit 
                   
         RFQ = -1 * RMImport[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
@@ -104,15 +105,14 @@ def Transmission(solution, output=False, resilience=False):
         solution.MDischargeD, solution.MChargeD, solution.MStorageD = (MDischargeD, MChargeD, MStorageD)
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)
         
-        if resilience: 
-            RMStorage = np.tile(solution.RStorage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
-            RMDischargeD = np.tile(solution.RDischargeD, (nodes, 1)).transpose() * pcfactorD  # MDischarge: DD(j, t)
-            RMStorageD = np.tile(solution.RStorageD, (nodes, 1)).transpose() * pcfactorD  # SD(t, j), MWhD
-            
-            solution.RMWind = RMWind
-            solution.RMDischarge, solution.RMCharge, solution.RMStorage, solution.RMP2V = (RMDischarge, RMCharge, RMStorage, RMP2V)
-            solution.RMDischargeD, solution.RMChargeD, solution.RMStorageD = (RMDischargeD, RMChargeD, RMStorageD)
-            solution.RMDeficit, solution.RMSpillage = (RMDeficit, RMSpillage)
+        RMStorage = np.tile(solution.RStorage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
+        RMDischargeD = np.tile(solution.RDischargeD, (nodes, 1)).transpose() * pcfactorD  # MDischarge: DD(j, t)
+        RMStorageD = np.tile(solution.RStorageD, (nodes, 1)).transpose() * pcfactorD  # SD(t, j), MWhD
+        
+        solution.RMWind = RMWind
+        solution.RMDischarge, solution.RMCharge, solution.RMStorage, solution.RMP2V = (RMDischarge, RMCharge, RMStorage, RMP2V)
+        solution.RMDischargeD, solution.RMChargeD, solution.RMStorageD = (RMDischargeD, RMChargeD, RMStorageD)
+        solution.RMDeficit, solution.RMSpillage = (RMDeficit, RMSpillage)
         
     if resilience: return TDC, RTDC
     return TDC
