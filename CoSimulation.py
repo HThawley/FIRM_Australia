@@ -22,7 +22,7 @@ def Resilience(solution, flexible, start=None, end=None):
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
     (Netload, Storage, StorageD, Deficit, DeficitD, Spillage, Discharge, DischargeD, 
-     Charge, ChargeD, P2V) = Reliability(solution, flexible, start, end, output=False)
+     Charge, ChargeD, P2V) = Reliability(solution, flexible, start, end, output=False, resilience = True)
 
     try:
         RNetload = Netload + windDiff.sum(axis=1) 

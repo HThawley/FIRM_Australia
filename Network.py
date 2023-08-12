@@ -25,6 +25,7 @@ def Transmission(solution, output=False, resilience=False):
     CPeak = solution.CPeak # GW
     pkfactor = np.tile(CPeak, (intervals, 1)) / CPeak.sum()
     MPeak = np.tile(solution.flexible, (nodes, 1)).transpose() * pkfactor # MW
+    # RMPeak = np.tile(solution.Rflexible, (nodes, 1)).transpose() * pkfactor
 
     MLoad = solution.MLoad # EOLoad(t, j), MW
 
@@ -77,7 +78,7 @@ def Transmission(solution, output=False, resilience=False):
         
         RMChargeD = np.tile(solution.RChargeD, (nodes, 1)).transpose() * pcfactorD # MChargeD: CHD(j, t)
         
-        RMImport = MLoad + RMCharge + RMChargeD + RMSpillage - MPV - RMWind - MBaseload - MPeak -RMDischarge + RMP2V - RMDeficit 
+        RMImport = MLoad + RMCharge + RMChargeD + RMSpillage - MPV - RMWind - MBaseload - MPeak - RMDischarge + RMP2V - RMDeficit 
                   
         RFQ = -1 * RMImport[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
         RAS = -1 * RMImport[:, np.where(Nodel=='NT')[0][0]] if 'NT' in Nodel else np.zeros(intervals)

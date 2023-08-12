@@ -5,7 +5,7 @@
 
 import numpy as np
 
-def Reliability(solution, flexible, start=None, end=None, output=False):
+def Reliability(solution, flexible, start=None, end=None, output=False, resilience=False):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
 
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] - flexible # Sj-ENLoad(j, t), MW
@@ -60,18 +60,20 @@ def Reliability(solution, flexible, start=None, end=None, output=False):
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
     Spillage = -1 * np.minimum(Netload + Charge + ChargeD, 0)
 
-    if output:
-        assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
-        assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
-        assert np.amin(Deficit) >= 0, 'Deficit below zero'
-        assert np.amin(DeficitD) > -0.1, 'DeficitD below zero: {}'.format(np.amin(DeficitD))
-        assert np.amin(Spillage) >= 0, 'Spillage below zero'
 
+    assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
+    assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
+    assert np.amin(Deficit) >= 0, 'Deficit below zero: {}'.format(np.amin(Deficit))
+    assert np.amin(DeficitD) > -0.1, 'DeficitD below zero: {}'.format(np.amin(DeficitD))
+    assert np.amin(Spillage) >= 0, 'Spillage below zero: {}'.format(np.amin(Spillage))
+    
+    if output:
         solution.Discharge, solution.Charge, solution.Storage, solution.P2V = (Discharge, Charge, Storage, P2V)
         solution.DischargeD, solution.ChargeD, solution.StorageD = (DischargeD, ChargeD, StorageD)
         solution.Deficit, solution.DeficitD, solution.Spillage = (Deficit, DeficitD, Spillage)
-
-        return Deficit, DeficitD
     
-    else: 
+    if resilience: 
         return (Netload, Storage, StorageD, Deficit, DeficitD, Spillage, Discharge, DischargeD, Charge, ChargeD, P2V)
+
+    else: 
+        return Deficit, DeficitD

@@ -45,7 +45,7 @@ def Analysis(x):
     pool.terminate()
 
     Flex = np.concatenate(Dispresult)
-    np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, relative), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.datetime.now()
     print('Dispatch took', endtime - starttime)
@@ -60,6 +60,6 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     # stormZone = None
     
-    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), delimiter=',')
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
     
     Analysis(capacities)

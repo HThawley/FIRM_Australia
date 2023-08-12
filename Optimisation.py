@@ -16,7 +16,7 @@ parser.add_argument('-i', default=400,  type=int,   required=False, help='maxite
 parser.add_argument('-p', default=2,    type=int,   required=False, help='popsize=2, 10')
 parser.add_argument('-m', default=0.5,  type=float, required=False, help='mutation=0.5')
 parser.add_argument('-r', default=0.3,  type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=31,   type=int,   required=False, help='11, 12, 13, ...')
+parser.add_argument('-s', default=1,   type=int,   required=False, help='11, 12, 13, ...')
 parser.add_argument('-c', default=1.5,  type=float, required=False, help='cost constraint as multiplier of optimised cost')
 parser.add_argument('-z', default='[0]',type=str,   required=False, help="'None','all', or space/comma seperated, [] bracketed, list of zones (as int)")
 parser.add_argument('-y', default=0,    type=int,   required=False, help='boolean whether to use relative probability or pure highWindFrac')
@@ -25,9 +25,10 @@ parser.add_argument('-n', default='None', type=str, required=False, help='1-in-N
 args = parser.parse_args()
 
 scenario = args.s
-n_year = None if args.n.upper() == 'NONE' else float(args.n)
+n_year = None if args.n.upper() == 'NONE' else int(args.n)
 costConstraintFactor = args.c
 relative = bool(args.y)
+
 
 
 def readPrintedArray(txt):      
@@ -66,7 +67,7 @@ if __name__=='__main__':
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1)
 
-    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, relative), 'a', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
     del csvfile

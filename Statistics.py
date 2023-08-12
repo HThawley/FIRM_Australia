@@ -77,7 +77,7 @@ def LPGM(solution):
              'PHES-Storage,StormDeficit,StormStorage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
-    np.savetxt('Results/S{}-{}-{}.csv'.format(scenario, stormZone, relative), C, fmt='%s', delimiter=',', header=header, comments='')
+    np.savetxt('Results/S{}-{}-{}.csv'.format(scenario, stormZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
@@ -96,7 +96,7 @@ def LPGM(solution):
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            np.savetxt('Results/S{}{}-{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone, relative), C, fmt='%s', delimiter=',', header=header, comments='')
+            np.savetxt('Results/S{}{}-{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -164,19 +164,22 @@ def GGTA(solution):
               + list(solution.CDC) 
               + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
-    np.savetxt('Results/GGTA{}-{}-{}.csv'.format(scenario,stormZone, relative), D, fmt='%f', delimiter=',')
+    np.savetxt('Results/GGTA{}-{}-{}.csv'.format(scenario,stormZone, n_year), D, fmt='%f', delimiter=',')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
 
-def Information(x, flexible):
+def Information(x, flexible, resilience = False):
     """Dispatch: Statistics.Information(x, Flex)"""
 
     start = dt.datetime.now()
     print("Statistics start at", start)
 
     S = Solution(x)
-    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
+    if resilience: 
+        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
+    else:
+        Deficit, DeficitD = Reliability(S, flexible=flexible, output=True, resilience=False)
 
     try:
         assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
@@ -184,10 +187,12 @@ def Information(x, flexible):
         pass
 
     if scenario>=21:
-        S.TDC, S.TDCR = Transmission(S, output=True, resilience=True) # TDC(t, k), MW
+        if resilience: 
+            S.TDC, S.TDCR = Transmission(S, output=True, resilience=True) # TDC(t, k), MW
+        else: 
+            S.TDC = Transmission(S, output=True, resilience=False) # TDC(t, k), MW
     else:
         S.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
-        S.TDCR = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
         
         S.MPeak = np.tile(flexible, (nodes, 1)).transpose() # MW
         S.MBaseload = GBaseload.copy() # MW
@@ -204,21 +209,22 @@ def Information(x, flexible):
         S.MChargeD = np.tile(S.ChargeD, (nodes, 1)).transpose()
         S.MP2V = np.tile(S.P2V, (nodes, 1)).transpose()
         
-        S.MWindR = S.GWindR.sum(axis=1) if S.GWindR.shape[1]>0 else np.zeros((intervals, 1))
-        
-        S.MDischargeR = np.tile(S.RDischarge, (nodes, 1)).transpose()
-        S.MDeficitR = np.tile(S.RDeficit, (nodes, 1)).transpose()
-        S.MChargeR = np.tile(S.RCharge, (nodes, 1)).transpose()
-        S.MStorageR = np.tile(S.RStorage, (nodes, 1)).transpose()
-        S.MSpillageR = np.tile(S.RSpillage, (nodes, 1)).transpose()
+        if resilience: 
+            S.TDCR = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
+            S.MWindR = S.GWindR.sum(axis=1) if S.GWindR.shape[1]>0 else np.zeros((intervals, 1))
+            
+            S.MDischargeR = np.tile(S.RDischarge, (nodes, 1)).transpose()
+            S.MDeficitR = np.tile(S.RDeficit, (nodes, 1)).transpose()
+            S.MChargeR = np.tile(S.RCharge, (nodes, 1)).transpose()
+            S.MStorageR = np.tile(S.RStorage, (nodes, 1)).transpose()
+            S.MSpillageR = np.tile(S.RSpillage, (nodes, 1)).transpose()
 
-        S.MChargeDR = np.tile(S.RChargeD, (nodes, 1)).transpose()
-        S.MP2VR = np.tile(S.RP2V, (nodes, 1)).transpose()
+            S.MChargeDR = np.tile(S.RChargeD, (nodes, 1)).transpose()
+            S.MP2VR = np.tile(S.RP2V, (nodes, 1)).transpose()
 
-    S.CDC = np.amax(abs(S.TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
-    S.CDC = np.amax(abs(S.TDCR), axis = 0) * pow(10, -3)
+
+    S.CDC = np.amax(abs(S.TDC), axis = 0) * pow(10, -3)
     S.FQ, S.NQ, S.NS, S.NV, S.AS, S.SW, S.TV = map(lambda k: S.TDC[:, k], range(S.TDC.shape[1]))
-    S.FQR, S.NQR, S.NSR, S.NVR, S.ASR, S.SWR, S.TVR = map(lambda k: S.TDCR[:, k], range(S.TDCR.shape[1]))
     
 
     S.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
@@ -226,8 +232,7 @@ def Information(x, flexible):
     S.MBio = S.MPeak - S.MHydro
     S.MHydro += S.MBaseload
 
-    S.Topology = np.array([-1 * S.FQ, -1 * (S.NQ + S.NS + S.NV), -1 * S.AS, S.FQ + S.NQ, S.NS + S.AS - S.SW, -1 * S.TV, S.NV + S.TV, S.SW])
-    S.TopologyR = np.array([-1 *S.FQR, -1 *(S.NQR +S.NSR +S.NVR), -1 *S.ASR,S.FQR +S.NQR,S.NSR +S.ASR -S.SWR, -1 *S.TVR,S.NVR +S.TVR,S.SWR])
+    S.Topology = np.array([-1 *S.FQ, -1 *(S.NQ +S.NS +S.NV), -1 *S.AS ,S.FQ +S.NQ ,S.NS + S.AS -S.SW, -1 *S.TV,S.NV +S.TV,S.SW])
 
     LPGM(S)
     GGTA(S)
@@ -236,6 +241,7 @@ def Information(x, flexible):
     print("Statistics took", end - start)
 
     return True
+
 
 if __name__ == '__main__':
     

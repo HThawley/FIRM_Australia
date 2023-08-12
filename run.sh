@@ -1,46 +1,19 @@
 #!/bin/bash
+python3 Optimisation.py -s 11 -z [1] -n 10
+python3 Optimisation.py -s 11 -z [2] -n 10
+python3 Optimisation.py -s 11 -z [3] -n 10
+python3 Optimisation.py -s 11 -z [4] -n 10
+python3 Optimisation.py -s 11 -z [5] -n 10
+python3 Optimisation.py -s 11 -z [6] -n 10
+python3 Optimisation.py -s 11 -z [7] -n 10
+python3 Optimisation.py -s 11 -z all -n 10
 
-
-python3 Optimisation.py -s 11 -z all -y 1 -v 0
-python3 Optimisation.py -s 11 -z all -y 0 -v 0
-python3 Optimisation.py -s 13 -z all -y 1 -v 0
-python3 Optimisation.py -s 13 -z all -y 0 -v 0
-python3 Optimisation.py -s 14 -z [0] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [0] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [1] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [1] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [2] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [2] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [3] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [3] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [4] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [4] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [5] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [5] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [6] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [6] -y 0 -v 0
-python3 Optimisation.py -s 14 -z [7] -y 1 -v 0
-python3 Optimisation.py -s 14 -z [7] -y 0 -v 0
-python3 Optimisation.py -s 14 -z all -y 1 -v 0
-python3 Optimisation.py -s 14 -z all -y 0 -v 0
-python3 Optimisation.py -s 15 -z [0] -y 1 -v 0
-python3 Optimisation.py -s 15 -z [0] -y 0 -v 0
-python3 Optimisation.py -s 15 -z [1] -y 1 -v 0
-python3 Optimisation.py -s 15 -z [1] -y 0 -v 0
-python3 Optimisation.py -s 15 -z [2] -y 1 -v 0
-python3 Optimisation.py -s 15 -z [2] -y 0 -v 0
-python3 Optimisation.py -s 15 -z [3] -y 1 -v 0
-python3 Optimisation.py -s 15 -z [3] -y 0 -v 0
-python3 Optimisation.py -s 15 -z all -y 1 -v 0
-python3 Optimisation.py -s 15 -z all -y 0 -v 0
-python3 Optimisation.py -s 16 -z [0] -y 1 -v 0
-python3 Optimisation.py -s 16 -z [0] -y 0 -v 0
-python3 Optimisation.py -s 16 -z [1] -y 1 -v 0
-python3 Optimisation.py -s 16 -z [1] -y 0 -v 0
-python3 Optimisation.py -s 16 -z [2] -y 1 -v 0
-python3 Optimisation.py -s 16 -z [2] -y 0 -v 0
-python3 Optimisation.py -s 16 -z all -y 1 -v 0
-python3 Optimisation.py -s 16 -z all -y 0 -v 0
-python3 Optimisation.py -s 17 -z [0] -y 1 -v 0
-python3 Optimisation.py -s 17 -z [0] -y 0 -v 0
-
+python3 Optimisation.py -s 21 -z [0] -n 10
+python3 Optimisation.py -s 21 -z [1] -n 10
+python3 Optimisation.py -s 21 -z [2] -n 10
+python3 Optimisation.py -s 21 -z [3] -n 10
+python3 Optimisation.py -s 21 -z [4] -n 10
+python3 Optimisation.py -s 21 -z [5] -n 10
+python3 Optimisation.py -s 21 -z [6] -n 10
+python3 Optimisation.py -s 21 -z [7] -n 10
+python3 Optimisation.py -s 21 -z all -n 10
