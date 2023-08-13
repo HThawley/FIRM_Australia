@@ -12,7 +12,7 @@ from multiprocessing import Pool, cpu_count
 def Flexible(instance):
     """Energy source of high flexibility"""
     year, x = instance
-    print('Dispatch works on', year)
+    print(year, end=', ')
 
     S = Solution(x)
 
@@ -37,10 +37,11 @@ def Analysis(x):
 
     starttime = dt.datetime.now()
     print('Dispatch starts at', starttime)
-
+    print('Dispatch works on: ', end='')
     # Multiprocessing
     pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
     instances = map(lambda y: [y] + [x], range(firstyear, finalyear + 1))
+ 
     Dispresult = pool.map(Flexible, instances)
     pool.terminate()
 
@@ -48,7 +49,7 @@ def Analysis(x):
     np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.datetime.now()
-    print('Dispatch took', endtime - starttime)
+    print('.\nDispatch took', endtime - starttime)
 
     from Statistics import Information
     Information(x, Flex)
