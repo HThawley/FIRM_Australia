@@ -186,7 +186,7 @@ def lambdaDuplicateZones(old, new):
         return [old, new]
     
 def removeAnomalousStns(stn):
-    badStns = ['053000','041560','068076','030024','016092','023849','018207', 
+    badStns = ['053000','041560','068076','030024','016092','023849','018207','033255', '023046',
                '092037','094250','091375','092133','092163','087185','078072','078031']
     return stn[~stn['station no.'].isin(badStns)]
 

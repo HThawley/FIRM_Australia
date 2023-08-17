@@ -77,6 +77,12 @@ if scenario<=17:
 
     Nodel, PVl, Windl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, Windl)]
 
+    if isinstance(stormZone, np.ndarray): 
+        zones = np.zeros(Windl.shape)
+        zones[stormZone] = 1 
+        zones = zones[np.where(Windl==node)[0]]
+        stormZone = np.where(zones==1)[0]
+
 if scenario>=21:
     coverage = [np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC']),
                 np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC', 'WA']),
@@ -101,11 +107,24 @@ if scenario>=21:
         CDS[np.where(coverage == 'QLD')[0]] /= 0.9
 
     Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
+    
+    if isinstance(stormZone, np.ndarray): 
+        zones = np.zeros(Windl.shape)
+        zones[stormZone] = 1 
+        zones = zones[np.where(np.in1d(Windl, coverage)==True)[0]]
+        stormZone = np.where(zones==1)[0]
 
 intervals, nodes = MLoad.shape
 years = int(resolution * intervals / 8760)
 pzones, wzones = (TSPV.shape[1], TSWind.shape[1])
 pidx, widx, sidx = (pzones, pzones + wzones, pzones + wzones + nodes)
+
+if isinstance(stormZone, str):
+    if stormZone.lower() == 'all': stormZone = np.arange(wzones) 
+    elif stormZone.lower() == 'none': stormZone = None
+    else: raise Exception('StormZone not valid, when type str ("all" or None")')
+elif stormZone is None: stormZone = None
+else: assert isinstance(stormZone, np.ndarray), 'stormZone should be "all", "None", or "[0 1 2 ...]"'
 
 energy = (MLoad + MLoadD).sum() * pow(10, -9) * resolution / years # PWh p.a.
 contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
@@ -120,6 +139,9 @@ except FileNotFoundError:
     
 OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
 costConstraint = costConstraintFactor*OptimisedCost
+
+
+
 
 def cost(solution): 
 
@@ -155,12 +177,8 @@ class Solution:
 
     def __init__(self, x):
         self.x = x
-        if isinstance(stormZone, str):
-            if stormZone == 'all': self.stormZone = np.arange(wzones) 
-            elif stormZone == 'None': self.stormZone = None
-            else: raise Exception('StormZone not valid')
-        elif stormZone is None: self.stormZone = None
-        else: self.stormZone = stormZone
+
+        self.stormZone = stormZone
 
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
