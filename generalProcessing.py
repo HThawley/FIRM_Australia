@@ -62,7 +62,7 @@ def consolidateGGTA(output = False, cap = None):
         ggta = addZoneCapacityGGTA(ggta, cap)
     if output: ggta.to_csv('Results/GGTA-consolidated.csv', index = False)
 
-    return ggta
+    return ggta.reset_index(drop=True)
 
 def addZoneCapacityGGTA(ggta, cap):
     ggta['zone capacity'] = 0
@@ -114,6 +114,7 @@ def consolidateCapacities(output=False):
         
         df.columns = (['Scenario', 'Zone', 'n_year'] + headers)
         df['n_year'] = df['n_year'].fillna(-1).astype(int)
+        caps[key] = caps[key].reset_index(drop=True)
         
         
     if output: 
