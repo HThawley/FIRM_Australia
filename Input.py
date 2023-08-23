@@ -119,13 +119,6 @@ years = int(resolution * intervals / 8760)
 pzones, wzones = (TSPV.shape[1], TSWind.shape[1])
 pidx, widx, sidx = (pzones, pzones + wzones, pzones + wzones + nodes)
 
-if isinstance(stormZone, str):
-    if stormZone.lower() == 'all': stormZone = np.arange(wzones) 
-    elif stormZone.lower() == 'none': stormZone = None
-    else: raise Exception('StormZone not valid, when type str ("all" or None")')
-elif stormZone is None: stormZone = None
-else: assert isinstance(stormZone, np.ndarray), 'stormZone should be "all", "None", or "[0 1 2 ...]"'
-
 energy = (MLoad + MLoadD).sum() * pow(10, -9) * resolution / years # PWh p.a.
 contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 
@@ -142,7 +135,10 @@ if x0 is None and x0mode >= 1:
 OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
 costConstraint = costConstraintFactor*OptimisedCost
 
-
+if isinstance(stormZone, str):
+    if stormZone.lower() == 'all': stormZone = 'All'
+    elif stormZone.lower() == 'none': stormZone = 'None'
+    else: raise Exception('StormZone not valid, when type str ("all" or None")')
 
 
 def cost(solution): 
@@ -179,6 +175,11 @@ class Solution:
 
     def __init__(self, x):
         self.x = x
+
+        if stormZone == 'All': self.stormZone = np.arange(wzones)
+        elif stormZone == 'None': self.stormZone = None
+        elif isinstance(stormZone, np.ndarray): self.stormZone = stormZone
+        else: raise ValueError('stormZone should be "None", "All", or np array') 
 
         self.stormZone = stormZone
 
