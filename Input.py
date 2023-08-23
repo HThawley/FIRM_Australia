@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, relative, stormZone, n_year
+from Optimisation import scenario, costConstraintFactor, relative, stormZone, n_year, x0mode
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
@@ -131,11 +131,13 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
-try: 
-    #if possible, use the original result as the first guess
-    x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
-except FileNotFoundError:
-    x0 = None
+x0 = None
+if x0mode == 2: 
+    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter = ',')
+    except FileNotFoundError: pass 
+if x0 is None and x0mode >= 1:
+    try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
+    except FileNotFoundError: pass
     
 OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
 costConstraint = costConstraintFactor*OptimisedCost

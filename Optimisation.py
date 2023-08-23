@@ -21,14 +21,15 @@ parser.add_argument('-c', default=1.5,  type=float, required=False, help='cost c
 parser.add_argument('-z', default='[0]',type=str,   required=False, help="'None','all', or space/comma seperated, [] bracketed, list of zones (as int)")
 parser.add_argument('-y', default=0,    type=int,   required=False, help='boolean whether to use relative probability or pure highWindFrac')
 parser.add_argument('-v', default=1,    type=int,   required=False, help='boolean whether to print out optimisation at each step')
-parser.add_argument('-n', default='None', type=str, required=False, help='1-in-N-year to consider, None uses value in windFragility.csv')
+parser.add_argument('-n', default='None',type=str,  required=False, help='1-in-N-year to consider, None uses value in windFragility.csv')
+parser.add_argument('-x', default=1,    type=int,   required=False, help="What first approx to use. 0-none, 1-Bin's results, 2-where it last ended. Note: if it can't find, it will try the next.")
 args = parser.parse_args()
 
 scenario = args.s
 n_year = None if args.n.upper() == 'NONE' else int(args.n)
 costConstraintFactor = args.c
 relative = bool(args.y)
-
+x0mode = args.x
 
 
 def readPrintedArray(txt):      
@@ -67,7 +68,7 @@ if __name__=='__main__':
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1)
 
-    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), 'a', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), 'w', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
     del csvfile
