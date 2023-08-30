@@ -175,13 +175,12 @@ class Solution:
 
     def __init__(self, x):
         self.x = x
-
-        if stormZone == 'All': self.stormZone = np.arange(wzones)
-        elif stormZone == 'None': self.stormZone = None
+        
+        if isinstance(stormZone, str):
+            if stormZone == 'All': self.stormZone = np.arange(wzones)
+            elif stormZone == 'None': self.stormZone = None
         elif isinstance(stormZone, np.ndarray): self.stormZone = stormZone
         else: raise ValueError('stormZone should be "None", "All", or np array') 
-
-        self.stormZone = stormZone
 
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
