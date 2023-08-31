@@ -36,8 +36,8 @@ def readPrintedArray(txt):
     txt = sub(r"(?<!\[)\s+(?!\])", r",", txt)
     return np.array(literal_eval(txt), dtype =int)
 
-stormZone = 'All' if args.z == 'All' else None if args.z == 'None' else readPrintedArray(args.z)
-
+try: stormZone = readPrintedArray(args.z)
+except (TypeError, ValueError): stormZone = args.z
 
 from Input import *
 
