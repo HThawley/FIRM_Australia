@@ -75,13 +75,13 @@ if scenario<=17:
     if node=='QLD':
         MLoad, MLoadD, CDP, CDS = [x / 0.9 for x in (MLoad, MLoadD, CDP, CDS)]
 
-    Nodel, PVl, Windl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, Windl)]
-
     if isinstance(stormZone, np.ndarray): 
         zones = np.zeros(Windl.shape)
         zones[stormZone] = 1 
         zones = zones[np.where(Windl==node)[0]]
         stormZone = np.where(zones==1)[0]
+
+    Nodel, PVl, Windl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, Windl)]
 
 if scenario>=21:
     coverage = [np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC']),
@@ -106,13 +106,13 @@ if scenario>=21:
         CDP[np.where(coverage == 'QLD')[0]] /= 0.9
         CDS[np.where(coverage == 'QLD')[0]] /= 0.9
 
-    Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
-    
     if isinstance(stormZone, np.ndarray): 
         zones = np.zeros(Windl.shape)
         zones[stormZone] = 1 
         zones = zones[np.where(np.in1d(Windl, coverage)==True)[0]]
         stormZone = np.where(zones==1)[0]
+
+    Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
 
 intervals, nodes = MLoad.shape
 years = int(resolution * intervals / 8760)
