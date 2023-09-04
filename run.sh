@@ -1,8 +1,6 @@
 #!/bin/bash
 
-python3 Optimisation.py -s 21 -z 'None'         -n -1 -v 0 -x 2 -i 500
-python3 Optimisation.py -s 21 -z 'all'          -n 25 -v 0 -x 2 -i 1000
-python3 Optimisation.py -s 21 -z '[7]'          -n 25 -v 0 -x 1 -i 2500
+python3 Optimisation.py -s 21 -z 'all'          -n 25 -v 0 -x 2 -i 2000
 python3 Optimisation.py -s 21 -z '[10]'         -n 25 -v 0 -x 1 -i 2500
 python3 Optimisation.py -s 21 -z '[14]'         -n 25 -v 0 -x 1 -i 2500
 python3 Optimisation.py -s 21 -z '[3 27 28]'    -n 25 -v 0 -x 1 -i 2500
