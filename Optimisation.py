@@ -37,7 +37,7 @@ def readPrintedArray(txt):
     return np.array(literal_eval(txt), dtype =int)
 
 try: stormZone = readPrintedArray(args.z)
-except (TypeError, ValueError): stormZone = args.z
+except (TypeError, ValueError): stormZone = 'All' if args.z.lower()=='all' else 'None' if arg.z.lower()=='none' else args.z
 
 from Input import *
 
