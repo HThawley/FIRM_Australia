@@ -10,6 +10,11 @@ from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
 #%%
+if isinstance(stormZone, str):
+    if stormZone.lower() == 'all': stormZone = 'All'
+    elif stormZone.lower() == 'none': stormZone = 'None'
+    else: raise Exception('StormZone not valid, when type str ("all" or None")')
+
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
 PVl   = np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
 Windl = np.array(['NSW']*8 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*2 + ['SA']*8 + ['TAS']*4 + ['VIC']*4 + ['WA']*3 + ['NT']*1)
@@ -79,7 +84,7 @@ if scenario<=17:
         zones = np.zeros(Windl.shape)
         zones[stormZone] = 1 
         zones = zones[np.where(Windl==node)[0]]
-        stormZone = np.where(zones==1)[0]
+        stormZoneIndx = np.where(zones==1)[0]
 
     Nodel, PVl, Windl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, Windl)]
 
@@ -110,7 +115,7 @@ if scenario>=21:
         zones = np.zeros(Windl.shape)
         zones[stormZone] = 1 
         zones = zones[np.where(np.in1d(Windl, coverage)==True)[0]]
-        stormZone = np.where(zones==1)[0]
+        stormZoneIndx = np.where(zones==1)[0]
 
     Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
 
@@ -134,12 +139,6 @@ if x0 is None and x0mode >= 1:
     
 OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
 costConstraint = costConstraintFactor*OptimisedCost
-
-if isinstance(stormZone, str):
-    if stormZone.lower() == 'all': stormZone = 'All'
-    elif stormZone.lower() == 'none': stormZone = 'None'
-    else: raise Exception('StormZone not valid, when type str ("all" or None")')
-
 
 def cost(solution): 
 
@@ -177,9 +176,9 @@ class Solution:
         self.x = x
         
         if isinstance(stormZone, str):
-            if stormZone == 'All': self.stormZone = np.arange(wzones)
-            elif stormZone == 'None': self.stormZone = None
-        elif isinstance(stormZone, np.ndarray): self.stormZone = stormZone
+            if stormZone == 'All': self.stormZone, self.stormZoneIndx = 'All', np.arange(wzones)
+            elif stormZone == 'None': self.stormZone, self.stormZoneIndx = 'None', None                
+        elif isinstance(stormZone, np.ndarray): self.stormZone, self.stormZoneIndx  = stormZone, stormZoneIndx
         else: raise ValueError('stormZone should be "None", "All", or np array') 
 
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
@@ -205,21 +204,21 @@ class Solution:
         self.windFrag = np.ones(windFrag.shape)
         self.stormDur = np.zeros(stormDur.shape)
         
-        if stormZone is not None:
-            stormZoneFrag = windFrag.copy()[self.stormZone]
+        if self.stormZoneIndx is not None:
+            stormZoneFrag = windFrag.copy()[self.stormZoneIndx]
             if relative: 
                 stormZoneFrag = stormZoneFrag/stormZoneFrag.sum()
                 stormZoneFrag = np.array(pd.Series(stormZoneFrag).map(dict(zip(np.sort(stormZoneFrag), np.flip(np.sort(stormZoneFrag))))))
             stormZoneFrag = 1 - stormZoneFrag
             
-            self.windFrag[self.stormZone] = stormZoneFrag
-            self.stormDur[self.stormZone] = stormDur[self.stormZone]
+            self.windFrag[self.stormZoneIndx] = stormZoneFrag
+            self.stormDur[self.stormZoneIndx] = stormDur[self.stormZoneIndx]
         
         self.stormDur = np.rint(self.stormDur).astype(int)
         self.CWindR = self.CWind*(self.windFrag)
         self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
         
-        if stormZone is not None:
+        if self.stormZoneIndx is not None:
             self.WindDiff = self.GWindR - self.GWind
         else: 
             self.WindDiff = np.zeros(self.GWind.shape)

@@ -9,7 +9,7 @@ from Simulation import Reliability
 def Resilience(solution, flexible, start=None, end=None):
     """Deficit = Simulation.Resilience(S, hydro=...)"""
 
-    windDiff, stormDur, stormZone = solution.WindDiff, solution.stormDur, solution.stormZone
+    windDiff, stormDur, stormZoneIndx = solution.WindDiff, solution.stormDur, solution.stormZoneIndx
     
     solution.flexible = flexible # MW
 
@@ -32,7 +32,7 @@ def Resilience(solution, flexible, start=None, end=None):
 # =============================================================================
 #         # Re-simulate with resilience losses due to windstorm, and including storage depletion
 # =============================================================================
-    if stormZone is not None:    
+    if stormZoneIndx is not None:    
         # State of charge is taken as the state of charge {StormDuration} steps ago 
         # +/- the charging that occurs under the modified generation capacity   
         storageAdj = [
@@ -40,7 +40,7 @@ def Resilience(solution, flexible, start=None, end=None):
                 np.concatenate([np.zeros(stormDur[i] - 1), #function only recognises full length windows -> pad with zeros
                                 windDiff[:,i]]), 
                 stormDur[i]).sum(axis=1) 
-            for i in stormZone]
+            for i in stormZoneIndx]
         
         if len(storageAdj) == 1: storageAdj = storageAdj[0]
         else: storageAdj = np.stack(storageAdj, axis = 1).sum(axis=1)
