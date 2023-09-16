@@ -56,15 +56,19 @@ def Debug(solution):
 
     return True
 
-def LPGM(solution):
+def LPGM(solution, RSim=None):
     """Load profiles and generation mix data"""
 
-    Debug(solution)
-
+    if RSim is None: Debug(solution)
+    # print((solution.MLoad + solution.MLoadD).sum(axis=1).shape, (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1).shape,
+    #       solution.MHydro.sum(axis=1).shape, solution.MBio.sum(axis=1).shape, solution.GPV.sum(axis=1).shape, solution.GWind.sum(axis=1).shape, solution.GWindR.sum(axis=1).shape,
+    #       solution.Discharge.shape, solution.Deficit.shape, solution.Spillage.shape, solution.Charge.shape, solution.Storage.shape,
+    #       (solution.GWind - solution.GWindR).sum(), solution.RDeficit, solution.RStorage,solution.RDischarge, -1*solution.RCharge,-1*solution.RSpillage,
+    #       solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV)
     C = np.stack([(solution.MLoad + solution.MLoadD).sum(axis=1), (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1),
                   solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1), solution.GWindR.sum(axis=1),
                   solution.Discharge, solution.Deficit, -1 * solution.Spillage, -1 * solution.Charge, solution.Storage,
-                  solution.RDeficit, solution.RStorage,solution.RDischarge, -1*solution.RCharge,-1*solution.Spillage,
+                  (solution.GWind - solution.GWindR).sum(axis=1), solution.RDeficit, solution.RStorage,solution.RDischarge, -1*solution.RCharge,-1*solution.RSpillage,
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
     C = np.around(C.transpose())
 
@@ -72,17 +76,22 @@ def LPGM(solution):
     C = np.insert(C.astype('str'), 0, datentime, axis=1)
 
     header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
-             'Hydropower,Biomass,Solar photovoltaics,Wind,StormPowerLoss,Pumped hydro energy storage,Energy deficit,Energy spillage,PHES-Charge,' \
-             'PHES-Storage,StormDeficit,StormStorage,StormCharge,StormDischarge,StormSpillage' \
+             'Hydropower,Biomass,Solar photovoltaics,Wind,StormPower,' \
+             'PHES-power,Energy deficit,Energy spillage,PHES-Charge,PHES-Storage,' \
+             'StormPowerLoss,StormDeficit,StormStorage,StormPHES-power,StormPHES-Charge,StormSpillage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
-    np.savetxt('Results/S{}-{}-{}.csv'.format(scenario, stormZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
+    if RSim is None: np.savetxt('Results/S{}-{}-{}.csv'.format(scenario, stormZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
+    else: 
+        C = C[max(0, RSim[1] - solution.stormDur.max() - 672):RSim[1] + 49, :] #2 weeks before storm + 1 day after 
+        np.savetxt('Results/S-Deficit{}-{}-{}-{}.csv'.format(scenario, stormZone, n_year, RSim[0]), C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
-                 'Hydropower,Biomass,Solar photovoltaics,Wind,Wind loss due to storm,Pumped hydro energy storage,Energy deficit,Energy spillage,' \
-                 'Transmission,PHES-Charge,' \
-                 'PHES-Storage,Surplus,StormDeficit,StormStorage,StormCharge,StormDischarge,StormSpillage'
+                 'Hydropower,Biomass,Solar photovoltaics,Wind,StormPower,' \
+                 'PHES-power,Energy deficit,Energy spillage,Transmission,PHES-Charge,' \
+                 'PHES-Storage,StormPowerLoss,StormDeficit,'\
+                 'StormStorage,StormPHES-power,StormPHES-charge,StormSpillage'
 
         Topology = solution.Topology[np.where(np.in1d(np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']), coverage) == True)[0]]
 
@@ -90,13 +99,15 @@ def LPGM(solution):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
                           solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.RMWind[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
-                          solution.MStorage[:, j],
-                          solution.RMDeficit[:, j], solution.RMStorage[:, j], solution.RMDischarge[:, j],
-                          -1*solution.RMCharge[:, j],-1*solution.RMSpillage[:, j]])
+                          solution.MStorage[:, j],(solution.MWind[:,j]-solution.RMWind[:,j]), solution.RMDeficit[:, j], 
+                          solution.RMStorage[:, j], solution.RMDischarge[:, j],-1*solution.RMCharge[:, j],-1*solution.RMSpillage[:, j]])
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            np.savetxt('Results/S{}{}-{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
+            if RSim is None: np.savetxt('Results/S{}{}-{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
+            else: pass
+                # C = C[max(0, RSim[1] - solution.stormDur.max() - 672):RSim[1] + 49, :] #2 weeks before storm + 1 day after 
+                # np.savetxt('Results/S-Deficit{}{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], stormZone, n_year, RSim[0]), C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -169,8 +180,75 @@ def GGTA(solution):
 
     return True
 
-def Information(x, flexible, resilience = False):
+def TransmissionFactors(solution, resilience = False):
+    if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
+    
+    if scenario>=21:
+        if resilience: 
+            solution.TDC, solution.TDCR = Transmission(solution, output=True, resilience=True) # TDC(t, k), MW
+        else: 
+            solution.TDC = Transmission(solution, output=True, resilience=False) # TDC(t, k), MW
+    else:
+        solution.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
+        
+        solution.MPeak = np.tile(flexible, (nodes, 1)).transpose() # MW
+        solution.MBaseload = GBaseload.copy() # MW
+
+        solution.MPV = solution.GPV.sum(axis=1) if solution.GPV.shape[1]>0 else np.zeros((intervals, 1))
+        solution.MWind = solution.GWind.sum(axis=1) if solution.GWind.shape[1]>0 else np.zeros((intervals, 1))
+
+        solution.MDischarge = np.tile(solution.Discharge, (nodes, 1)).transpose()
+        solution.MDeficit = np.tile(solution.Deficit, (nodes, 1)).transpose()
+        solution.MCharge = np.tile(solution.Charge, (nodes, 1)).transpose()
+        solution.Msolutiontorage = np.tile(solution.solutiontorage, (nodes, 1)).transpose()
+        solution.Msolutionpillage = np.tile(solution.solutionpillage, (nodes, 1)).transpose()
+
+        solution.MChargeD = np.tile(solution.ChargeD, (nodes, 1)).transpose()
+        solution.MP2V = np.tile(solution.P2V, (nodes, 1)).transpose()
+        
+        if resilience: 
+            solution.TDCR = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
+            solution.MWindR = solution.GWindR.sum(axis=1) if solution.GWindR.shape[1]>0 else np.zeros((intervals, 1))
+            
+            solution.MDischargeR = np.tile(solution.RDischarge, (nodes, 1)).transpose()
+            solution.MDeficitR = np.tile(solution.RDeficit, (nodes, 1)).transpose()
+            solution.MChargeR = np.tile(solution.RCharge, (nodes, 1)).transpose()
+            solution.MsolutiontorageR = np.tile(solution.Rsolutiontorage, (nodes, 1)).transpose()
+            solution.MsolutionpillageR = np.tile(solution.Rsolutionpillage, (nodes, 1)).transpose()
+
+            solution.MChargeDR = np.tile(solution.RChargeD, (nodes, 1)).transpose()
+            solution.MP2VR = np.tile(solution.RP2V, (nodes, 1)).transpose()
+            
+    solution.CDC = np.amax(abs(solution.TDC), axis = 0) * pow(10, -3)
+    solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV = map(lambda k: solution.TDC[:, k], range(solution.TDC.shape[1]))
+    
+
+    solution.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
+    solution.MHydro = np.minimum(solution.MHydro, solution.MPeak)
+    solution.MBio = solution.MPeak - solution.MHydro
+    solution.MHydro += solution.MBaseload
+
+    solution.Topology = np.array(
+        [-1 *solution.FQ, -1 *(solution.NQ +solution.NS +solution.NV), -1 *solution.AS ,solution.FQ +solution.NQ, 
+         solution.NS + solution.AS -solution.SW, -1 *solution.TV,solution.NV +solution.TV,solution.SW])
+    return solution
+    
+def DeficitAnalysis(capacities, flexible, N=1):   
+    if N is None: return True
+    solution = Solution(capacities)
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=flexible)
+    topNDeficitIndx = np.flip(np.argpartition(RDeficit, -N)[-N:])
+    
+    for n, indx in enumerate(topNDeficitIndx):
+        solution = Solution(capacities)
+        solution = Resilience(solution, flexible, RSim=indx, output='solution')
+        solution = TransmissionFactors(solution)
+        LPGM(solution, (n, indx))
+    return True 
+
+def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     """Dispatch: Statistics.Information(x, Flex)"""
+    if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
 
     start = dt.datetime.now()
     print("Statistics start at", start)
@@ -178,61 +256,13 @@ def Information(x, flexible, resilience = False):
     S = Solution(x)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
-    try:
-        assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
-    except AssertionError:
-        pass
+    assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
 
-    if scenario>=21:
-        if resilience: 
-            S.TDC, S.TDCR = Transmission(S, output=True, resilience=True) # TDC(t, k), MW
-        else: 
-            S.TDC = Transmission(S, output=True, resilience=False) # TDC(t, k), MW
-    else:
-        S.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
-        
-        S.MPeak = np.tile(flexible, (nodes, 1)).transpose() # MW
-        S.MBaseload = GBaseload.copy() # MW
-
-        S.MPV = S.GPV.sum(axis=1) if S.GPV.shape[1]>0 else np.zeros((intervals, 1))
-        S.MWind = S.GWind.sum(axis=1) if S.GWind.shape[1]>0 else np.zeros((intervals, 1))
-
-        S.MDischarge = np.tile(S.Discharge, (nodes, 1)).transpose()
-        S.MDeficit = np.tile(S.Deficit, (nodes, 1)).transpose()
-        S.MCharge = np.tile(S.Charge, (nodes, 1)).transpose()
-        S.MStorage = np.tile(S.Storage, (nodes, 1)).transpose()
-        S.MSpillage = np.tile(S.Spillage, (nodes, 1)).transpose()
-
-        S.MChargeD = np.tile(S.ChargeD, (nodes, 1)).transpose()
-        S.MP2V = np.tile(S.P2V, (nodes, 1)).transpose()
-        
-        if resilience: 
-            S.TDCR = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
-            S.MWindR = S.GWindR.sum(axis=1) if S.GWindR.shape[1]>0 else np.zeros((intervals, 1))
-            
-            S.MDischargeR = np.tile(S.RDischarge, (nodes, 1)).transpose()
-            S.MDeficitR = np.tile(S.RDeficit, (nodes, 1)).transpose()
-            S.MChargeR = np.tile(S.RCharge, (nodes, 1)).transpose()
-            S.MStorageR = np.tile(S.RStorage, (nodes, 1)).transpose()
-            S.MSpillageR = np.tile(S.RSpillage, (nodes, 1)).transpose()
-
-            S.MChargeDR = np.tile(S.RChargeD, (nodes, 1)).transpose()
-            S.MP2VR = np.tile(S.RP2V, (nodes, 1)).transpose()
-
-
-    S.CDC = np.amax(abs(S.TDC), axis = 0) * pow(10, -3)
-    S.FQ, S.NQ, S.NS, S.NV, S.AS, S.SW, S.TV = map(lambda k: S.TDC[:, k], range(S.TDC.shape[1]))
-    
-
-    S.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
-    S.MHydro = np.minimum(S.MHydro, S.MPeak)
-    S.MBio = S.MPeak - S.MHydro
-    S.MHydro += S.MBaseload
-
-    S.Topology = np.array([-1 *S.FQ, -1 *(S.NQ +S.NS +S.NV), -1 *S.AS ,S.FQ +S.NQ ,S.NS + S.AS -S.SW, -1 *S.TV,S.NV +S.TV,S.SW])
-
+    S = TransmissionFactors(S)
+    if resilience: return debug(S)
     LPGM(S)
     GGTA(S)
+    DeficitAnalysis(x, flexible, NDeficitAnalysis)
 
     end = dt.datetime.now()
     print("Statistics took", end - start)
@@ -241,16 +271,7 @@ def Information(x, flexible, resilience = False):
 
 
 if __name__ == '__main__':
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+    flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',', skip_header=1)
     
-    # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    # flexible = np.genfromtxt('CostOptimisationResults/Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=',', skip_header=1)
-    
-    scenario = 11
-    n_year = 10
-    for i in (1,2,3,4,5,6,7, 'all'):
-        stormZone = np.array([i]) if isinstance(i, int) else 'all'
-        
-        capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
-        flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',', skip_header=1)
-    
-        Information(capacities, flexible)
+    Information(capacities, flexible, 5)

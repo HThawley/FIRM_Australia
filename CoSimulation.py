@@ -6,10 +6,10 @@
 import numpy as np
 from Simulation import Reliability
 
-def Resilience(solution, flexible, start=None, end=None):
+def Resilience(solution, flexible, start=None, end=None, RSim=None, output = 'deficits'):
     """Deficit = Simulation.Resilience(S, hydro=...)"""
 
-    windDiff, stormDur, stormZoneIndx = solution.WindDiff, solution.stormDur, solution.stormZoneIndx
+    windDiff, stormDur, stormZoneIndx = solution.WindDiff[start:end], solution.stormDur, solution.stormZoneIndx
     
     solution.flexible = flexible # MW
 
@@ -22,29 +22,47 @@ def Resilience(solution, flexible, start=None, end=None):
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
     (Netload, Storage, StorageD, Deficit, DeficitD, Spillage, Discharge, DischargeD, 
-     Charge, ChargeD, P2V) = Reliability(solution, flexible, start, end, output=False, resilience = True)
+         Charge, ChargeD, P2V) = Reliability(solution, flexible, start, end, output=False, resilience = True)
 
-    try:
-        RNetload = Netload + windDiff.sum(axis=1) 
-    except np.AxisError: 
-        RNetload = Netload + windDiff
-
-# =============================================================================
-#         # Re-simulate with resilience losses due to windstorm, and including storage depletion
-# =============================================================================
-    if stormZoneIndx is not None:    
-        # State of charge is taken as the state of charge {StormDuration} steps ago 
-        # +/- the charging that occurs under the modified generation capacity   
-        storageAdj = [
-            np.lib.stride_tricks.sliding_window_view(
-                np.concatenate([np.zeros(stormDur[i] - 1), #function only recognises full length windows -> pad with zeros
-                                windDiff[:,i]]), 
-                stormDur[i]).sum(axis=1) 
-            for i in stormZoneIndx]
+    if RSim is None: 
+        try: RNetload = Netload + windDiff.sum(axis=1) 
+        except np.AxisError: RNetload = Netload + windDiff
         
-        if len(storageAdj) == 1: storageAdj = storageAdj[0]
-        else: storageAdj = np.stack(storageAdj, axis = 1).sum(axis=1)
-    
+        if stormZoneIndx is not None:
+            # State of charge is taken as the state of charge {StormDuration} steps ago 
+            # +/- the charging that occurs under the modified generation capacity   
+            storageAdj = [
+                np.lib.stride_tricks.sliding_window_view(
+                    np.concatenate([np.zeros(stormDur[i] - 1), #function only recognises full length windows -> pad with zeros
+                                    windDiff[:,i]]), 
+                    stormDur[i]).sum(axis=1) 
+                for i in stormZoneIndx]        
+            
+            if len(storageAdj) == 1: storageAdj = storageAdj[0]
+            else: storageAdj = np.stack(storageAdj, axis = 1).sum(axis=1)
+        
+        
+    elif RSim > 0: 
+        # Simulate a single storm which has been going until the specified time instance 
+        windDiffInst = np.zeros(windDiff.shape)
+        for i in stormZoneIndx:
+            windDiffInst[max(0, RSim-stormDur[i]):RSim+1, i] = windDiff[max(0, RSim-stormDur[i]):RSim+1, i] 
+        windDiff, solution.WindDiff = windDiffInst, windDiffInst
+        
+        try: RNetload = Netload + windDiffInst.sum(axis=1) 
+        except np.AxisError: RNetload = Netload + windDiffInst
+        
+        if stormZoneIndx is not None: 
+            storageAdj = windDiff.sum(axis=1)
+            storageAdj[np.where(storageAdj!=0)] = np.cumsum(storageAdj[np.where(storageAdj!=0)])
+        
+    else: raise Exception("Invalid RSim argument")
+
+    # =============================================================================
+    # Re-simulate with resilience losses due to windstorm, and including storage depletion
+    # =============================================================================
+    if stormZoneIndx is not None:    
+        
         Storage_1, StorageD_1 = np.roll(Storage, 1, axis = 0), np.roll(StorageD, 1, axis = 0)
         Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD
         
@@ -64,12 +82,11 @@ def Resilience(solution, flexible, start=None, end=None):
         RP2V = np.minimum(Rdiff / efficiencyD, Pcapacity - RDischarge - RCharge) 
         RP2V[np.where((Rdiff <= 0) | (RStorage / resolution <= Rdiff / efficiencyD))] = 0
     
-    
         RDischarge = RDischarge + RP2V
-        RStorage = RStorage - RP2V * resolution
+        RStorage = RStorage - RP2V * resolution 
     else: 
-        RCharge, RChargeD, RDischarge, RDischargeD, RP2V = Charge, ChargeD, Discharge, DischargeD, P2V
-        RStorage, RStorageD, RDeficit, RDeficitD, RSpillage = Storage, StorageD, Deficit, DeficitD, Spillage
+        (RCharge, RChargeD, RDischarge, RDischargeD, RP2V, RStorage, RStorageD, RDeficit, RDeficitD, RSpillage
+         ) = (Charge, ChargeD, Discharge, DischargeD, P2V, Storage, StorageD, Deficit, DeficitD, Spillage)
 
     Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
@@ -96,6 +113,8 @@ def Resilience(solution, flexible, start=None, end=None):
     solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (RDischarge, RCharge, RStorage, RP2V)
     solution.RDischargeD, solution.RChargeD, solution.RStorageD = (RDischargeD, RChargeD, RStorageD)
     solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage) 
-    # solution.Surplus, solution.SurplusD = (Surplus, SurplusD)
 
-    return Deficit, DeficitD, RDeficit, RDeficitD#, Surplus, SurplusD
+    if output =='deficits': return Deficit, DeficitD, RDeficit, RDeficitD
+    elif output == 'solution': return solution
+    elif output is None: return None
+    else: raise Exception("Specify output")

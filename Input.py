@@ -37,10 +37,9 @@ windFrag, stormDur = windFrag[0], windFrag[1].astype(int)
 if n_year is not None:
     durations = np.genfromtxt('Data/stormDurations.csv', delimiter=',', usecols=[0,1])
     durations = durations[durations[:, 0].argsort()]
-    
-    coverage = np.genfromtxt('Data/stormCoverage.csv')
     durations = np.repeat(durations[:,0], durations[:,1].astype(int))
     
+    coverage = np.genfromtxt('Data/stormCoverage.csv')
     stormsPerYear = len(durations)/coverage
     percentile = 1/(stormsPerYear*n_year)
     
@@ -239,13 +238,14 @@ def printInfo(x):
     S = Solution(x)
     print(f"""
           stormZone: {S.stormZone}
+          stormZoneIndx: {S.stormZoneIndx}
           cost: {S.cost}
           penalties: {S.penalties}
           stormDef: {S.StormDeficit}
           ObjectiveFunction: {RSolution(S)}
-          windFrag: {S.windFrag[S.stormZone]}
-          stormDur: {S.stormDur[S.stormZone]}
-          capacity: {np.array(S.CWind)[S.stormZone]}""")
+          windFrag: {S.windFrag[S.stormZoneIndx]}
+          stormDur: {S.stormDur[S.stormZoneIndx]}
+          capacity: {np.array(S.CWind)[S.stormZoneIndx]}""")
 
 def RSolution(S):
     StormDeficit, penalties, cost = S.StormDeficit, S.penalties, S.cost
