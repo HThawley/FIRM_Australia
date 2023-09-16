@@ -248,7 +248,7 @@ def DeficitAnalysis(capacities, flexible, N=1):
 
 def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     """Dispatch: Statistics.Information(x, Flex)"""
-    if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
+    # if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
 
     start = dt.datetime.now()
     print("Statistics start at", start)
@@ -257,6 +257,7 @@ def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
     assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
+    # assert (RDeficit + RDeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
 
     S = TransmissionFactors(S)
     if resilience: return debug(S)

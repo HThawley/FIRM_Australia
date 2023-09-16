@@ -10,9 +10,8 @@ from CoSimulation import Resilience
 import datetime as dt
 from multiprocessing import Pool, cpu_count
 
-def Flexible(instance, resilience=False):
+def Flexible(year, x, resilience=False):
     """Energy source of high flexibility"""
-    year, x = instance
     print(year, end=', ')
 
     S = Solution(x)
@@ -47,13 +46,13 @@ def Analysis(x):
     starttime = dt.datetime.now()
     print('Dispatch starts at', starttime)
     print('Dispatch works on: ', end='')
-    # Multiprocessing
+    # # Multiprocessing
     pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
-    instances = map(lambda y: [y] + [x], range(firstyear, finalyear + 1))
+    instances = [(year, x, True) for year in range(firstyear, finalyear + 1)]
  
-    Dispresult = pool.map(Flexible, instances)
+    Dispresult = pool.starmap(Flexible, instances)
     pool.terminate()
-    
+
     Flex, RFlex = tuple(zip(*Dispresult))
     Flex, RFlex = np.concatenate(Flex), np.concatenate(RFlex)
     
@@ -63,7 +62,12 @@ def Analysis(x):
     endtime = dt.datetime.now()
     print('.\nDispatch took', endtime - starttime)
 
+    # Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
+    # RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
+
     from Statistics import Information
+    Information(x, RFlex, resilience=True)
+    Information(x, Flex, resilience=False)
     # Information(x, Flex, 3)
 
     return True
@@ -72,5 +76,5 @@ if __name__ == '__main__':
 
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
-    
+
     Analysis(capacities)
