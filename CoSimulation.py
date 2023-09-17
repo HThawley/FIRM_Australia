@@ -92,7 +92,6 @@ def Resilience(solution, flexible, start=None, end=None, RSim=None, output = 'de
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
     Spillage = -1 * np.minimum(Netload + Charge + ChargeD, 0)
 
-    
     RDeficit = np.maximum(RNetload - RDischarge + RP2V, 0)
     RDeficitD = ConsumeD - RDischargeD - RP2V * efficiencyD
     RSpillage = -1 * np.minimum(RNetload + RCharge + RChargeD, 0)

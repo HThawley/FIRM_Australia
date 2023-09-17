@@ -26,7 +26,7 @@ def Flexible(year, x, resilience=False):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         rflexible[i: i+timestep] = 0
-        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=rflexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
+        RDeficit, RDeficitD = Resilience(S, flexible=rflexible, start=startidx, end=endidx, output='deficits')[0,1] # Sj-EDE(t, j), MW
         Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=True) # Sj-EDE(t, j), MW
         if (Deficit + DeficitD).sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
@@ -47,23 +47,23 @@ def Analysis(x):
     print('Dispatch starts at', starttime)
     print('Dispatch works on: ', end='')
     # # Multiprocessing
-    pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
-    instances = [(year, x, True) for year in range(firstyear, finalyear + 1)]
+    # pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
+    # instances = [(year, x, True) for year in range(firstyear, finalyear + 1)]
  
-    Dispresult = pool.starmap(Flexible, instances)
-    pool.terminate()
+    # Dispresult = pool.starmap(Flexible, instances)
+    # pool.terminate()
 
-    Flex, RFlex = tuple(zip(*Dispresult))
-    Flex, RFlex = np.concatenate(Flex), np.concatenate(RFlex)
+    # Flex, RFlex = tuple(zip(*Dispresult))
+    # Flex, RFlex = np.concatenate(Flex), np.concatenate(RFlex)
     
-    np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-    np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    # np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    # np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.datetime.now()
     print('.\nDispatch took', endtime - starttime)
 
-    # Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
-    # RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
+    Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
+    RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
 
     from Statistics import Information
     Information(x, RFlex, resilience=True)

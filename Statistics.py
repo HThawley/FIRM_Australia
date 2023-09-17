@@ -275,4 +275,4 @@ if __name__ == '__main__':
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
     flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',', skip_header=1)
     
-    Information(capacities, flexible, 5)
+    # Information(capacities, flexible, 5)
