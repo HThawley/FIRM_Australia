@@ -67,7 +67,7 @@ def Resilience(solution, flexible, start=None, end=None, RSim=None, output = 'de
         Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD
         
         RStorage_1 = np.maximum(0, Storage_1 + storageAdj)
-        RStorageD_1 = np.maximum(0, StorageD_1 + Storage_1 + storageAdj)
+        RStorageD_1 = np.maximum(0, StorageD_1 + np.clip(Storage_1 + storageAdj, None, 0))
         RDeficit = np.maximum(0, -(StorageD_1 + Storage_1 + storageAdj))
         
         RDischarge = np.minimum(np.minimum(np.maximum(0, RNetload), Pcapacity), RStorage_1 / resolution)
