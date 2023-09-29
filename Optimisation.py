@@ -18,7 +18,7 @@ parser.add_argument('-m', default=0.5,  type=float, required=False, help='mutati
 parser.add_argument('-r', default=0.3,  type=float, required=False, help='recombination=0.3')
 parser.add_argument('-s', default=21,   type=int,   required=False, help='11, 12, 13, ...')
 parser.add_argument('-c', default=1.5,  type=float, required=False, help='cost constraint as multiplier of optimised cost')
-parser.add_argument('-z', default='[18 26 28]',type=str,   required=False, help="'None','All', or space/comma seperated, [] bracketed, list of zones (as int)")
+parser.add_argument('-z', default='[10]',type=str,   required=False, help="'None','All', or space/comma seperated, [] bracketed, list of zones (as int)")
 parser.add_argument('-y', default=0,    type=int,   required=False, help='boolean whether to use relative probability or pure highWindFrac')
 parser.add_argument('-v', default=1,    type=int,   required=False, help='boolean whether to print out optimisation at each step')
 parser.add_argument('-n', default=25,   type=int,   required=False, help='1-in-N-year to consider, -2 uses value in windFragility.csv, -1 is no storm.')

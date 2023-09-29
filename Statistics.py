@@ -59,12 +59,6 @@ def Debug(solution):
 def LPGM(solution, RSim=None):
     """Load profiles and generation mix data"""
 
-    if RSim is None: Debug(solution)
-    # print((solution.MLoad + solution.MLoadD).sum(axis=1).shape, (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1).shape,
-    #       solution.MHydro.sum(axis=1).shape, solution.MBio.sum(axis=1).shape, solution.GPV.sum(axis=1).shape, solution.GWind.sum(axis=1).shape, solution.GWindR.sum(axis=1).shape,
-    #       solution.Discharge.shape, solution.Deficit.shape, solution.Spillage.shape, solution.Charge.shape, solution.Storage.shape,
-    #       (solution.GWind - solution.GWindR).sum(), solution.RDeficit, solution.RStorage,solution.RDischarge, -1*solution.RCharge,-1*solution.RSpillage,
-    #       solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV)
     C = np.stack([(solution.MLoad + solution.MLoadD).sum(axis=1), (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1),
                   solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1), solution.GWindR.sum(axis=1),
                   solution.Discharge, solution.Deficit, -1 * solution.Spillage, -1 * solution.Charge, solution.Storage,
@@ -99,7 +93,7 @@ def LPGM(solution, RSim=None):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
                           solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.RMWind[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
-                          solution.MStorage[:, j],(solution.MWind[:,j]-solution.RMWind[:,j]), solution.RMDeficit[:, j], 
+                          solution.MStorage[:, j],(solution.MWind[:,j]-solution.RMWind[:, j]), solution.RMDeficit[:, j], 
                           solution.RMStorage[:, j], solution.RMDischarge[:, j],-1*solution.RMCharge[:, j],-1*solution.RMSpillage[:, j]])
             C = np.around(C.transpose())
 
@@ -219,9 +213,9 @@ def TransmissionFactors(solution, resilience = False):
             solution.MChargeDR = np.tile(solution.RChargeD, (nodes, 1)).transpose()
             solution.MP2VR = np.tile(solution.RP2V, (nodes, 1)).transpose()
             
+            
     solution.CDC = np.amax(abs(solution.TDC), axis = 0) * pow(10, -3)
     solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV = map(lambda k: solution.TDC[:, k], range(solution.TDC.shape[1]))
-    
 
     solution.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
     solution.MHydro = np.minimum(solution.MHydro, solution.MPeak)
@@ -248,30 +242,52 @@ def DeficitAnalysis(capacities, flexible, N=1):
 
 def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     """Dispatch: Statistics.Information(x, Flex)"""
-    # if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
 
     start = dt.datetime.now()
     print("Statistics start at", start)
 
+    assert verifyDispatch(x, flexible, resilience)
+
     S = Solution(x)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
-    assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
-    # assert (RDeficit + RDeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
-
     S = TransmissionFactors(S)
-    if resilience: return debug(S)
-    LPGM(S)
-    GGTA(S)
-    DeficitAnalysis(x, flexible, NDeficitAnalysis)
+    if not resilience: Debug(S)
+    
+    if not resilience: GGTA(S) 
 
     end = dt.datetime.now()
     print("Statistics took", end - start)
 
     return True
 
+def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
+    start =  dt.dattime.now()
+    print("Deficit Statistics start at", start)
+    
+    S = Solution(capacities)
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
+    assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
 
-if __name__ == '__main__':
+    S = TransmissionFactors(S)
+    LPGM(S)
+    DeficitAnalysis(capacities, flexible, NDeficitAnalysis)
+    return True
+   
+    
+    
+def verifyDispatch(capacities, flexible, resilience=False):
+    S = Solution(capacities)
+    
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
+    if resilience: assert (RDeficit + RDeficitD).sum() * resolution < 0.1, 'R - Energy generation and demand are not balanced.'
+    else: assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
+    
+    return True
+
+
+
+if __name__ == '__main__': 
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
     flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',', skip_header=1)
-    # Information(capacities, flexible, 5)
+    Information(capacities, flexible, 5)

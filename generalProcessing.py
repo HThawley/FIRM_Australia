@@ -22,6 +22,7 @@ def reSearchWrapper(regex, srchstr):
     except AttributeError: return None
     
 def readPrintedArray(txt):      
+    if txt == 'None': return None
     txt = re.sub(r"(?<!\[)\s+(?!\])", r",", txt)
     return np.array(literal_eval(txt), dtype =int)
         
@@ -70,15 +71,17 @@ def addZoneCapacityGGTA(ggta, cap):
     for scenario in ggta['Scenario'].unique():
         caps = cap[str(scenario)]
         caps = caps.loc[(caps['Zone'] == 'None'), :].to_numpy().reshape((-1,1))[3:]
-        pidx, widx, sidx, headers = zoneTypeIndx(scenario)
         
         scMask = ggta['Scenario']==scenario
         zoMask = ggta['Zone'].str.contains('[', regex=False)
-        
-        ggta.loc[scMask & (ggta['Zone']=='all'), 'zone capacity'] = caps[pidx:widx].sum()
-        
+        # zoMask=True
+        pidx, widx, sidx, headers, szindx = zoneTypeIndx(scenario)
+
         ggta.loc[scMask & zoMask, 'zone capacity'] = ggta.loc[scMask & zoMask, 'Zone'].apply(readPrintedArray)
-        ggta.loc[scMask & zoMask, 'zone capacity'] = ggta.loc[scMask & zoMask, 'zone capacity'].apply(lambda x: caps[x].sum())
+        ggta.loc[scMask & zoMask, 'zone capacity'] = ggta.loc[scMask & zoMask, 'zone capacity'].apply(lambda x: zoneTypeIndx(scenario, x)[-1])
+        ggta.loc[scMask & zoMask, 'zone capacity'] = ggta.loc[scMask & zoMask, 'zone capacity'].apply(lambda x: caps[x+pidx].sum())
+        
+        
     return ggta        
 
 #%%
@@ -110,7 +113,7 @@ def consolidateCapacities(output=False):
         os.chdir(active_dir)
 
     for key, df in caps.items():
-        pidx, widx, sidx, headers = zoneTypeIndx(int(key), wdir=active_dir)
+        pidx, widx, sidx, headers, szindx = zoneTypeIndx(int(key), wdir=active_dir)
         
         df.columns = (['Scenario', 'Zone', 'n_year'] + headers)
         df['n_year'] = df['n_year'].fillna(-1).astype(int)
@@ -124,7 +127,7 @@ def consolidateCapacities(output=False):
     
     return caps
 
-def zoneTypeIndx(scenario, wdir=None):
+def zoneTypeIndx(scenario, stormZone=None, wdir=None):
     if wdir is not None: 
         active_dir = os.getcwd()
         os.chdir(wdir)
@@ -132,6 +135,7 @@ def zoneTypeIndx(scenario, wdir=None):
     PVl   = np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
     Windl = np.array(['NSW']*8 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*2 + ['SA']*8 + ['TAS']*4 + ['VIC']*4 + ['WA']*3 + ['NT']*1)
     names = np.char.replace(np.genfromtxt('Data\ZoneDict.csv', delimiter=',', dtype=str), 'ï»¿', '')
+    if str(stormZone) == 'all': stormZone = ...
 
     if scenario<=17:
         node = Nodel[scenario % 10]
@@ -139,6 +143,11 @@ def zoneTypeIndx(scenario, wdir=None):
         pzones = len(np.where(PVl==node)[0])
         wzones = len(np.where(Windl==node)[0])
         coverage = np.array([node])
+        
+        zones = np.zeros(Windl.shape)
+        zones[stormZone] = 1 
+        zones = zones[np.where(Windl==node)[0]]
+        stormZoneIndx = np.where(zones==1)[0]
         
     if scenario>=21:
         coverage = [np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC']),
@@ -149,6 +158,11 @@ def zoneTypeIndx(scenario, wdir=None):
                     np.array(['FNQ', 'NSW', 'QLD', 'SA', 'TAS', 'VIC', 'WA']),
                     np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC']),
                     np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])][scenario % 10 - 1]
+        
+        zones = np.zeros(Windl.shape)
+        zones[stormZone] = 1 
+        zones = zones[np.where(np.in1d(Windl, coverage)==True)[0]]
+        stormZoneIndx = np.where(zones==1)[0]
         
         names = names[np.where(np.in1d(np.append(PVl, Windl), coverage)==True)[0]]
         pzones = len(np.where(np.in1d(PVl, coverage)==True)[0])
@@ -162,12 +176,16 @@ def zoneTypeIndx(scenario, wdir=None):
                ['storage-' + name + ' (GW)' for name in coverage] + 
                ['storage (GWh)'])
     
+    if stormZone is None: stormZoneIndx=None
+    
     if wdir is not None: 
         os.chdir(active_dir)
-    return pidx, widx, sidx, headers
+    return pidx, widx, sidx, headers, stormZoneIndx
+
 
 #%%
 if __name__ == '__main__':
+    os.chdir(r'C:\Users\hmtha\Desktop')
     output = True
     cap = consolidateCapacities(output)
     ggta = consolidateGGTA(output, cap)

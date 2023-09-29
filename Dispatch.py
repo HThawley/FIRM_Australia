@@ -10,10 +10,9 @@ from CoSimulation import Resilience
 import datetime as dt
 from multiprocessing import Pool, cpu_count
 
-def Flexible(year, x, resilience=False):
+def Flexible(year, x):
     """Energy source of high flexibility"""
     print(year, end=', ')
-
     S = Solution(x)
 
     startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
@@ -21,23 +20,57 @@ def Flexible(year, x, resilience=False):
 
     Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
     flexible = Fcapacity * np.ones(endidx - startidx)
-    rflexible = Fcapacity * np.ones(endidx - startidx)
 
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
-        rflexible[i: i+timestep] = 0
-        RDeficit, RDeficitD = Resilience(S, flexible=rflexible, start=startidx, end=endidx, output='deficits')[0,1] # Sj-EDE(t, j), MW
         Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=True) # Sj-EDE(t, j), MW
         if (Deficit + DeficitD).sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
-        if (RDeficit + RDeficitD).sum() * resolution > 0.1:
-            rflexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.Spillage, 0, None)
-    rflexible = np.clip(rflexible - S.RSpillage, 0, None)
+    return pd.DataFrame([[0, year, flexible]])
 
-    if resilience == False: return flexible
-    else: return flexible, rflexible
+    
+def RFlexible(year, x):
+    """Energy source of high flexibility"""
+    print('r-', year, end=', ')
+    S = Solution(x)
+    
+    startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
+    endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
+
+    Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
+    flexible = Fcapacity * np.ones(endidx - startidx)
+    
+    for i in range(0, endidx - startidx, timestep):
+        flexible[i: i+timestep] = 0
+        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
+        if (RDeficit + RDeficitD).sum() * resolution > 0.1:
+            flexible[i: i+timestep] = Fcapacity
+            
+    flexible = np.clip(flexible - S.RSpillage, 0, None)
+    return pd.DataFrame([[1, year, flexible]])
+    
+    
+def CRFlexible(year, x):
+    """Energy source of high flexibility"""
+    print('r-', year, end=', ')
+    S = Solution(x)
+    
+    startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
+    endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
+
+    Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
+    flexible = Fcapacity * np.ones(endidx - startidx)
+    
+    for i in range(0, endidx - startidx, timestep):
+        flexible[i: i+timestep] = 0
+        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
+        if (RDeficit + RDeficitD).sum() * resolution > 0.1:
+            flexible[i: i+timestep] = Fcapacity
+            
+    flexible = np.clip(flexible - S.RSpillage, 0, None)
+    return pd.DataFrame([[2, year, flexible]])
 
 
 def Analysis(x):
@@ -46,35 +79,49 @@ def Analysis(x):
     starttime = dt.datetime.now()
     print('Dispatch starts at', starttime)
     print('Dispatch works on: ', end='')
-    # # Multiprocessing
-    # pool = Pool(processes=min(cpu_count(), finalyear - firstyear + 1))
-    # instances = [(year, x, True) for year in range(firstyear, finalyear + 1)]
- 
-    # Dispresult = pool.starmap(Flexible, instances)
-    # pool.terminate()
-
-    # Flex, RFlex = tuple(zip(*Dispresult))
-    # Flex, RFlex = np.concatenate(Flex), np.concatenate(RFlex)
     
-    # np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-    # np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
+    # # Multiprocessing
+    with Pool(processes=min(cpu_count(), 3*(finalyear - firstyear + 1))) as pool:
+        instances  = [(year, x) for year in range(firstyear, finalyear + 1)]
+        instancesCR = [(year, costCapacities
+                       ) for year in range(firstyear, finalyear + 1)]
+ 
+        Dispresult = pool.starmap(Flexible, instances)
+        DispresultR = pool.starmap(RFlexible, instances)
+        DispresultCR = pool.starmap(CRFlexible, instancesCR)
+        
+        
+    result = list(Dispresult) + list(DispresultR) + list(DispresultCR)
+    
+    result = pd.concat(result)
+    result = result.sort_values(1)
+    
+    Flex, RFlex, CRFlex = (np.array(np.concatenate(list(result.loc[result[0]==i, 2]))) for i in range(3))
+    
+    np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.datetime.now()
     print('.\nDispatch took', endtime - starttime)
 
-    Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
-    RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year).format(scenario, stormZone, n_year), delimiter=',')
-
-    from Statistics import Information
-    Information(x, RFlex, resilience=True)
+    from Statistics import Information, verifyDispatch
+    verifyDispatch(costCapacities, 
+                   np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
+    verifyDispatch(x, Flex)
+    verifyDispatch(x, RFlex, resilience=True)    
+    
+    
     Information(x, Flex, resilience=False)
-    # Information(x, Flex, 3)
-
+    # Information(x, RFlex, resilience=True)
+    DeficitInformation(costCapacities, CRFlex, resilience=True)
+    
     return True
 
 if __name__ == '__main__':
-
+    
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
 
-    Analysis(capacities)
+    x = Analysis(capacities)
