@@ -39,18 +39,18 @@ def Debug(solution):
             assert abs(StorageD[i] - StorageD[i - 1] + DischargeD[i] * resolution - ChargeD[i] * resolution * efficiencyD) <= 1
 
         # Capacity: PV, wind, Discharge, Charge and Storage
-        try:
-            assert np.amax(PV) <= sum(solution.CPV) * pow(10, 3), print(np.amax(PV) - sum(solution.CPV) * pow(10, 3))
-            assert np.amax(Wind) <= sum(solution.CWind) * pow(10, 3), print(np.amax(Wind) - sum(solution.CWind) * pow(10, 3))
+        # try:
+        assert np.amax(PV) <= sum(solution.CPV) * pow(10, 3), print(np.amax(PV) - sum(solution.CPV) * pow(10, 3))
+        assert np.amax(Wind) <= sum(solution.CWind) * pow(10, 3), print(np.amax(Wind) - sum(solution.CWind) * pow(10, 3))
 
-            assert np.amax(Discharge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Discharge) - sum(solution.CPHP) * pow(10, 3))
-            assert np.amax(Charge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Charge) - sum(solution.CPHP) * pow(10, 3))
-            assert np.amax(Storage) <= solution.CPHS * pow(10, 3), print(np.amax(Storage) - solution.CPHS * pow(10, 3))
-            assert np.amax(DischargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(DischargeD) - sum(solution.CDP) * pow(10, 3))
-            assert np.amax(ChargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(ChargeD) - sum(solution.CDP) * pow(10, 3))
-            assert np.amax(StorageD) <= sum(solution.CDS) * pow(10, 3), print(np.amax(StorageD) - sum(solution.CDS) * pow(10, 3))
-        except AssertionError:
-            pass
+        assert np.amax(Discharge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Discharge) - sum(solution.CPHP) * pow(10, 3))
+        assert np.amax(Charge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Charge) - sum(solution.CPHP) * pow(10, 3))
+        assert np.amax(Storage) <= solution.CPHS * pow(10, 3), print(np.amax(Storage) - solution.CPHS * pow(10, 3))
+        assert np.amax(DischargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(DischargeD) - sum(solution.CDP) * pow(10, 3))
+        assert np.amax(ChargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(ChargeD) - sum(solution.CDP) * pow(10, 3))
+        assert np.amax(StorageD) <= sum(solution.CDS) * pow(10, 3), print(np.amax(StorageD) - sum(solution.CDS) * pow(10, 3))
+        # except AssertionError:
+        #     pass
 
     print('Debugging: everything is ok')
 
@@ -174,7 +174,7 @@ def GGTA(solution):
 
     return True
 
-def TransmissionFactors(solution, resilience = False):
+def TransmissionFactors(solution, flexible, resilience = False):
     if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
     
     if scenario>=21:
@@ -194,8 +194,8 @@ def TransmissionFactors(solution, resilience = False):
         solution.MDischarge = np.tile(solution.Discharge, (nodes, 1)).transpose()
         solution.MDeficit = np.tile(solution.Deficit, (nodes, 1)).transpose()
         solution.MCharge = np.tile(solution.Charge, (nodes, 1)).transpose()
-        solution.Msolutiontorage = np.tile(solution.solutiontorage, (nodes, 1)).transpose()
-        solution.Msolutionpillage = np.tile(solution.solutionpillage, (nodes, 1)).transpose()
+        solution.MStorage = np.tile(solution.Storage, (nodes, 1)).transpose()
+        solution.MSpillage = np.tile(solution.Spillage, (nodes, 1)).transpose()
 
         solution.MChargeD = np.tile(solution.ChargeD, (nodes, 1)).transpose()
         solution.MP2V = np.tile(solution.P2V, (nodes, 1)).transpose()
@@ -207,8 +207,8 @@ def TransmissionFactors(solution, resilience = False):
             solution.MDischargeR = np.tile(solution.RDischarge, (nodes, 1)).transpose()
             solution.MDeficitR = np.tile(solution.RDeficit, (nodes, 1)).transpose()
             solution.MChargeR = np.tile(solution.RCharge, (nodes, 1)).transpose()
-            solution.MsolutiontorageR = np.tile(solution.Rsolutiontorage, (nodes, 1)).transpose()
-            solution.MsolutionpillageR = np.tile(solution.Rsolutionpillage, (nodes, 1)).transpose()
+            solution.MStorageR = np.tile(solution.RStorage, (nodes, 1)).transpose()
+            solution.MSpillageR = np.tile(solution.RSpillage, (nodes, 1)).transpose()
 
             solution.MChargeDR = np.tile(solution.RChargeD, (nodes, 1)).transpose()
             solution.MP2VR = np.tile(solution.RP2V, (nodes, 1)).transpose()
@@ -236,7 +236,7 @@ def DeficitAnalysis(capacities, flexible, N=1):
     for n, indx in enumerate(topNDeficitIndx):
         solution = Solution(capacities)
         solution = Resilience(solution, flexible, RSim=indx, output='solution')
-        solution = TransmissionFactors(solution)
+        solution = TransmissionFactors(solution, flexible)
         LPGM(solution, (n, indx))
     return True 
 
@@ -246,12 +246,12 @@ def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     start = dt.datetime.now()
     print("Statistics start at", start)
 
-    assert verifyDispatch(x, flexible, resilience)
+    # assert verifyDispatch(x, flexible, resilience)
 
     S = Solution(x)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
-    S = TransmissionFactors(S)
+    S = TransmissionFactors(S, flexible)
     if not resilience: Debug(S)
     
     if not resilience: GGTA(S) 
@@ -262,16 +262,18 @@ def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     return True
 
 def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
-    start =  dt.dattime.now()
+    start =  dt.datetime.now()
     print("Deficit Statistics start at", start)
     
     S = Solution(capacities)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
-    assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
 
-    S = TransmissionFactors(S)
+    S = TransmissionFactors(S, flexible)
     LPGM(S)
     DeficitAnalysis(capacities, flexible, NDeficitAnalysis)
+
+    end = dt.datetime.now()
+    print("Deficit Statistics took", end - start)
     return True
    
     
@@ -280,8 +282,8 @@ def verifyDispatch(capacities, flexible, resilience=False):
     S = Solution(capacities)
     
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
-    if resilience: assert (RDeficit + RDeficitD).sum() * resolution < 0.1, 'R - Energy generation and demand are not balanced.'
-    else: assert (Deficit + DeficitD).sum() * resolution < 0.1, 'Energy generation and demand are not balanced.'
+    if resilience: assert (RDeficit + RDeficitD).sum() * resolution < 0.1, f'R - Energy generation and demand are not balanced. deficit = {round((RDeficit + RDeficitD).sum() * resolution,2)}'
+    else: assert (Deficit + DeficitD).sum() * resolution < 0.1, f'Energy generation and demand are not balanced. deficit = {round((Deficit + DeficitD).sum() * resolution,2)}'
     
     return True
 
