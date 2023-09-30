@@ -81,7 +81,7 @@ def Analysis(x):
     print('Dispatch works on: ', end='')
     
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    # # Multiprocessing
+    # Multiprocessing
     # with Pool(processes=min(cpu_count(), 3*(finalyear - firstyear + 1))) as pool:
     #     instances  = [(year, x) for year in range(firstyear, finalyear + 1)]
     #     instancesCR = [(year, costCapacities) for year in range(firstyear, finalyear + 1)]
@@ -105,14 +105,15 @@ def Analysis(x):
     RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
     CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
 
+
     endtime = dt.datetime.now()
     print('.\nDispatch took', endtime - starttime)
 
     from Statistics import Information, DeficitInformation, verifyDispatch
-    # verifyDispatch(costCapacities, 
-    #                np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
-    # verifyDispatch(x, Flex)
-    # verifyDispatch(x, RFlex, resilience=True)    
+    verifyDispatch(costCapacities, 
+                   np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
+    verifyDispatch(x, Flex)
+    verifyDispatch(x, RFlex, resilience=True)    
     
     Information(x, Flex, resilience=False)
     # Information(x, RFlex, resilience=True)

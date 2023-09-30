@@ -10,8 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import timedelta, datetime
 
-
-df = pd.read_csv(r"C:\Users\hmtha\Desktop\FIRM_Australia\Results\S-Deficit21-[10]-25-0.csv")
+df = pd.read_csv(r"Results\S-Deficit11-[7]-25-0.csv")
+# df = pd.read_csv(r"C:\Users\hmtha\Desktop\FIRM_Australia\Results\S-Deficit21-[10]-25-0.csv")
 # df['idx'] = pd.to_datetime(df['Date & time'], format = '%a -%d %b %Y %H:%M')
 # df['transmission'] = df.iloc[:,19:].sum(axis=1)
 df['idx'] = range(len(df))

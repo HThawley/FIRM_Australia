@@ -101,8 +101,8 @@ os.chdir('Results')
 
 
 
-# data = pd.read_csv('GGTA-consolidated.csv')
-data = pd.read_csv(r'C:\Users\hmtha\Desktop\GGTA-consolidated.csv')
+data = pd.read_csv('GGTA-consolidated.csv')
+# data = pd.read_csv(r'C:\Users\hmtha\Desktop\GGTA-consolidated.csv')
 data['Grid'] = data['Scenario'].map({11:'NSW', 
                                      # 12:'NT',
                                      13:'QLD',
@@ -170,33 +170,33 @@ data['deficit%'] = data['Energy Deficit (TWh p.a.)'] / data['Energy Demand (TWh 
 # plt.show()
 # plt.show()
 
-
+data['GridZone'] = data['Grid'] + data['Zone']
 data1 = pd.melt(data
-                , id_vars = ['Scenario', 'Zone Name', 'Zone', 'GenerationAffected']
+                , id_vars = ['GridZone','Scenario', 'Zone Name', 'Zone', 'GenerationAffected']
                 , value_vars = ['LCOE ($/MWh)_relative', 'LCOG ($/MWh)_relative', 
                                 'LCOB (storage)_relative', 'LCOB (transmission)_relative', 
                                 'LCOB (spillage & loss)_relative'])
 data1['variable'] = data1['variable'].str.replace('_relative', '')
 data1['GenerationAffected'] = data1['GenerationAffected'].round(1)
 
-fig, ax = plt.subplots(figsize = (8,4))
-sns.barplot(data1.loc[data1.loc[:,'Scenario'] == 21, :]
-            , x = 'Zone'
+fig, ax = plt.subplots(figsize = (12,4))
+sns.barplot(data1#.loc[data1.loc[:,'Scenario'] == 21, :]
+            , x = 'GridZone'
             , y = 'value'
             , hue = 'variable'
             )
 ax.axhline(0.0, linewidth = 0.5, color='black')
 
-ax.set_xlim([None, 6])
-ax.set_xlabel('Generation affected (%)')
+# ax.set_xlim([None, 6])
+ax.set_xlabel('Zone affected')
 ax.set_ylabel('Cost of resilient grid relative to ordinary')
-ax.set_title('Relative costs by Storm Locaiton')
+ax.set_title('Relative costs by Storm Location')
 plt.legend()
 plt.show()
 
 
 data1 = pd.melt(data
-                , id_vars = ['Scenario', 'Zone Name', 'Zone', 'GenerationAffected']
+                , id_vars = ['GridZone', 'Scenario', 'Zone Name', 'Zone', 'GenerationAffected']
                 , value_vars = ['Solar (GW)_relative'
                                 , 'Wind (GW)_relative'
                                 # , 'Hydro & Bio (GW)_relative'
@@ -206,18 +206,18 @@ data1 = pd.melt(data
 data1['variable'] = data1['variable'].str.replace('_relative', '')
 data1['GenerationAffected'] = data1['GenerationAffected'].round(1)
 
-fig, ax = plt.subplots(figsize = (8,4))
-sns.barplot(data1.loc[data1.loc[:,'Scenario'] == 21, :]
-            , x = 'Zone'
+fig, ax = plt.subplots(figsize = (12,4))
+sns.barplot(data1#.loc[data1.loc[:,'Scenario'] == 21, :]
+            , x = 'GridZone'
             , y = 'value'
             , hue = 'variable'
             )
 ax.axhline(0.0, linewidth = 0.5, color='black')
 
-ax.set_xlim([None, 6])
-ax.set_xlabel('Generation affected (%)')
-ax.set_ylabel('Cost of resilient grid relative to ordinary')
-ax.set_title('Relative costs by Storm Locaiton')
+# ax.set_xlim([None, 6])
+ax.set_xlabel('Zone affected')
+ax.set_ylabel('Change to generation (GW)')
+ax.set_title('Relative Energy Mix by Location')
 plt.legend()
 plt.show()
 

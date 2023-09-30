@@ -33,8 +33,8 @@ def lambdaDt(*args): return dt(*args)
 os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
 os.chdir('Results')
 
-# ggtaSummary = pd.read_csv("GGTA-consolidated.csv")
-ggtaSummary = pd.read_csv(r"C:\Users\hmtha\Desktop\GGTA-consolidated.csv")
+ggtaSummary = pd.read_csv("GGTA-consolidated.csv")
+# ggtaSummary = pd.read_csv(r"C:\Users\hmtha\Desktop\GGTA-consolidated.csv")
 
 sfiles = [f for f in os.listdir() if sfileMatch(f)]
 

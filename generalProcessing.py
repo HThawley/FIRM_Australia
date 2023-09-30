@@ -185,7 +185,7 @@ def zoneTypeIndx(scenario, stormZone=None, wdir=None):
 
 #%%
 if __name__ == '__main__':
-    os.chdir(r'C:\Users\hmtha\Desktop')
+    os.chdir(r'C:\Users\hmtha\Desktop\FIRM_Australia')
     output = True
     cap = consolidateCapacities(output)
     ggta = consolidateGGTA(output, cap)

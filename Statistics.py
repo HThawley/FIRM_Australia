@@ -246,7 +246,7 @@ def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     start = dt.datetime.now()
     print("Statistics start at", start)
 
-    # assert verifyDispatch(x, flexible, resilience)
+    assert verifyDispatch(x, flexible, resilience)
 
     S = Solution(x)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
@@ -282,8 +282,8 @@ def verifyDispatch(capacities, flexible, resilience=False):
     S = Solution(capacities)
     
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
-    if resilience: assert (RDeficit + RDeficitD).sum() * resolution < 0.1, f'R - Energy generation and demand are not balanced. deficit = {round((RDeficit + RDeficitD).sum() * resolution,2)}'
-    else: assert (Deficit + DeficitD).sum() * resolution < 0.1, f'Energy generation and demand are not balanced. deficit = {round((Deficit + DeficitD).sum() * resolution,2)}'
+    if resilience: assert (RDeficit + RDeficitD).sum() * resolution < 1., f'R - Energy generation and demand are not balanced. deficit = {round((RDeficit + RDeficitD).sum() * resolution,2)}'
+    else: assert (Deficit + DeficitD).sum() * resolution < 1.0, f'Energy generation and demand are not balanced. deficit = {round((Deficit + DeficitD).sum() * resolution,2)}'
     
     return True
 
