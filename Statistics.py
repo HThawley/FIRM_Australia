@@ -107,7 +107,7 @@ def LPGM(solution, RSim=None):
 
     return True
 
-def GGTA(solution):
+def GGTA(solution, verbose=False):
     """GW, GWh, TWh p.a. and A$/MWh information"""
 
     factor = np.genfromtxt('Data/factor.csv', dtype=None, delimiter=',', encoding=None)
@@ -152,17 +152,18 @@ def GGTA(solution):
     LCOBT = (CostDC + CostAC) / (Energy - Loss)
     LCOBL = LCOB - LCOBS - LCOBT
 
-    print('Levelised costs of electricity:')
-    print('\u2022 LCOE:', LCOE)
-    print('\u2022 LCOG:', LCOG)
-    print('\u2022 LCOB:', LCOB)
-    print('\u2022 LCOG-PV:', LCOGP, '(%s)' % CFPV)
-    print('\u2022 LCOG-Wind:', LCOGW, '(%s)' % CFWind)
-    print('\u2022 LCOG-Hydro:', LCOGH)
-    print('\u2022 LCOG-Bio:', LCOGB)
-    print('\u2022 LCOB-Storage:', LCOBS)
-    print('\u2022 LCOB-Transmission:', LCOBT)
-    print('\u2022 LCOB-Spillage & loss:', LCOBL)
+    if verbose: 
+        print('Levelised costs of electricity:')
+        print('\u2022 LCOE:', LCOE)
+        print('\u2022 LCOG:', LCOG)
+        print('\u2022 LCOB:', LCOB)
+        print('\u2022 LCOG-PV:', LCOGP, '(%s)' % CFPV)
+        print('\u2022 LCOG-Wind:', LCOGW, '(%s)' % CFWind)
+        print('\u2022 LCOG-Hydro:', LCOGH)
+        print('\u2022 LCOG-Bio:', LCOGB)
+        print('\u2022 LCOB-Storage:', LCOBS)
+        print('\u2022 LCOB-Transmission:', LCOBT)
+        print('\u2022 LCOB-Spillage & loss:', LCOBL)
 
     D = np.zeros((1, 22))
     D[0, :] = ([Energy * pow(10, 3), Loss * pow(10, 3), CPV, GPV, CWind, GWind, CapHydrobio, GHydrobio, CPHP, CPHS] 

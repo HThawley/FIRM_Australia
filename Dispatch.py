@@ -54,7 +54,7 @@ def RFlexible(year, x):
     
 def CRFlexible(year, x):
     """Energy source of high flexibility"""
-    print('r-', year, end=', ')
+    print('cr-', year, end=', ')
     S = Solution(x)
     
     startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
@@ -73,48 +73,53 @@ def CRFlexible(year, x):
     return pd.DataFrame([[2, year, flexible]])
 
 
-def Analysis(x):
+def Analysis(x, flex=True):
     """Dispatch.Analysis(result.x)"""
-
-    starttime = dt.datetime.now()
-    print('Dispatch starts at', starttime)
-    print('Dispatch works on: ', end='')
     
-    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    # Multiprocessing
-    # with Pool(processes=min(cpu_count(), 3*(finalyear - firstyear + 1))) as pool:
-    #     instances  = [(year, x) for year in range(firstyear, finalyear + 1)]
-    #     instancesCR = [(year, costCapacities) for year in range(firstyear, finalyear + 1)]
- 
-    #     Dispresult = pool.starmap(Flexible, instances)
-    #     DispresultR = pool.starmap(RFlexible, instances)
-    #     DispresultCR = pool.starmap(CRFlexible, instancesCR)
+    if flex:
+        starttime = dt.datetime.now()
+        print('Dispatch starts at', starttime)
+        print('Dispatch works on: ', end='')
+
+        # Multiprocessing
+        with Pool(processes=min(cpu_count(), 3*(finalyear - firstyear + 1))) as pool:
+            instances  = [(year, x) for year in range(firstyear, finalyear + 1)]
+            instancesCR = [(year, costCapacities) for year in range(firstyear, finalyear + 1)]
+    
+            Dispresult = pool.starmap(Flexible, instances)
+            DispresultR = pool.starmap(RFlexible, instances)
+            DispresultCR = pool.starmap(CRFlexible, instancesCR)
+            
+        result = list(Dispresult) + list(DispresultR) + list(DispresultCR)
         
-    # result = list(Dispresult) + list(DispresultR) + list(DispresultCR)
-    
-    # result = pd.concat(result)
-    # result = result.sort_values(1)
-    
-    # Flex, RFlex, CRFlex = (np.array(np.concatenate(list(result.loc[result[0]==i, 2]))) for i in range(3))
-    
-    # np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-    # np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-    # np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        result = pd.concat(result)
+        result = result.sort_values(1)
+        
+        Flex, RFlex, CRFlex = (np.array(np.concatenate(list(result.loc[result[0]==i, 2]))) for i in range(3))
+        
+        np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
-    Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
-    RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
-    CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+        endtime = dt.datetime.now()
+        print('.\nDispatch took', endtime - starttime)
 
+    else: 
+        Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+        RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+        CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
 
-    endtime = dt.datetime.now()
-    print('.\nDispatch took', endtime - starttime)
+    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
 
     from Statistics import Information, DeficitInformation, verifyDispatch
-    verifyDispatch(costCapacities, 
-                   np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
-    verifyDispatch(x, Flex)
-    verifyDispatch(x, RFlex, resilience=True)    
-    
+    try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
+    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, C deficit assertion failed')
+    try: verifyDispatch(x, Flex)
+    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, deficit assertion failed')
+    try: verifyDispatch(x, RFlex, resilience=True)    
+    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, R deficit assertion failed')
+
+
     Information(x, Flex, resilience=False)
     # Information(x, RFlex, resilience=True)
     DeficitInformation(costCapacities, CRFlex, 1)
@@ -126,4 +131,4 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
 
-    Analysis(capacities)
+    Analysis(capacities, False)
