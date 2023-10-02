@@ -24,7 +24,7 @@ def Flexible(year, x):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=True) # Sj-EDE(t, j), MW
-        if (Deficit + DeficitD)[i:i+timestep].sum() * resolution > 0.1:
+        if (Deficit + DeficitD)[i:].sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.Spillage, 0, None)
@@ -45,7 +45,7 @@ def RFlexible(year, x):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-        if (RDeficit + RDeficitD)[i:i+timestep].sum() * resolution > 0.1:
+        if (RDeficit + RDeficitD)[i:].sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.RSpillage, 0, None)
@@ -66,7 +66,7 @@ def CRFlexible(year, x):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-        if (RDeficit + RDeficitD)[i:i+timestep].sum() * resolution > 0.1:
+        if (RDeficit + RDeficitD)[i:].sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.RSpillage, 0, None)
@@ -75,7 +75,7 @@ def CRFlexible(year, x):
 
 def Analysis(x, flex=True):
     """Dispatch.Analysis(result.x)"""
-    
+    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     if flex:
         starttime = dt.datetime.now()
         print('Dispatch starts at', starttime)
@@ -109,8 +109,6 @@ def Analysis(x, flex=True):
         RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
         CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
 
-    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-
     from Statistics import Information, DeficitInformation, verifyDispatch
     try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
     except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, C deficit assertion failed')
@@ -131,4 +129,4 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
 
-    Analysis(capacities, False)
+    Analysis(capacities, True)
