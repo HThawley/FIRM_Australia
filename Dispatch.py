@@ -24,7 +24,7 @@ def Flexible(year, x):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=True) # Sj-EDE(t, j), MW
-        if (Deficit + DeficitD).sum() * resolution > 0.1:
+        if (Deficit + DeficitD)[i:i+timestep].sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.Spillage, 0, None)
@@ -45,7 +45,7 @@ def RFlexible(year, x):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-        if (RDeficit + RDeficitD).sum() * resolution > 0.1:
+        if (RDeficit + RDeficitD)[i:i+timestep].sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.RSpillage, 0, None)
@@ -66,7 +66,7 @@ def CRFlexible(year, x):
     for i in range(0, endidx - startidx, timestep):
         flexible[i: i+timestep] = 0
         Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-        if (RDeficit + RDeficitD).sum() * resolution > 0.1:
+        if (RDeficit + RDeficitD)[i:i+timestep].sum() * resolution > 0.1:
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.RSpillage, 0, None)

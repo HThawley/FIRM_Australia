@@ -15,6 +15,8 @@ import os
 import re
 from datetime import datetime as dt
 
+
+
 scenario = 21
 n_year = 25
 
@@ -61,14 +63,18 @@ for f in sfiles:
     data['Month'] = data['Date & time'].dt.month
     data = data.drop(columns = ['Date & time'])
     data = (data.groupby(['Month', 'Day']).sum()/10).reset_index()
+    # data = (data.groupby(['Month', 'Day']).sum()).reset_index()
     
     data['Date'] = data[['Month','Day']].apply(lambda x: dt(2000, *x), axis = 1)
-    sns.scatterplot(data = data, 
-                    x = 'Date', 
-                    y = 'StormDeficit')
+    sns.lineplot(data = data
+                    , x = 'Date' 
+                    , y = 'StormDeficit%' 
+                    )
+    # ax.set_xticks([dt(2000, m, 1) for m in range(1,13,2)] + [dt(2000, 12, 31)])
     ax.xaxis.set_major_formatter(pltd.DateFormatter('%d-%b'))
+
     ax.set_xlabel('Date (daily)')
-    ax.set_ylabel('Mean energy deficit (MWh)')
+    ax.set_ylabel('Mean energy deficit (%)')
     ax.set_title('Annual pattern of power deficits')
     
     # sns.scatterplot(data = data, 
