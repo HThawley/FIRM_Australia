@@ -21,10 +21,13 @@ parser.add_argument('-c', default=1.5,  type=float, required=False, help='cost c
 parser.add_argument('-z', default='[24]',type=str,   required=False, help="'None','All', or space/comma seperated, [] bracketed, list of zones (as int)")
 parser.add_argument('-y', default=0,    type=int,   required=False, help='boolean whether to use relative probability or pure highWindFrac')
 parser.add_argument('-v', default=1,    type=int,   required=False, help='boolean whether to print out optimisation at each step')
-parser.add_argument('-n', default=25,   type=int,   required=False, help='1-in-N-year to consider, -2 uses value in windFragility.csv, -1 is no storm.')
+parser.add_argument('-n', default=25,   type=int,   required=False, help='1-in-N-year to consider, -2 uses value in windFragility.csv, -1 is no event.')
 parser.add_argument('-x', default=1,    type=int,   required=False, help="What first approx to use. 0-none, 1-Bin's results, 2-where it last ended. Note: if it can't find, it will try the next.")
+parser.add_argument('-e', default='s',  type=int,   required=False, help="resilience event to model. storm-'s', drought-'d'")
 args = parser.parse_args()
 
+event = 'storm' if args.e == 's' else 'drought' if args.e == 'd' else None
+if event not in ('storm', 'drought'): raise Exception
 scenario = args.s
 n_year = args.n
 costConstraintFactor = args.c
@@ -36,8 +39,8 @@ def readPrintedArray(txt):
     txt = sub(r"(?<!\[)\s+(?!\])", r",", txt)
     return np.array(literal_eval(txt), dtype =int)
 
-try: stormZone = readPrintedArray(args.z)
-except (TypeError, ValueError): stormZone = 'All' if args.z.lower()=='all' else 'None' if args.z.lower()=='none' else args.z
+try: eventZone = readPrintedArray(args.z)
+except (TypeError, ValueError): eventZone = 'All' if args.z.lower()=='all' else 'None' if args.z.lower()=='none' else args.z
 
 from Input import *
 
@@ -46,11 +49,11 @@ def R(x):
 
     S = Solution(x) 
     
-    StormDeficit, penalties, cost = S.StormDeficit, S.penalties, S.cost
+    EventDeficit, penalties, cost = S.EventDeficit, S.penalties, S.cost
     
     if penalties > 0: penalties = penalties*pow(10,6)
     
-    func = StormDeficit + penalties + cost
+    func = EventDeficit + penalties + cost
     
     if cost > costConstraint: func = func*pow(10,6)
     
@@ -75,17 +78,17 @@ if __name__=='__main__':
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1, 
                                     callback = callback)
 
-    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), 'w', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, eventZone, n_year), 'w', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
     del csvfile
     
     history = np.array(history)
     if x0mode == 2: 
-        try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=','), history)
+        try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=','), history)
         except FileNotFoundError: pass
 
-    np.savetxt('Results/OptimisationHistory{}-{}-{}.csv'.format(scenario, stormZone, n_year), history, delimiter=',')
+    np.savetxt('Results/OptimisationHistory{}-{}-{}.csv'.format(scenario, eventZone, n_year), history, delimiter=',')
 
 
     endtime = dt.datetime.now()

@@ -5,15 +5,15 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, relative, stormZone, n_year, x0mode
+from Optimisation import scenario, costConstraintFactor, relative, eventZone, n_year, x0mode, event
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
 #%%
-if isinstance(stormZone, str):
-    if stormZone.lower() == 'all': stormZone = 'All'
-    elif stormZone.lower() == 'none': stormZone = 'None'
-    else: raise Exception('StormZone not valid, when type str ("all" or None")')
+if isinstance(eventZone, str):
+    if eventZone.lower() == 'all': eventZone = 'All'
+    elif eventZone.lower() == 'none': eventZone = 'None'
+    else: raise Exception('eventZone not valid, when type str ("all" or None")')
 
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
 PVl   = np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
@@ -32,20 +32,20 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
 windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
-windFrag, stormDur = windFrag[0], windFrag[1].astype(int)
+windFrag, eventDur = windFrag[0], windFrag[1].astype(int)
 
 if n_year is not None:
-    durations = np.genfromtxt('Data/stormDurations.csv', delimiter=',', usecols=[0,1])
+    durations = np.genfromtxt(f'Data/{event}Durations.csv', delimiter=',', usecols=[0,1])
     durations = durations[durations[:, 0].argsort()]
     durations = np.repeat(durations[:,0], durations[:,1].astype(int))
     
-    coverage = np.genfromtxt('Data/stormCoverage.csv')
-    stormsPerYear = len(durations)/coverage
-    percentile = 1/(stormsPerYear*n_year)
+    coverage = np.genfromtxt('Data/{eventCoverage.csv')
+    eventsPerYear = len(durations)/coverage
+    percentile = 1/(eventsPerYear*n_year)
     
     durations = durations[-int(percentile*len(durations)):1-int(percentile*len(durations))]
     
-    stormDur = np.repeat(int(durations[0]*2), len(stormDur))
+    eventDur = np.repeat(int(durations[0]*2), len(eventDur))
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
@@ -73,17 +73,17 @@ if scenario<=17:
     TSPV = TSPV[:, np.where(PVl==node)[0]]
     TSWind = TSWind[:, np.where(Windl==node)[0]]
     windFrag = windFrag[np.where(Windl==node)[0]]
-    stormDur = stormDur[np.where(Windl==node)[0]]
+    eventDur = eventDur[np.where(Windl==node)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(Nodel==node)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
     if node=='QLD':
         MLoad, MLoadD, CDP, CDS = [x / 0.9 for x in (MLoad, MLoadD, CDP, CDS)]
 
-    if isinstance(stormZone, np.ndarray): 
+    if isinstance(eventZone, np.ndarray): 
         zones = np.zeros(Windl.shape)
-        zones[stormZone] = 1 
+        zones[eventZone] = 1 
         zones = zones[np.where(Windl==node)[0]]
-        stormZoneIndx = np.where(zones==1)[0]
+        eventZoneIndx = np.where(zones==1)[0]
 
     Nodel, PVl, Windl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, Windl)]
 
@@ -101,7 +101,7 @@ if scenario>=21:
     TSPV = TSPV[:, np.where(np.in1d(PVl, coverage)==True)[0]]
     TSWind = TSWind[:, np.where(np.in1d(Windl, coverage)==True)[0]]
     windFrag = windFrag[np.where(np.in1d(Windl, coverage)==True)[0]]
-    stormDur = stormDur[np.where(np.in1d(Windl, coverage)==True)[0]]
+    eventDur = eventDur[np.where(np.in1d(Windl, coverage)==True)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
     if 'FNQ' not in coverage:
@@ -110,11 +110,11 @@ if scenario>=21:
         CDP[np.where(coverage == 'QLD')[0]] /= 0.9
         CDS[np.where(coverage == 'QLD')[0]] /= 0.9
 
-    if isinstance(stormZone, np.ndarray): 
+    if isinstance(eventZone, np.ndarray): 
         zones = np.zeros(Windl.shape)
-        zones[stormZone] = 1 
+        zones[eventZone] = 1 
         zones = zones[np.where(np.in1d(Windl, coverage)==True)[0]]
-        stormZoneIndx = np.where(zones==1)[0]
+        eventZoneIndx = np.where(zones==1)[0]
 
     Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
 
@@ -130,7 +130,7 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 x0 = None
 if x0mode == 2: 
-    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter = ',')
+    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter = ',')
     except FileNotFoundError: pass 
 if x0 is None and x0mode >= 1:
     try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
@@ -148,7 +148,7 @@ def cost(solution):
 
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # solutionj-EDE(t, j), GW to MW
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-    StormDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
+    eventDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
 
     TDC = Transmission(solution) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
     CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
@@ -164,7 +164,7 @@ def cost(solution):
 
     penalties = PenHydro + PenDeficit + PenDC
 
-    return StormDeficit, LCOE, penalties
+    return eventDeficit, LCOE, penalties
 
 
 #%%
@@ -174,11 +174,11 @@ class Solution:
     def __init__(self, x):
         self.x = x
         
-        if isinstance(stormZone, str):
-            if stormZone == 'All': self.stormZone, self.stormZoneIndx = 'All', np.arange(wzones)
-            elif stormZone == 'None': self.stormZone, self.stormZoneIndx = 'None', None                
-        elif isinstance(stormZone, np.ndarray): self.stormZone, self.stormZoneIndx  = stormZone, stormZoneIndx
-        else: raise ValueError('stormZone should be "None", "All", or np array') 
+        if isinstance(eventZone, str):
+            if eventZone == 'All': self.eventZone, self.eventZoneIndx = 'All', np.arange(wzones)
+            elif eventZone == 'None': self.eventZone, self.eventZoneIndx = 'None', None                
+        elif isinstance(eventZone, np.ndarray): self.eventZone, self.eventZoneIndx  = eventZone, eventZoneIndx
+        else: raise ValueError('eventZone should be "None", "All", or np array') 
 
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
@@ -201,23 +201,23 @@ class Solution:
         self.CHydro = CHydro # GW, GWh
         
         self.windFrag = np.ones(windFrag.shape)
-        self.stormDur = np.zeros(stormDur.shape)
+        self.eventDur = np.zeros(eventDur.shape)
         
-        if self.stormZoneIndx is not None:
-            stormZoneFrag = windFrag.copy()[self.stormZoneIndx]
+        if self.eventZoneIndx is not None:
+            eventZoneFrag = windFrag.copy()[self.eventZoneIndx]
             if relative: 
-                stormZoneFrag = stormZoneFrag/stormZoneFrag.sum()
-                stormZoneFrag = np.array(pd.Series(stormZoneFrag).map(dict(zip(np.sort(stormZoneFrag), np.flip(np.sort(stormZoneFrag))))))
-            stormZoneFrag = 1 - stormZoneFrag
+                eventZoneFrag = eventZoneFrag/eventZoneFrag.sum()
+                eventZoneFrag = np.array(pd.Series(eventZoneFrag).map(dict(zip(np.sort(eventZoneFrag), np.flip(np.sort(eventZoneFrag))))))
+            eventZoneFrag = 1 - eventZoneFrag
             
-            self.windFrag[self.stormZoneIndx] = stormZoneFrag
-            self.stormDur[self.stormZoneIndx] = stormDur[self.stormZoneIndx]
+            self.windFrag[self.eventZoneIndx] = eventZoneFrag
+            self.eventDur[self.eventZoneIndx] = eventDur[self.eventZoneIndx]
         
-        self.stormDur = np.rint(self.stormDur).astype(int)
+        self.eventDur = np.rint(self.eventDur).astype(int)
         self.CWindR = self.CWind*(self.windFrag)
         self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
         
-        if self.stormZoneIndx is not None:
+        if self.eventZoneIndx is not None:
             self.WindDiff = self.GWindR - self.GWind
         else: 
             self.WindDiff = np.zeros(self.GWind.shape)
@@ -225,9 +225,9 @@ class Solution:
         self.OptimisedCost, self.costConstraint = OptimisedCost, costConstraint
         # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 
-        self.StormDeficit, self.cost, self.penalties = cost(self)
+        self.eventDeficit, self.cost, self.penalties = cost(self)
         
-        # self.fragility = self.StormDeficit/(a constant?)
+        # self.fragility = self.eventDeficit/(a constant?)
 
     def __repr__(self):
         """S = Solution(list(np.ones(64))) >> print(S)"""
@@ -237,22 +237,22 @@ class Solution:
 def printInfo(x):
     S = Solution(x)
     print(f"""
-          stormZone: {S.stormZone}
-          stormZoneIndx: {S.stormZoneIndx}
+          eventZone: {S.eventZone}
+          eventZoneIndx: {S.eventZoneIndx}
           cost: {S.cost}
           penalties: {S.penalties}
-          stormDef: {S.StormDeficit}
+          eventDef: {S.eventDeficit}
           ObjectiveFunction: {RSolution(S)}
-          windFrag: {S.windFrag[S.stormZoneIndx]}
-          stormDur: {S.stormDur[S.stormZoneIndx]}
-          capacity: {np.array(S.CWind)[S.stormZoneIndx]}""")
+          windFrag: {S.windFrag[S.eventZoneIndx]}
+          eventDur: {S.eventDur[S.eventZoneIndx]}
+          capacity: {np.array(S.CWind)[S.eventZoneIndx]}""")
 
 def RSolution(S):
-    StormDeficit, penalties, cost = S.StormDeficit, S.penalties, S.cost
+    eventDeficit, penalties, cost = S.eventDeficit, S.penalties, S.cost
     
     if penalties > 0: penalties = penalties*pow(10,6)
     
-    func = StormDeficit + penalties + cost
+    func = eventDeficit + penalties + cost
     
     if cost > costConstraint: func = func*pow(10,6)
     

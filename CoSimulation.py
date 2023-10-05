@@ -9,7 +9,7 @@ from Simulation import Reliability
 def Resilience(solution, flexible, start=None, end=None, RSim=None, output = 'deficits'):
     """Deficit = Simulation.Resilience(S, hydro=...)"""
 
-    windDiff, stormDur, stormZoneIndx = solution.WindDiff[start:end], solution.stormDur, solution.stormZoneIndx
+    windDiff, eventDur, eventZoneIndx = solution.WindDiff[start:end], solution.eventDur, solution.eventZoneIndx
     
     solution.flexible = flexible # MW
 
@@ -28,40 +28,40 @@ def Resilience(solution, flexible, start=None, end=None, RSim=None, output = 'de
         try: RNetload = Netload + windDiff.sum(axis=1) 
         except np.AxisError: RNetload = Netload + windDiff
         
-        if stormZoneIndx is not None:
-            # State of charge is taken as the state of charge {StormDuration} steps ago 
+        if eventZoneIndx is not None:
+            # State of charge is taken as the state of charge {eventDuration} steps ago 
             # +/- the charging that occurs under the modified generation capacity   
             storageAdj = [
                 np.lib.stride_tricks.sliding_window_view(
-                    np.concatenate([np.zeros(stormDur[i] - 1), #function only recognises full length windows -> pad with zeros
+                    np.concatenate([np.zeros(eventDur[i] - 1), #function only recognises full length windows -> pad with zeros
                                     windDiff[:,i]]), 
-                    stormDur[i]).sum(axis=1) 
-                for i in stormZoneIndx]        
+                    eventDur[i]).sum(axis=1) 
+                for i in eventZoneIndx]        
             
             if len(storageAdj) == 1: storageAdj = storageAdj[0]
             else: storageAdj = np.stack(storageAdj, axis = 1).sum(axis=1)
         
         
     elif RSim > 0: 
-        # Simulate a single storm which has been going until the specified time instance 
+        # Simulate a single event which has been going until the specified time instance 
         windDiffInst = np.zeros(windDiff.shape)
-        for i in stormZoneIndx:
-            windDiffInst[max(0, RSim-stormDur[i]):RSim+1, i] = windDiff[max(0, RSim-stormDur[i]):RSim+1, i] 
+        for i in eventZoneIndx:
+            windDiffInst[max(0, RSim-eventDur[i]):RSim+1, i] = windDiff[max(0, RSim-eventDur[i]):RSim+1, i] 
         windDiff, solution.WindDiff = windDiffInst, windDiffInst
         
         try: RNetload = Netload + windDiffInst.sum(axis=1) 
         except np.AxisError: RNetload = Netload + windDiffInst
         
-        if stormZoneIndx is not None: 
+        if eventZoneIndx is not None: 
             storageAdj = windDiff.sum(axis=1)
             storageAdj[np.where(storageAdj!=0)] = np.cumsum(storageAdj[np.where(storageAdj!=0)])
         
     else: raise Exception("Invalid RSim argument")
 
     # =============================================================================
-    # Re-simulate with resilience losses due to windstorm, and including storage depletion
+    # Re-simulate with resilience losses due to windevent, and including storage depletion
     # =============================================================================
-    if stormZoneIndx is not None:    
+    if eventZoneIndx is not None:    
         
         Storage_1, StorageD_1 = np.roll(Storage, 1, axis = 0), np.roll(StorageD, 1, axis = 0)
         Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD

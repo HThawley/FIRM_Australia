@@ -27,14 +27,14 @@ import rasterio
 
 #%%
 
-def readAll(location, speedThreshold, n_years, stn=None, multiprocess=False):
+def readAll(location, stormThreshold, droughtThreshold, n_years, stn=None, multiprocess=False):
     active_dir = os.getcwd()
     os.chdir(location)
     
     if stn is None:
         stn = readStnDetail(location)
 
-    folders = [(path, speedThreshold, stn, False) 
+    folders = [(path, stormThreshold, droughtThreshold, stn, False) 
                for path in os.listdir() if ('.zip' not in path) and ('MaxWindGust' not in path)]
     
     if multiprocess:
@@ -47,19 +47,29 @@ def readAll(location, speedThreshold, n_years, stn=None, multiprocess=False):
         for folderTuple in tqdm(folders, desc = 'Reading wind data folder-by-folder'):
             results.append(readData(folderTuple))
 
-    coverage = sum([result[1] for result in results])
+    stormCoverage = sum([result[1] for result in results])
     stormDurations = pd.concat([result[0] for result in results])
     stormDurations = stormDurations.sort_values().reset_index(drop=True)
     
-    stormsPerYear = len(stormDurations)/coverage 
-    percentiles = [1/(stormsPerYear*N) for N in n_years]
+    stormsPerYear = len(stormDurations)/stormCoverage 
+    stormPercentiles = [1/(stormsPerYear*N) for N in n_years]
     
-    speeds = [stormSpeed(stormDurations, perc) for perc in percentiles]
+    stormLengths = [hilpLength(stormDurations, perc) for perc in stormPercentiles]
     
-    os.chdir(active_dir)
-    return speeds, stormDurations, coverage
+    droughtCoverage = sum([result[3] for result in results])
+    droughtDurations = pd.concat([result[2] for result in results])
+    droughtDurations = droughtDurations.sort_values().reset_index(drop=True)
+    
+    droughtsPerYear = len(droughtDurations)/droughtCoverage 
+    droughtPercentiles = [1/(droughtsPerYear*N) for N in n_years]
+    
+    droughtLengths = [hilpLength(droughtDurations, perc) for perc in droughtPercentiles]
+    
 
-def stormSpeed(dist, perc): 
+    os.chdir(active_dir)
+    return stormLengths, stormDurations, stormCoverage, droughtLengths, droughtDurations, droughtCoverage
+
+def hilpLength(dist, perc): 
     return dist.tail(int(perc*len(dist))).iloc[0]
 
 def formatStnNo(col):
@@ -107,15 +117,15 @@ def readStnDetail(location):
     os.chdir(active_dir)
     return stn
 
-def readData(argTuple, folder=None, speedThreshold=None, stn=None, multiprocess=None):
+def readData(argTuple, folder=None, stormThreshold=None, droughtThreshold=None, stn=None, multiprocess=None):
     if argTuple is not None: 
-        folder, speedThreshold, stn, multiprocess = argTuple
-    for arg in (folder, speedThreshold, stn, multiprocess):
+        folder, stormThreshold, droughtThreshold, stn, multiprocess = argTuple
+    for arg in (folder, stormThreshold, droughtThreshold, stn, multiprocess):
         assert arg is not None
     active_dir = os.getcwd()
     os.chdir(folder)
     
-    argTuples = [(path, speedThreshold, stn) for path in os.listdir() if 'Data' in path]
+    argTuples = [(path, stormThreshold, droughtThreshold, stn) for path in os.listdir() if 'Data' in path]
     
     if multiprocess:
         with Pool(processes = min(cpu_count(), len(argTuples))) as processPool:
@@ -125,22 +135,24 @@ def readData(argTuple, folder=None, speedThreshold=None, stn=None, multiprocess=
     else: 
         results = [readFile(argTuple) for argTuple in argTuples]
     
-    coverage = sum([result[1] for result in results])
+    stormCoverage = sum([result[1] for result in results])
+    droughtCoverage = sum([result[3] for result in results])
     stormDurations = pd.concat([result[0] for result in results])
+    droughtDurations = pd.concat([result[2] for result in results])
 
     os.chdir(active_dir)
-    return stormDurations, coverage
+    return stormDurations, stormCoverage, droughtDurations, droughtCoverage
 
     
-def readFile(argTuple=None, path=None, speedThreshold=None, stn=None):
+def readFile(argTuple=None, path=None, stormThreshold=None, droughtThreshold=None, stn=None):
     if argTuple is not None: 
-        path, speedThreshold, stn = argTuple
-    for arg in (path, stn, speedThreshold):
+        path, stormThreshold, droughtThreshold, stn = argTuple
+    for arg in (path, stn, stormThreshold, droughtThreshold):
         assert arg is not None
 
     stnNo = path[11:17]
     if stnNo not in set(stn['station no.']):
-        return pd.Series([]), 0
+        return pd.Series([]), 0, pd.Series([]), 0
     
     df = pd.read_csv(path, usecols = [7,8,9,10,11,12,16], dtype = str)
     for col in df.columns:
@@ -154,50 +166,52 @@ def readFile(argTuple=None, path=None, speedThreshold=None, stn=None):
     df['meanSpeed-10m'] = df['meanSpeed-10m'] / 3.6# km/h to m/s
     df = df[['dt', 'gustSpeed-10m', 'meanSpeed-10m']]
 
-    if len(df.dropna()) == 0: 
-        return pd.Series([]), 0
+    if len(df.dropna()) == 0: return pd.Series([]), 0, pd.Series([]), 0
     
-    df = df.dropna(subset=['gustSpeed-10m'])
-    df = df.sort_values(by=['dt', 'gustSpeed-10m'])
+    longTermMeanSpeed = df['meanSpeed-10m'].mean()  
+    try: scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
+    except KeyError: return pd.Series([]), 0, pd.Series([]), 0
+    if pd.isna(scaleFactor): return pd.Series([]), 0, pd.Series([]), 0
+    
+    stormDurations, stormCoverage = doAnalysis(df, 'storm', stnNo, stormThreshold, scaleFactor)
+    droughtDurations, droughtCoverage = doAnalysis(df, 'drought', stnNo, droughtThreshold, scaleFactor)
+
+    return stormDurations, stormCoverage, droughtDurations, droughtCoverage
+
+def doAnalysis(data, event, stnNo, threshold, scaleFactor):
+    assert event in ('storm', 'drought')
+    df = data.copy()
+    if event == 'storm': col10, col100 = 'gustSpeed-10m', 'gustSpeed-100m'
+    else: col10, col100 = 'meanSpeed-10m', 'meanSpeed-100m'
+
+    df = df.dropna(subset=[col10])
+    df = df.sort_values(by=['dt', col10])
     df = df.drop_duplicates(subset='dt', keep='last')
     
-    longTermMeanSpeed = df['meanSpeed-10m'].mean()    
-    startTime, endTime = df.dropna(subset=['gustSpeed-10m'])['dt'].min(), df.dropna(subset=['gustSpeed-10m'])['dt'].max()
-    # meanRes = (df.dropna(subset=['gustSpeed-10m'])[['dt']].diff(periods=1, axis=0).sum()[0]/len(df)).total_seconds()/60
+    df[col100] = scaleFactor * df[col10]
     
-    try: 
-        scaleFactor = stn[stn['station no.']==stnNo]['meanSpeed-100m'].values[0] / longTermMeanSpeed
-    except KeyError: 
-        return pd.Series([]), 0
-    if pd.isna(scaleFactor): 
-        return pd.Series([]), 0
+    #define storm/drought indicator initially: 2-> event, 1-> within tolerance, 0-> not event
+    if event=='storm': df['ind'] = df[col100].apply(lambda gust: 2 if gust>=threshold[0] else 1 if gust>=threshold[1] else 0)
+    else: df['ind'] = df[col100].apply(lambda mean: 2 if mean<=threshold[0] else 1 if mean<=threshold[1] else 0)
 
-    df['gustSpeed-100m'] = scaleFactor * df['gustSpeed-10m']
-
-    #define storm indicator initially
-    df['highSpeedInd'] = df['gustSpeed-100m'].apply(lambda gust: 2 if gust >=speedThreshold[0] else 1 if gust>=speedThreshold[1] else 0)
-    #smooth storm indicator to include adjacent instances within 10% of cutOffSpeed
-    df['highSpeedInd'] = df['highSpeedInd'].rolling(window=2).mean().apply(lambda ind: 1 if ind>=1.5 else 0)
+    #smooth indicator to include adjacent instances within tolerance
+    df['ind'] = df['ind'].rolling(window=2).mean().apply(lambda ind: 1 if ind>=1.5 else 0)
     # Calculate time between rows 
     df['timeDiff'] = (df['dt'].shift(-1) - df['dt']).apply(lambda td: td.days*24 + td.seconds/3600)
     df.iloc[-1, df.columns.get_indexer(['timeDiff'])] = df['timeDiff'].mean()
-
-    # Where a time period is greater than 2 hours, do not let it be a storm
-    # This prevents some incorrect 600+ hour storms 
-    df.loc[df['timeDiff'] > 2, 'highSpeedInd'] = 0 
-    
-    # Calculate the length of time periods either or not experiencing a storm
-    periodDurations = df['timeDiff'].groupby((df['highSpeedInd'] != df['highSpeedInd'].shift()).cumsum()).sum()
-   
-    # Mask for which time periods are storms 
-    periodIndicators = df['highSpeedInd'].groupby((df['highSpeedInd'] != df['highSpeedInd'].shift()).cumsum()).unique().astype(bool)
-    stormDurations = periodDurations[periodIndicators]
-
-    # Exclude periods of time with insufficient coverage, 
-    timeSpan = endTime-startTime
+    # Where a time period is greater than 2 hours, do not let it be an event
+    # This prevents some incorrect 600+ hour events 
+    df.loc[df['timeDiff'] > 2, 'ind'] = 0 
+    # Calculate the length of time periods either or not experiencing an event
+    durations = df['timeDiff'].groupby((df['ind'] != df['ind'].shift()).cumsum()).sum()
+    # Mask for which time periods are event
+    indicators = df['ind'].groupby((df['ind'] != df['ind'].shift()).cumsum()).unique().astype(bool)
+    durations = durations[indicators]
+    # Exclude periods of time with insufficient coverage
+    timeSpan = df['dt'].max() - df['dt'].min()
     coverage = (((timeSpan.seconds/86400.) + timeSpan.days)/365.25) - ((df['timeDiff'][df['timeDiff']>2].sum())/8766)
 
-    return stormDurations, coverage
+    return durations, coverage
 
 def lambdaDt(y, mo, d, h, mi): return dt(y, mo, d, h, mi)
     
@@ -211,18 +225,27 @@ def removeAnomalousStns(stn):
  
 if __name__=='__main__':
 
-    speedThreshold=(25, #turbine cut-off speed 25 m/s
+    stormThreshold=(25, #turbine cut-off speed 25 m/s
                     25*0.9 #wind gust speed tolerance, 10% 
                     )
     
-    n_years=(5,10,20,25,50,100)
+    droughtThreshold=(4, #turbine cut-in speed 4 m/s
+                      4*1.1 # smoothing tolerance, 10%
+                      )
+    
+    n_years=(25,)
     
     stn = readStnDetail(r'BOM Wind Data')
     
-    speeds, stormDurations, coverage = readAll(r'BOM Wind Data', speedThreshold, n_years, stn=stn, multiprocess=True)
+    stormLengths, stormDurations, stormCoverage, droughtLengths, droughtDurations, droughtCoverage = readAll(
+        r'BOM Wind Data', stormThreshold, droughtThreshold, n_years, stn=stn, multiprocess=True)
     
     stormDurations.value_counts().to_csv('Data/stormDurations.csv', header=False)
-    pd.DataFrame([coverage]).to_csv('Data/stormCoverage.csv', index=False, header=False)
+    pd.DataFrame([stormCoverage]).to_csv('Data/stormCoverage.csv', index=False, header=False)
+    
+    droughtDurations.value_counts().to_csv('Data/droughtDurations.csv', header=False)
+    pd.DataFrame([droughtCoverage]).to_csv('Data/droughtCoverage.csv', index=False, header=False)
+    
 
     # stn.to_csv(r'Data/WindStats.csv', index = False)
     

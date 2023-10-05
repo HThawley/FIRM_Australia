@@ -18,7 +18,7 @@ df['idx'] = range(len(df))
 df['Date & time'] = pd.to_datetime(df['Date & time'], format='%a -%d %b %Y %H:%M')
 df['Date & time'] = df['Date & time']
 
-deficitMask = df['StormDeficit'] > 0
+deficitMask = df['eventDeficit'] > 0
 
 ncols = [col for col in df.columns if col != 'Date & time']
 
@@ -30,7 +30,7 @@ df = df.iloc[624:, :]
 
 fig, ax = plt.subplots(figsize=(8,5))
 
-pcols=['PHES-Charge', 'Hydropower', 'Biomass', 'Solar photovoltaics', 'StormPower', 
+pcols=['PHES-Charge', 'Hydropower', 'Biomass', 'Solar photovoltaics', 'eventPower', 
         'PHES-power', 'Energy spillage']#, 'PHES-Charge']
 colors=['red', 'blue','purple','yellow','green','cyan','grey']#, 'red']
 
@@ -44,15 +44,15 @@ ax.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0
 ax.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(30*103, 'm'),color='r', linewidth=0.5, alpha = 0.5)
 
 # ax.plot(df['idx'], df['PHES-Storage'], linestyle='--', color='red', label='PHES')
-# ax.plot(df['idx'], df['StormStorage'], linestyle=':', color='blue', label='S-PHES')
+# ax.plot(df['idx'], df['eventStorage'], linestyle=':', color='blue', label='S-PHES')
 
 ax2 = ax.twinx()
-ax2.plot(df['Date & time'], df['PHES-Storage']-df['StormStorage'], linestyle='--', color='r', label='storageDifference')
-# ax2.plot(df['idx'], df['StormSpillage'], linestyle='--', color='r', label='StormSpillage')
-# ax2.plot(df['idx'], df['StormStorage'], linestyle=':', color='b', label='stormStorage')
+ax2.plot(df['Date & time'], df['PHES-Storage']-df['eventStorage'], linestyle='--', color='r', label='storageDifference')
+# ax2.plot(df['idx'], df['eventSpillage'], linestyle='--', color='r', label='eventSpillage')
+# ax2.plot(df['idx'], df['eventStorage'], linestyle=':', color='b', label='eventStorage')
 
 # ax.plot(df['Wind'], label ='normal')
-# ax.plot(df['StormPower'], label='storm')
+# ax.plot(df['eventPower'], label='event')
 
 
 # ax.set_xlim([None, 1000])

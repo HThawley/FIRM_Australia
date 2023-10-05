@@ -127,7 +127,7 @@ def consolidateCapacities(output=False):
     
     return caps
 
-def zoneTypeIndx(scenario, stormZone=None, wdir=None):
+def zoneTypeIndx(scenario, eventZone=None, wdir=None):
     if wdir is not None: 
         active_dir = os.getcwd()
         os.chdir(wdir)
@@ -135,7 +135,7 @@ def zoneTypeIndx(scenario, stormZone=None, wdir=None):
     PVl   = np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
     Windl = np.array(['NSW']*8 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*2 + ['SA']*8 + ['TAS']*4 + ['VIC']*4 + ['WA']*3 + ['NT']*1)
     names = np.char.replace(np.genfromtxt('Data\ZoneDict.csv', delimiter=',', dtype=str), 'ï»¿', '')
-    if str(stormZone) == 'all': stormZone = ...
+    if str(eventZone) == 'all': eventZone = ...
 
     if scenario<=17:
         node = Nodel[scenario % 10]
@@ -145,9 +145,9 @@ def zoneTypeIndx(scenario, stormZone=None, wdir=None):
         coverage = np.array([node])
         
         zones = np.zeros(Windl.shape)
-        zones[stormZone] = 1 
+        zones[eventZone] = 1 
         zones = zones[np.where(Windl==node)[0]]
-        stormZoneIndx = np.where(zones==1)[0]
+        eventZoneIndx = np.where(zones==1)[0]
         
     if scenario>=21:
         coverage = [np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC']),
@@ -160,9 +160,9 @@ def zoneTypeIndx(scenario, stormZone=None, wdir=None):
                     np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])][scenario % 10 - 1]
         
         zones = np.zeros(Windl.shape)
-        zones[stormZone] = 1 
+        zones[eventZone] = 1 
         zones = zones[np.where(np.in1d(Windl, coverage)==True)[0]]
-        stormZoneIndx = np.where(zones==1)[0]
+        eventZoneIndx = np.where(zones==1)[0]
         
         names = names[np.where(np.in1d(np.append(PVl, Windl), coverage)==True)[0]]
         pzones = len(np.where(np.in1d(PVl, coverage)==True)[0])
@@ -176,11 +176,11 @@ def zoneTypeIndx(scenario, stormZone=None, wdir=None):
                ['storage-' + name + ' (GW)' for name in coverage] + 
                ['storage (GWh)'])
     
-    if stormZone is None: stormZoneIndx=None
+    if eventZone is None: eventZoneIndx=None
     
     if wdir is not None: 
         os.chdir(active_dir)
-    return pidx, widx, sidx, headers, stormZoneIndx
+    return pidx, widx, sidx, headers, eventZoneIndx
 
 
 #%%

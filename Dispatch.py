@@ -97,25 +97,25 @@ def Analysis(x, flex=True):
         
         Flex, RFlex, CRFlex = (np.array(np.concatenate(list(result.loc[result[0]==i, 2]))) for i in range(3))
         
-        np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-        np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-        np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        np.savetxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        np.savetxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
         endtime = dt.datetime.now()
         print('.\nDispatch took', endtime - starttime)
 
     else: 
-        Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
-        RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
-        CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+        Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=',')
+        RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=',')
+        CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=',')
 
     from Statistics import Information, DeficitInformation, verifyDispatch
     try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
-    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, C deficit assertion failed')
+    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, C deficit assertion failed')
     try: verifyDispatch(x, Flex)
-    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, deficit assertion failed')
+    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, deficit assertion failed')
     try: verifyDispatch(x, RFlex, resilience=True)    
-    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{stormZone}, R deficit assertion failed')
+    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, R deficit assertion failed')
 
 
     Information(x, Flex, resilience=False)
@@ -127,6 +127,6 @@ def Analysis(x, flex=True):
 if __name__ == '__main__':
     
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, stormZone, n_year), delimiter=',')
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=',')
 
     Analysis(capacities, True)

@@ -13,15 +13,9 @@ from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor as NestablePool
 from datetime import datetime as dt
 # from math import exp
-import matplotlib.pyplot as plt
-from scipy.stats import gumbel_r, poisson, pareto
-from scipy.interpolate import RBFInterpolator
-import rasterio
 import geopandas as gpd
-from shapely.geometry import Point, Polygon#, MultiPolygon
 from shapely.ops import nearest_points
-# from shapely import distance
-import warnings
+from shapely import Point
 
 import geometricUtils as gmu
 
