@@ -19,11 +19,12 @@ from datetime import datetime as dt
 
 scenario = 21
 n_year = 25
+event = 's'
 
 def sfileMatch(file):
     try: 
         assert file[:4] == f'S{scenario}-'
-        assert file[-7:] == f'-{n_year}.csv'
+        assert file[-9:] == f'-{n_year}-{event}.csv'
         return True
     except (IndexError, AssertionError): return False
     return False

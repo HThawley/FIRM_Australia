@@ -43,14 +43,15 @@ def consolidateGGTA(output = False, cap = None):
             df = pd.concat([
                     pd.DataFrame([[int(file[4:6]), 
                                   reSearchWrapper('(\[.*\]|all|None)', file),
-                                  reSearchWrapper('(?<=-)\d+(?=.csv)', file)]]),
+                                  reSearchWrapper('(?<=-)\d+(?=-\w.csv)', file), 
+                                  reSearchWrapper('(?<=-)\w(?=.csv)', file)]]),
                     pd.read_csv(file, header=None)
                     ], axis = 1)
             ggta = pd.concat([ggta, df])
             
         os.chdir(active_dir)
         
-    ggta.columns = ['Scenario', 'Zone', 'n_year', 'Energy Demand (TWh p.a.)', 
+    ggta.columns = ['Scenario', 'Zone', 'n_year', 'event', 'Energy Demand (TWh p.a.)', 
         'HVDC Loss (TWh p.a.)', 'Solar (GW)', 'Solar (TWh p.a.)', 'Wind (GW)', 
         'Wind (TWh p.a.)', 'Hydro & Bio (GW)', 'Hydro & Bio (TWh p.a.)', 
         'Pumped Hydro (GW)', 'Pumped Hydro (GWh)', 'HVDC FNQ-QLD (GW)', 
@@ -105,7 +106,8 @@ def consolidateCapacities(output=False):
                 df = pd.concat([
                     pd.DataFrame([[int(file[20:22]), 
                                    reSearchWrapper('(\[.*\]|all|None)', file),
-                                   reSearchWrapper('(?<=-)\d+(?=.csv)', file)]]),
+                                   reSearchWrapper('(?<=-)\d+(?=.csv)', file), 
+                                   reSearchWrapper('(?<=-)\w(?=.csv)', file)]]),
                     pd.read_csv(file, header=None)
                     ], axis = 1)
                 
@@ -115,7 +117,7 @@ def consolidateCapacities(output=False):
     for key, df in caps.items():
         pidx, widx, sidx, headers, szindx = zoneTypeIndx(int(key), wdir=active_dir)
         
-        df.columns = (['Scenario', 'Zone', 'n_year'] + headers)
+        df.columns = (['Scenario', 'Zone', 'n_year', 'event'] + headers)
         df['n_year'] = df['n_year'].fillna(-1).astype(int)
         caps[key] = caps[key].reset_index(drop=True)
         

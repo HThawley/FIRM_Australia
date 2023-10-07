@@ -75,10 +75,10 @@ def LPGM(solution, RSim=None):
              'eventPowerLoss,eventDeficit,eventStorage,eventPHES-power,eventPHES-Charge,eventSpillage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
-    if RSim is None: np.savetxt('Results/S{}-{}-{}.csv'.format(scenario, eventZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
+    if RSim is None: np.savetxt('Results/S{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), C, fmt='%s', delimiter=',', header=header, comments='')
     else: 
         C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 49, :] #2 weeks before event + 1 day after 
-        np.savetxt('Results/S-Deficit{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, RSim[0]), C, fmt='%s', delimiter=',', header=header, comments='')
+        np.savetxt('Results/S-Deficit{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, RSim[0], event[0]), C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
@@ -98,10 +98,10 @@ def LPGM(solution, RSim=None):
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            if RSim is None: np.savetxt('Results/S{}{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year), C, fmt='%s', delimiter=',', header=header, comments='')
+            if RSim is None: np.savetxt('Results/S{}{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, event[0]), C, fmt='%s', delimiter=',', header=header, comments='')
             else: pass
                 # C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 49, :] #2 weeks before event + 1 day after 
-                # np.savetxt('Results/S-Deficit{}{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, RSim[0]), C, fmt='%s', delimiter=',', header=header, comments='')
+                # np.savetxt('Results/S-Deficit{}{}-{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, RSim[0], event[0]), C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -170,7 +170,7 @@ def GGTA(solution, verbose=False):
               + list(solution.CDC) 
               + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
-    np.savetxt('Results/GGTA{}-{}-{}.csv'.format(scenario,eventZone, n_year), D, fmt='%f', delimiter=',')
+    np.savetxt('Results/GGTA{}-{}-{}-{}.csv'.format(scenario,eventZone, n_year, event[0]), D, fmt='%f', delimiter=',')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
@@ -291,6 +291,6 @@ def verifyDispatch(capacities, flexible, resilience=False):
 
 
 if __name__ == '__main__': 
-    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=',')
-    flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=',', skip_header=1)
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), delimiter=',')
+    flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), delimiter=',', skip_header=1)
     Information(capacities, flexible, 5)

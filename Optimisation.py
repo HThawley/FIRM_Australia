@@ -78,7 +78,7 @@ if __name__=='__main__':
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1, 
                                     callback = callback)
 
-    with open('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, eventZone, n_year), 'w', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), 'w', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
     del csvfile

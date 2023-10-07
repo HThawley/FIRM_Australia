@@ -130,7 +130,7 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 x0 = None
 if x0mode == 2: 
-    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter = ',')
+    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), delimiter = ',')
     except FileNotFoundError: pass 
 if x0 is None and x0mode >= 1:
     try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
