@@ -39,7 +39,7 @@ if n_year is not None:
     durations = durations[durations[:, 0].argsort()]
     durations = np.repeat(durations[:,0], durations[:,1].astype(int))
     
-    coverage = np.genfromtxt('Data/{eventCoverage.csv')
+    coverage = np.genfromtxt(f'Data/{event}Coverage.csv')
     eventsPerYear = len(durations)/coverage
     percentile = 1/(eventsPerYear*n_year)
     
