@@ -76,7 +76,7 @@ def CRFlexible(year, x):
 def Analysis(x, flex=True):
     """Dispatch.Analysis(result.x)"""
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    if flex:
+    if flex is True:
         starttime = dt.datetime.now()
         print('Dispatch starts at', starttime)
         print('Dispatch works on: ', end='')
@@ -129,4 +129,4 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), delimiter=',')
 
-    Analysis(capacities, True)
+    Analysis(capacities, False)

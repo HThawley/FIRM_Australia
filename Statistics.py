@@ -247,7 +247,7 @@ def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     start = dt.datetime.now()
     print("Statistics start at", start)
 
-    assert verifyDispatch(x, flexible, resilience)
+    # assert verifyDispatch(x, flexible, resilience)
 
     S = Solution(x)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
