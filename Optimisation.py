@@ -26,8 +26,8 @@ parser.add_argument('-x', default=1,    type=int,   required=False, help="What f
 parser.add_argument('-e', default='s',  type=str,   required=False, help="resilience event to model. storm-'s', drought-'d'")
 args = parser.parse_args()
 
-event = 'storm' if args.e == 's' else 'drought' if args.e == 'd' else None
-if event not in ('storm', 'drought'): raise Exception
+event = 'storm' if args.e == 's' else 'drought' if args.e == 'd' else None if args.e.lower() == 'none' else -1
+if event not in ('storm', 'drought', None): raise Exception
 scenario = args.s
 n_year = args.n
 costConstraintFactor = args.c
@@ -78,7 +78,7 @@ if __name__=='__main__':
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1, 
                                     callback = callback)
 
-    with open('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), 'w', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), 'w', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
     del csvfile
@@ -88,7 +88,7 @@ if __name__=='__main__':
         try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=','), history)
         except FileNotFoundError: pass
 
-    np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), history, delimiter=',')
+    np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
 
 
     endtime = dt.datetime.now()

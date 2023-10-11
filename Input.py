@@ -34,7 +34,7 @@ TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=ra
 windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
 windFrag, eventDur = windFrag[0], windFrag[1].astype(int)
 
-if n_year is not None:
+if event is not None:
     durations = np.genfromtxt(f'Data/{event}Durations.csv', delimiter=',', usecols=[0,1])
     durations = durations[durations[:, 0].argsort()]
     durations = np.repeat(durations[:,0], durations[:,1].astype(int))
@@ -129,8 +129,10 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 x0 = None
+if x0mode == 3: 
+    x0 = np.genfromtxt('Results/Optimisation_resultx21-[14]-25-d.csv', delimiter=',')
 if x0mode == 2: 
-    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, event[0]), delimiter = ',')
+    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter = ',')
     except FileNotFoundError: pass 
 if x0 is None and x0mode >= 1:
     try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
