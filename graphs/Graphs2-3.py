@@ -37,9 +37,10 @@ os.chdir('Results')
 ggtaSummary = pd.read_csv("GGTA-consolidated.csv")
 # ggtaSummary = pd.read_csv(r"C:\Users\hmtha\Desktop\GGTA-consolidated.csv")
 
-sfiles = [f for f in os.listdir() if sfileMatch(f)]
 
 for event in ('d', 's'):
+    sfiles = [f for f in os.listdir() if sfileMatch(f)]
+
     for f in sfiles: 
         if 'All' in f:  eventZone = 'All'
         else: eventZone = '['+re.split('\[|\]', f)[1]+']'
@@ -56,17 +57,17 @@ for event in ('d', 's'):
                      )
         ax.set_xlabel('Half Hourly Energy deficit (%)')
         ax.set_ylabel('Occurences per decade')
-        ax.set_title(f'Frequency of energy deficits ({scenario}-{eventZone})')
+        ax.set_title(f'Number of fragile times ({scenario}-{eventZone}-{event})')
         plt.show()
         
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(10, 5))
         data['Date & time'] = pd.to_datetime(data['Date & time'], format='%a -%d %b %Y %H:%M')
     
         data['Day'] = data['Date & time'].dt.day
         data['Month'] = data['Date & time'].dt.month
         data = data.drop(columns = ['Date & time'])
-        data = (data.groupby(['Month', 'Day']).sum()/10).reset_index()
-        # data = (data.groupby(['Month', 'Day']).sum()).reset_index()
+        # data = (data.groupby(['Month', 'Day']).sum()/10).reset_index()
+        data = (data.groupby(['Month', 'Day']).max()).reset_index()
         
         data['Date'] = data[['Month','Day']].apply(lambda x: dt(2000, *x), axis = 1)
     
@@ -88,7 +89,7 @@ for event in ('d', 's'):
     
         ax.set_xlabel('Date (daily)')
         ax.set_ylabel('Mean energy deficit (%)')
-        ax.set_title(f'Annual pattern of power deficits ({scenario}-{eventZone}-{event})')
+        ax.set_title(f'Expected deficit by date of event ({scenario}-{eventZone}-{event})')
         
         # sns.scatterplot(data = data, 
         #                 x = 'Date & time', 
