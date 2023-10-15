@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, relative, eventZone, n_year, x0mode, event
+from Optimisation import scenario, costConstraintFactor, relative, eventZone, n_year, x0mode, event, trial
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission

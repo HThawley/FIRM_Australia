@@ -24,8 +24,10 @@ parser.add_argument('-v', default=0,    type=int,   required=False, help='boolea
 parser.add_argument('-n', default=25,   type=int,   required=False, help='1-in-N-year to consider, -2 uses value in windFragility.csv, -1 is no event.')
 parser.add_argument('-x', default=1,    type=int,   required=False, help="What first approx to use. 0-none, 1-Bin's results, 2-where it last ended. Note: if it can't find, it will try the next.")
 parser.add_argument('-e', default='s',  type=str,   required=False, help="resilience event to model. storm-'s', drought-'d'")
+parser.add_argument('-t', default=0, type = int, required = False)
 args = parser.parse_args()
 
+trial = args.t
 event = 'storm' if args.e == 's' else 'drought' if args.e == 'd' else None if args.e.lower() == 'none' else -1
 if event not in ('storm', 'drought', None): raise Exception
 scenario = args.s
@@ -78,17 +80,17 @@ if __name__=='__main__':
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1, 
                                     callback = callback)
 
-    with open('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), 'w', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), 'w', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
     del csvfile
     
     history = np.array(history)
     if x0mode == 2: 
-        try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}.csv'.format(scenario, eventZone, n_year), delimiter=','), history)
+        try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=','), history)
         except FileNotFoundError: pass
 
-    np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
+    np.savetxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), history, delimiter=',')
 
 
     endtime = dt.datetime.now()
