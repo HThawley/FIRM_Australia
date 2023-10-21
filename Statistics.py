@@ -7,6 +7,7 @@
 from Input import *
 from Simulation import Reliability
 from CoSimulation import Resilience
+from DeficitSimulation import DeficitSimulation
 from Network import Transmission
 
 import numpy as np
@@ -75,10 +76,10 @@ def LPGM(solution, RSim=None):
              'eventPowerLoss,eventDeficit,eventStorage,eventPHES-power,eventPHES-Charge,eventSpillage,' \
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
-    if RSim is None: np.savetxt('Results/S{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), C, fmt='%s', delimiter=',', header=header, comments='')
+    if RSim is None: np.savetxt('Results/S{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
     else: 
-        C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 49, :] #2 weeks before event + 1 day after 
-        np.savetxt('Results/S-Deficit{}-{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, RSim[0], str(event)[0], trial), C, fmt='%s', delimiter=',', header=header, comments='')
+        C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 97, :] #2 weeks before event + 2 day after 
+        np.savetxt('Results/S-Deficit{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, RSim[0], str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
@@ -98,7 +99,7 @@ def LPGM(solution, RSim=None):
             C = np.around(C.transpose())
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            if RSim is None: np.savetxt('Results/S{}{}-{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, str(event)[0], trial), C, fmt='%s', delimiter=',', header=header, comments='')
+            if RSim is None: np.savetxt('Results/S{}{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
             else: pass
                 # C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 49, :] #2 weeks before event + 1 day after 
                 # np.savetxt('Results/S-Deficit{}{}-{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, RSim[0], str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
@@ -170,19 +171,19 @@ def GGTA(solution, verbose=False):
               + list(solution.CDC) 
               + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
-    np.savetxt('Results/GGTA{}-{}-{}-{}-{}.csv'.format(scenario,eventZone, n_year, str(event)[0], trial), D, fmt='%f', delimiter=',')
+    np.savetxt('Results/GGTA{}-{}-{}-{}.csv'.format(scenario,eventZone, n_year, str(event)[0]), D, fmt='%f', delimiter=',')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
 
-def TransmissionFactors(solution, flexible, resilience = False):
+def TransmissionFactors(solution, flexible, resilience = False, deficit = False):
     if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
     
     if scenario>=21:
         if resilience: 
-            solution.TDC, solution.TDCR = Transmission(solution, output=True, resilience=True) # TDC(t, k), MW
+            solution.TDC, solution.TDCR = Transmission(solution, True, resilience, deficit) # TDC(t, k), MW
         else: 
-            solution.TDC = Transmission(solution, output=True, resilience=False) # TDC(t, k), MW
+            solution.TDC = Transmission(solution, True, resilience, deficit) # TDC(t, k), MW
     else:
         solution.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
         
@@ -227,19 +228,6 @@ def TransmissionFactors(solution, flexible, resilience = False):
         [-1 *solution.FQ, -1 *(solution.NQ +solution.NS +solution.NV), -1 *solution.AS ,solution.FQ +solution.NQ, 
          solution.NS + solution.AS -solution.SW, -1 *solution.TV,solution.NV +solution.TV,solution.SW])
     return solution
-    
-def DeficitAnalysis(capacities, flexible, N=1):   
-    if N is None: return True
-    solution = Solution(capacities)
-    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=flexible)
-    topNDeficitIndx = np.flip(np.argpartition(RDeficit, -N)[-N:])
-    
-    for n, indx in enumerate(topNDeficitIndx):
-        solution = Solution(capacities)
-        solution = Resilience(solution, flexible, RSim=indx, output='solution')
-        solution = TransmissionFactors(solution, flexible)
-        LPGM(solution, (n, indx))
-    return True 
 
 def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     """Dispatch: Statistics.Information(x, Flex)"""
@@ -277,7 +265,25 @@ def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
     print("Deficit Statistics took", end - start)
     return True
    
+def DeficitAnalysis(capacities, flexible, N=1):   
+    if N is None: return True
+    solution = Solution(capacities)
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=flexible)
+    topNDeficitIndx = np.flip(np.argpartition(RDeficit, -N)[-N:])
     
+    for n, indx in enumerate(topNDeficitIndx):
+        solution = Solution(capacities)
+        solution = DeficitSimulation(
+            solution
+            , flexible
+            # , start = indx - 2*solution.eventDur[eventZoneIndx].max() 
+            # , end = indx + solution.eventDur[eventZoneIndx].max() 
+            , RSim=indx
+            , output='solution')
+        solution = TransmissionFactors(solution, flexible, deficit = True)
+        LPGM(solution, (n, indx))
+    return True 
+
     
 def verifyDispatch(capacities, flexible, resilience=False):
     S = Solution(capacities)
@@ -291,6 +297,7 @@ def verifyDispatch(capacities, flexible, resilience=False):
 
 
 if __name__ == '__main__': 
+    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
-    flexible = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',', skip_header=1)
-    Information(capacities, flexible, 5)
+    CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',', skip_header=1)
+    DeficitInformation(costCapacities, CRFlex, 1)

@@ -34,7 +34,7 @@ TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=ra
 windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
 windFrag, eventDur = windFrag[0], windFrag[1].astype(int)
 
-if event is not None:
+if event in ('storm', 'drought'):
     durations = np.genfromtxt(f'Data/{event}Durations.csv', delimiter=',', usecols=[0,1])
     durations = durations[durations[:, 0].argsort()]
     durations = np.repeat(durations[:,0], durations[:,1].astype(int))
@@ -44,8 +44,27 @@ if event is not None:
     percentile = 1/(eventsPerYear*n_year)
     
     durations = durations[-int(percentile*len(durations)):1-int(percentile*len(durations))]
-    
+        
     eventDur = np.repeat(int(durations[0]*2), len(eventDur))
+    
+elif event == 'event':
+    coverage = np.genfromtxt('Data/stormCoverage.csv'), np.genfromtxt('Data/droughtCoverage.csv')
+    eventsPerYear = 0 
+    durations = [np.genfromtxt('Data/stormDurations.csv', delimiter=',', usecols=[0,1]), 
+                 np.genfromtxt('Data/droughtDurations.csv', delimiter=',', usecols=[0,1])]
+    for i, dur in enumerate(durations): 
+        dur = dur[dur[:,0].argsort()]
+        dur = np.repeat(dur[:,0], dur[:,1].astype(int))
+
+        eventsPerYear += len(dur)/coverage[i]
+        durations[i] = dur
+    durations = np.concatenate(durations)
+    percentile = 1/(eventsPerYear*n_year)
+    rank = int(percentile*len(durations))
+    
+    durations = durations[-rank:1-rank]
+    eventDur = np.repeat(int(durations[0]*2), len(eventDur))
+
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
@@ -130,7 +149,7 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 x0 = None
 if x0mode == 3: 
-    x0 = np.genfromtxt('Results/Optimisation_resultx21-[14]-25-d.csv', delimiter=',')
+    x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx21-[14]-25-d.csv', delimiter=',')
 if x0mode == 2: 
     try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter = ',')
     except FileNotFoundError: pass 
@@ -181,7 +200,8 @@ class Solution:
             elif eventZone == 'None': self.eventZone, self.eventZoneIndx = 'None', None                
         elif isinstance(eventZone, np.ndarray): self.eventZone, self.eventZoneIndx  = eventZone, eventZoneIndx
         else: raise ValueError('eventZone should be "None", "All", or np array') 
-
+        self.intervals = intervals
+        
         self.MLoad, self.MLoadD = (MLoad, MLoadD)
         self.intervals, self.nodes = (intervals, nodes)
         self.resolution = resolution

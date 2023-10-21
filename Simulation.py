@@ -52,10 +52,6 @@ def Reliability(solution, flexible, start=None, end=None, output=False, resilien
         ChargeD[t] = ChargeDt
         StorageD[t] = StorageDt
         
-        # Calculate surplus
-        # Surplus[t] = max(0, -1*min(0,Netloadt) - Charget) * resolution #MWh
-        # SurplusD[t] = max(0, min(0,-1 * min(0, Netloadt + Charget) - ChargeDt)) * resolution 
-       
     Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
     Spillage = -1 * np.minimum(Netload + Charge + ChargeD, 0)

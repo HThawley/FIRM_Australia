@@ -192,3 +192,4 @@ if __name__ == '__main__':
     cap = consolidateCapacities(output)
     ggta = consolidateGGTA(output, cap)
 
+#%%

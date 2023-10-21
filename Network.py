@@ -5,7 +5,7 @@
 
 import numpy as np
 
-def Transmission(solution, output=False, resilience=False):
+def Transmission(solution, output=False, resilience=False, deficit=False):
     """TDC = Network.Transmission(S)"""
 
     Nodel, PVl, Windl = (solution.Nodel, solution.PVl, solution.Windl)
@@ -61,7 +61,7 @@ def Transmission(solution, output=False, resilience=False):
 
     NS = -1 * MImport[:, np.where(Nodel=='NSW')[0][0]] - NQ - NV
     NS1 = MImport[:, np.where(Nodel=='SA')[0][0]] - AS + SW
-    assert abs(NS - NS1).max()<=0.1, print(abs(NS - NS1).max())
+    if not deficit: assert abs(NS - NS1).max()<=0.1, print(abs(NS - NS1).max())
     
     TDC = np.array([FQ, NQ, NS, NV, AS, SW, TV]).transpose() # TDC(t, k), MW
     

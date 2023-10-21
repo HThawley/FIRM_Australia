@@ -38,9 +38,9 @@ def Resilience(solution, flexible, start=None, end=None, RSim=None, output = 'de
                     eventDur[i]).sum(axis=1) 
                 for i in eventZoneIndx]        
             
-            if len(storageAdj) == 1: storageAdj = storageAdj[0]
+            if len(storageAdj) == 1: storageAdj = storageAdj[0] 
             else: storageAdj = np.stack(storageAdj, axis = 1).sum(axis=1)
-        
+
         
     elif RSim > 0: 
         # Simulate a single event which has been going until the specified time instance 

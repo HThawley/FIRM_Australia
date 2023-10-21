@@ -42,11 +42,7 @@ def RFlexible(year, x):
     Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
     flexible = Fcapacity * np.ones(endidx - startidx)
     
-    for i in range(0, endidx - startidx, timestep):
-        flexible[i: i+timestep] = 0
-        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-        if (RDeficit + RDeficitD)[i:].sum() * resolution > 0.1:
-            flexible[i: i+timestep] = Fcapacity
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
             
     flexible = np.clip(flexible - S.RSpillage, 0, None)
     return pd.DataFrame([[1, year, flexible]])
@@ -63,11 +59,7 @@ def CRFlexible(year, x):
     Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
     flexible = Fcapacity * np.ones(endidx - startidx)
     
-    for i in range(0, endidx - startidx, timestep):
-        flexible[i: i+timestep] = 0
-        Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-        if (RDeficit + RDeficitD)[i:].sum() * resolution > 0.1:
-            flexible[i: i+timestep] = Fcapacity
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
             
     flexible = np.clip(flexible - S.RSpillage, 0, None)
     return pd.DataFrame([[2, year, flexible]])
