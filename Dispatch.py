@@ -112,7 +112,8 @@ def Analysis(x, flex=True):
 
     Information(x, Flex, resilience=False)
     # Information(x, RFlex, resilience=True)
-    DeficitInformation(costCapacities, CRFlex, 1)
+    if eventZone is not None:
+        DeficitInformation(costCapacities, CRFlex, 1)
     
     return True
 
