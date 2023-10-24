@@ -81,19 +81,32 @@ if __name__=='__main__':
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
                                     disp=bool(args.v), polish=False, updating='deferred', workers=-1, 
                                     callback = callback)
-
-    with open('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), 'w', newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(list(result.x))
+    if trial is None:
+        with open('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), 'w', newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(list(result.x))
+    else: 
+        try: 
+            with open('Results/Optimisation_resultx{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), 'w', newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(list(result.x))
+        except Exception as e: 
+            print(scenario, eventZone, n_year, str(event)[0], trial)
+            print('Results/Optimisation_resultx{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial))
+            raise e 
     del csvfile
     
     history = np.array(history)
     if x0mode == 2: 
-        try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=','), history)
-        except FileNotFoundError: pass
+        if trial is None:
+            try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=','), history)
+            except FileNotFoundError: pass
+        else: 
+            try: history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=','), history)
+            except FileNotFoundError: pass
 
-    np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
-
+    if trial is None: np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
+    else: np.savetxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), history, delimiter=',')
 
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)

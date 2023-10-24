@@ -89,17 +89,28 @@ def Analysis(x, flex=True):
         
         Flex, RFlex, CRFlex = (np.array(np.concatenate(list(result.loc[result[0]==i, 2]))) for i in range(3))
         
-        np.savetxt('Results/Dispatch_Flexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-        np.savetxt('Results/Dispatch_RFlexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-        np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+        if trial is None: 
+            np.savetxt('Results/Dispatch_Flexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+            np.savetxt('Results/Dispatch_RFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+            np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+
+        else: 
+            np.savetxt('Results/Dispatch_Flexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+            np.savetxt('Results/Dispatch_RFlexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+            np.savetxt('Results/Dispatch_CRFlexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
         endtime = dt.datetime.now()
         print('.\nDispatch took', endtime - starttime)
 
     else: 
-        Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
-        RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
-        CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
+        if trial is None: 
+            Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
+            RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
+            CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
+        else: 
+            Flex = np.genfromtxt('Results/Dispatch_Flexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=',')
+            RFlex = np.genfromtxt('Results/Dispatch_RFlexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=',')
+            CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=',')
 
     from Statistics import Information, DeficitInformation, verifyDispatch
     try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
@@ -112,7 +123,7 @@ def Analysis(x, flex=True):
 
     Information(x, Flex, resilience=False)
     # Information(x, RFlex, resilience=True)
-    if eventZone is not None:
+    if eventZone != 'None':
         DeficitInformation(costCapacities, CRFlex, 1)
     
     return True
