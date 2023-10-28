@@ -9,10 +9,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import cm 
 import seaborn as sns
+import numpy as np
 
 
 
-op = pd.read_csv(r"C:\Users\hmtha\Desktop\Optimisation_resultx21.csv")
+op = pd.read_csv(r"C:\Users\hmtha\Desktop\Optimisation_resultx21-consolidated.csv").loc[:,:]
 
 co = op.iloc[1:,52:]
 op = op.iloc[1:,:52]
@@ -48,12 +49,108 @@ op = pd.melt(
     , value_name = 'capacity'
     )
 
-fig, ax = plt.subplots()
+op['Source'] = op['ZoneName'].str.split('-').apply(lambda x: x[0] if len(x)>=2 else '')
+# op['type'] = op['type'].fillna('storage (Energy)')
+# op['ZoneName'] = op['ZoneName'].str.split('-').apply(lambda x: x[1] if len(x)==2 else x[0])
+
+op['Source'] = op['Source'].apply(lambda x: {
+    'pv':'Solar (GW)'
+    , 'wind':'Wind (GW)'
+    , 'storage':'Storage (GW)'
+    , '':'Storage (GWh)'
+    }.get(x))
+
+fig, ax = plt.subplots(figsize = (7, 6))
 
 sns.barplot(
     op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :]
     , x = 'ZoneName'
     , y = 'capacity'
-    , hue = 'trial'
+    # , color = sns.color_palette()[0]
+    , hue = 'Source'
+    , hue_order = [
+        'Solar (GW)'
+        , 'Wind (GW)'
+        , 'Storage (GW)'
+        # , 'Storage (GWh)'
+        ]
+    , dodge = False
+    , width = 0.85
     )
+
+xlim = ax.get_xlim()
+# ax.set_xlim(xlim[0], xlim[1]+1)
+ax.set_ylabel('Capacity (GW)')
+ax.set_xlabel('Zone')
+ax.set_xticks([])
+ax.set_title('Range of zone capacities')
+
+# fig, ax = plt.subplots(figsize = (6, 8))
+
+# opgrpby = op.groupby(['Source', 'trial']).sum().reset_index()
+
+# sns.barplot(
+#     opgrpby.loc[opgrpby.loc[:, 'Source'] != 'Energy (storage)', :]
+#     , x = 'Source'
+#     , y = 'capacity'
+#     # , hue = 'Source'
+#     , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)', 'Storage (GWh)']
+#     # , width = 2.5
+#     )
+# # ax.legend()
+# ax.set_ylabel('Capacity (GW or GWh)')
+# ax.set_title('Range of energy mix results')
+
+
+co = co.rename(columns={
+    'LCOE ($/MWh)':'Electricity'
+    , 'LCOG ($/MWh)':'Generation'
+    , 'LCOB (storage)':'Storage'
+    , 'LCOB (transmission)':'Transmission'
+    , 'LCOB (spillage & loss)':'Spillage & Loss'
+    , 'Pumped Hydro (GW)':'Storage (GW)'
+    , 'Pumped Hydro (GWh)':'Storage (GWh)'
+    })
+
+co = pd.melt(
+    co
+    , id_vars = ['Scenario', 'Zone', 'n_year', 'trial'] 
+    , value_vars = [
+        'Solar (GW)', 'Wind (GW)', 'Storage (GW)', 'Storage (GWh)',
+        'Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss'
+        ]
+    , var_name = 'Source'
+    , value_name = 'Quantity'
+    )
+
+fig, ax = plt.subplots(figsize = (7,4))
+
+sns.barplot(
+    co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)' , 'Storage (GWh)'
+                              ]),:]
+    , x = 'Source'
+    , y = 'Quantity'
+    , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
+    , ax = ax
+    )
+
+
+
+ax.set_ylabel('Power or Energy (GW or GWh)')
+ax.set_title('Range of energy mix')
+ax.set_yticks(np.arange(7)*100)
+
+
+fig, ax = plt.subplots(figsize = (9, 4))
+
+sns.barplot(
+    co.loc[co['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
+    , x = 'Source'
+    , y = 'Quantity'
+    , palette = 'Set2'
+    , order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
+    )
+ax.set_title('Range of levelised costs')
+ax.set_ylabel('Cost ($/MWh)')
+ax.set_xlabel('Source')
 

@@ -98,7 +98,7 @@ def lambdaReadDeficit(scenario, zone, n_year, event):
 #%%
 if __name__ == '__main__':
     
-    events = 's', 'd' 
+    events = ('e',)
     
     os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
     os.chdir('Results')
@@ -122,57 +122,31 @@ if __name__ == '__main__':
     os.chdir('Results')
     
     
-    comparisonColumns = ['Solar (GW)', 'Wind (GW)', 'Hydro & Bio (GW)', 'Pumped Hydro (GW)', 
-                         'Pumped Hydro (GWh)', 'LCOE ($/MWh)', 'LCOG ($/MWh)', 
-                         'LCOB (storage)', 'LCOB (transmission)', 'LCOB (spillage & loss)']
+    genColumns = ['Solar (GW)', 'Wind (GW)', 'Hydro & Bio (GW)', 'Pumped Hydro (GW)', 
+                         'Pumped Hydro (GWh)']
+    costColumns = ['LCOE ($/MWh)', 'LCOG ($/MWh)', 'LCOB (storage)', 'LCOB (transmission)', 
+                   'LCOB (spillage & loss)']
     
-    baseCaps = data.loc[data['n_year'] == -1, ['Scenario']+comparisonColumns]
+    baseCaps = data.loc[data['n_year'] == -1, ['Scenario']+genColumns+costColumns]
     baseCaps['Total Gen'] = baseCaps[['Solar (GW)', 'Wind (GW)', 'Hydro & Bio (GW)']].sum(axis=1)
     baseCaps = baseCaps
     
     data = pd.merge(data, baseCaps, on = 'Scenario', how = 'inner', suffixes = ('', '_relative'))
     
-    relCols = [col + '_relative' for col in comparisonColumns]
+    relgenCols = [col + '_relative' for col in genColumns]
+    relcostCols = [col + '_relative' for col in costColumns]
     
-    data[relCols] = -data[relCols].subtract(data[comparisonColumns].values, axis = 0)
+    data[relcostCols] = -data[relcostCols].subtract(data[costColumns].values, axis = 0)
+    data[relgenCols] = 100-100*data[relgenCols].divide(data[genColumns].values, axis=0)
     
     data['GenerationAffected'] = 100*data['zone capacity'] / data['Total Gen']
     
     data['Energy Deficit (TWh p.a.)'] = data[['Scenario', 'Zone', 'n_year', 'event']].apply(lambda row: lambdaReadDeficit(*row)*0.5/10/1e6, axis = 1)
     
     
-    # data = pd.read_excel(r'Graph1DummyData.xlsx')
     data['deficit%'] = data['Energy Deficit (TWh p.a.)'] / data['Energy Demand (TWh p.a.)']
     
     
-    # fig, ax = plt.subplots(figsize=(8, 4))
-    # sns.scatterplot(data, 
-    #                 x = 'GenerationAffected',
-    #                 y = 'LCOE ($/MWh)_relative',
-    #                 hue = 'Grid', 
-    #                 size = 'Energy Demand (TWh p.a.)')
-    
-    # ax.set_ylabel('Cost Ratio (%)')
-    # ax.set_xlabel('Generation affected (%)')
-    # ax.set_xlim([None, 50])
-    # ax.set_xticks(np.arange(6)/0.2)
-    # plt.legend()
-    # plt.show()
-    
-    # fig, ax = plt.subplots(figsize=(8, 4))
-    # sns.scatterplot(data, 
-    #                 x = 'GenerationAffected',
-    #                 y = 'deficit%', 
-    #                 hue = 'Grid', 
-    #                 size = 'LCOE ($/MWh)_relative')
-    
-    # ax.set_ylabel('Energy Deficit (%)')
-    # ax.set_xlabel('Generation affected (%)')
-    # ax.set_xlim([None, 50])
-    # ax.set_xticks(np.arange(6)/0.2)
-    # plt.legend()
-    # plt.show()
-    # plt.show()
     data = data[data['event'].isin(events)]
     data = data[data['Scenario'] == 21]
     data['GridZone'] = data['Grid'] + data['Zone'] + data['event']
@@ -182,28 +156,59 @@ if __name__ == '__main__':
                                     'LCOB (storage)_relative', 'LCOB (transmission)_relative', 
                                     'LCOB (spillage & loss)_relative'])
     data1['variable'] = data1['variable'].str.replace('_relative', '')
+    data1['variable'] = data1['variable'].apply(lambda x: {
+        'LCOE ($/MWh)':'Electricity'
+        , 'LCOG ($/MWh)':'Generation'
+        , 'LCOB (storage)':'Storage'
+        , 'LCOB (transmission)':'Transmission'
+        , 'LCOB (spillage & loss)':'Spillage & Loss'
+        }.get(x,x))
     data1['GenerationAffected'] = data1['GenerationAffected'].round(1)
+    data1['Zone Name'] = data1['Zone Name'].apply(lambda x: x[0])
+    data1['Zone Name'] = data1['Zone Name'].apply(lambda x: {
+        'Fitzroy':'Fitzroy (QLD)'
+        , 'Leigh Creek':'Leigh Creek (SA)'
+        }.get(x,x))
     
-    fig, ax = plt.subplots(figsize = (12,4))
-    g = sns.barplot(
+    
+    fig, axs = plt.subplots(2, figsize = (11,6))
+    plt.subplots_adjust(hspace = 0.4)
+    ax = axs[1]
+    
+    sns.barplot(
         data1#.loc[data1.loc[:,'Scenario'] == 21, :]
-        , x = 'GridZone'
+        , x = 'Zone Name'
         , y = 'value'
         , hue = 'variable'
+        , hue_order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
+        , palette = 'Set2'
+        , order = ['Fitzroy (QLD)', 'Southern NSW Tablelands', 'Leigh Creek (SA)']
+        , ax = ax
         )
     ax.axhline(0.0, linewidth = 0.5, color='black')
-    g.legend_.remove()
+    # legend_.remove()
 
     ax.grid(True, 'major', 'y')
-    ax.set_xlim([None, 7.5])
-    ax.set_ylim([-2.5,2])
-    ax.set_yticks(np.arange(-5,5)/2.)
-    ax.set_xlabel('Zone affected')
-    ax.set_ylabel('Cost of resilient grid relative to ordinary')
-    ax.set_title('Relative costs by event Location')
+    # ax.set_xlim([None, 7.5])
+    # ax.set_ylim([-0.501,1.501])
+    # ax.set_yticks(np.arange(-0.5, 1.75, 0.5, float))
+    ax.set_xlabel('Zone affected by HILP wind events')
+    ax.set_ylabel('Relative Cost ($/MWh)')
+    ax.set_title('b) Levelised costs of resilient grids relative to base scenario')
 
-    plt.figlegend()
-    plt.show()
+    pos = ax.get_position()
+    ax.set_position([pos.x0, pos.y0, pos.width*0.95, pos.height])
+    
+    lns, labs = ax.get_legend_handles_labels()
+
+    
+    ax.legend(
+        lns 
+        , labs 
+        , loc = 'center right'
+        , bbox_to_anchor = (1.215, 0.5)
+        ) 
+    # plt.show()
     
 #%%    
     data2 = pd.melt(
@@ -218,56 +223,73 @@ if __name__ == '__main__':
     
     data2['variable'] = data2['variable'].str.replace('_relative', '')
     data2['GenerationAffected'] = data2['GenerationAffected'].round(1)
+    data2['Zone Name'] = data2['Zone Name'].apply(lambda x: x[0])
+    data2['Zone Name'] = data2['Zone Name'].apply(lambda x: {
+        'Fitzroy':'Fitzroy (QLD)'
+        , 'Leigh Creek':'Leigh Creek (SA)'
+        }.get(x,x))
+    data2['variable'] = data2['variable'].apply(lambda x: {
+        'Pumped Hydro (GW)':'Storage (GW)', 
+        'Pumped Hydro (GWh)': 'Storage (GWh)'}.get(x,x))
     
-    fig, ax = plt.subplots(figsize = (12,4))
-    g1 = sns.barplot(
-        data2.loc[data2.loc[:,'variable'] != 'Pumped Hydro (GWh)', :]
-        , x = 'GridZone'
+    # fig, ax = plt.subplots(figsize = (12,4))
+    ax1 = axs[0]
+
+    sns.barplot(
+        data2#.loc[data2.loc[:,'variable'] != 'Pumped Hydro (GWh)', :]
+        , x = 'Zone Name'
         , y = 'value'
         , hue = 'variable'
-        , ax = ax
+        , hue_order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)', 'Storage (GWh)']
+        , order = ['Fitzroy (QLD)', 'Southern NSW Tablelands', 'Leigh Creek (SA)']
+        , ax = ax1
         )
-    ax.axhline(0.0, linewidth = 0.5, color='black')
-    g1.legend_.remove()
-    
+    ax1.axhline(0.0, linewidth = 0.5, color='black')
 
-    ax2 = ax.twinx()
-    # g2 = sns.scatterplot(
-    #     data2.loc[data2.loc[:,'variable'] == 'Pumped Hydro (GWh)', :]
-    #     , x = 'GridZone'
-    #     , y = 'value'
-    #     , label = 'Pumped Hydro (GWh)'
-    #     , ax = ax2
-    #     , color = sns.color_palette()[3]
+    # ax2 = ax1.twinx()
+    # s = ax2.stem(
+    #     data2.loc[data2.loc[:,'variable'] == 'Storage (GWh)', :]['Zone']
+    #     , data2.loc[data2.loc[:,'variable'] == 'Storage (GWh)', :]['value']
+    #     , label = 'Storage (GWh)'
+    #     , basefmt=' '
+    #     , linefmt='r'
+    #     , markerfmt='r'
+    #     # , ax = ax2
+    #     # , color = sns.color_palette()[3]
     #     )
-    g2 = ax2.stem(
-        data2.loc[data2.loc[:,'variable'] == 'Pumped Hydro (GWh)', :]['GridZone']
-        , data2.loc[data2.loc[:,'variable'] == 'Pumped Hydro (GWh)', :]['value']
-        , label = 'Pumped Hydro (GWh)'
-        , basefmt=' '
-        , linefmt='r'
-        , markerfmt='r'
-        # , ax = ax2
-        # , color = sns.color_palette()[3]
-        )
-    
-    # g2.legend_.remove()
+    # s[0].set_color(sns.color_palette()[3])
+    # s[1].set_color(sns.color_palette()[3])
+    # s[2].set_color(sns.color_palette()[3])
 
-    # align_yaxis(ax, 0, ax2, 0)
+    
+    ax1.grid(True, 'major', 'y')
+    # ax1.set_xlim([None, 6.5])
+    # yscaleFactor = 1+int(ax1.get_ylim()[1]/ax2.get_ylim()[1])
+    # ax1.set_ylim([-4.05,6.05])
+    # ax1.set_yticks(np.arange(-4.0, 8.0, 2.0, float))
 
-    ax2.set_ylabel('Change to Energy Storage Capacity (GWh)')
+    # ax2.set_ylim([25*val for val in ax1.get_ylim()])
+    # ax2.set_yticks([25*val for val in ax1.get_yticks()])
     
-    ax.grid(True, 'major', 'y')
-    # ax.set_xlim([None, 6.5])
-    ax.set_ylim([-10,20])
-    ax2.set_ylim([7.5*val for val in ax.get_ylim()])
-    ax2.set_yticks([7.5*val for val in ax.get_yticks()])
+    # ax1.set_yticks(np.arange(-2,5)*5.0)    
+    ax1.set_xlabel('Zone affected by HILP wind events')
+    ax1.set_ylabel('Relative Capacity (%)')
+    # ax2.set_ylabel('Relative Energy Storage Capacity (GWh)')
+    ax1.set_title('a) Energy mix of resilient grids relative to base case')
+
+    pos = ax1.get_position()
+    ax1.set_position([pos.x0, pos.y0, pos.width*0.95, pos.height])
     
-    ax.set_yticks(np.arange(-2,5)*5.0)    
-    ax.set_xlabel('Zone affected')
-    ax.set_ylabel('Change to Power Sources (GW)')
-    ax.set_title('Relative Energy Mix by Location')
-    plt.figlegend()
+    lns, labs = ax1.get_legend_handles_labels()
+    # lns2, labs2 = ax2.get_legend_handles_labels()
+    
+    ax1.legend(
+        lns #+ lns2
+        , labs #+ labs2
+        , loc = 'center right'
+        , bbox_to_anchor = (1.215, 0.5)
+        ) 
+
     plt.show()
     
 #%%    

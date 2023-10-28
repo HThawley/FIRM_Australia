@@ -59,6 +59,7 @@ elif event == 'event':
         eventsPerYear += len(dur)/coverage[i]
         durations[i] = dur
     durations = np.concatenate(durations)
+    durations = durations[durations.argsort()]
     percentile = 1/(eventsPerYear*n_year)
     rank = int(percentile*len(durations))
     
