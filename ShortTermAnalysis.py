@@ -14,7 +14,7 @@ import seaborn as sns
 
 
 scenario = 21
-eventZone = np.array([7])
+eventZone = np.array([10])
 n_year = 25
 event = 'e'
 
@@ -34,8 +34,8 @@ ncols = [col for col in df.columns if col != 'Date & time']
 ndf = (df[ncols]/df[ncols].mean()).fillna(0)
 ndf['idx'] = range(len(df))
 
-ndf = ndf.iloc[720:, :]
-df  =  df.iloc[720:, :]
+ndf = ndf.iloc[674:-48, :]
+df  =  df.iloc[674:-48, :]
 
 df['expec%'] = 100*df['PHES-Storage']/df['PHES-Storage'].max()
 df['HILP%'] = 100*df['eventStorage']/df['PHES-Storage'].max()
@@ -52,6 +52,7 @@ df = df.rename(columns={
     , 'Solar photovoltaics':'Solar (GW)'
     , 'PHES-power':'Storage (GW)'
     , 'Energy spillage':'Spillage (GW)'
+    , 'PHES-Charge':'Storage Charge (GW)'
     })
 
 edf = edf.rename(columns={
@@ -71,8 +72,8 @@ ecols=['Hydro & Bio (GW)', 'Solar (GW)', 'Wind (GW)', 'Storage (GW)', 'Spillage 
 df[pcols+['Demand']] = df[pcols+['Demand']]/1000.
 edf[ecols] = edf[ecols]/1000.
 
-fig, axs = plt.subplots(2, 1, figsize=(11, 6))
-plt.subplots_adjust(hspace=0.9)
+fig, axs = plt.subplots(2, 1, figsize=(8, 9))
+plt.subplots_adjust(hspace=0.52)
 
 cmap = sns.color_palette("flare", as_cmap=True)
 
@@ -139,9 +140,9 @@ ax2.plot(
     )
 
 ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
-ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(125.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
+ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
 ax2.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
-ax2.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(125.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
+ax2.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
 
 ax12 = ax1.twinx()
 ax12.plot(
@@ -212,7 +213,7 @@ for axs in ((ax1, ax12), (ax2, ax22)):
         lns + lns2
         , labs + labs2
         , loc = 'center right'
-        , bbox_to_anchor = (1.33, 0.5)
+        , bbox_to_anchor = (1.47, 0.5)
         )
 
 

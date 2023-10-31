@@ -10,18 +10,24 @@ import matplotlib.pyplot as plt
 from matplotlib import cm 
 import seaborn as sns
 import numpy as np
+import os 
 
+os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
 
+op = pd.read_csv(r"Results\Optimisation_resultx21-consolidated.csv")
+op = op[op['Zone'].isna()]
+op['event'] = op['event'].fillna(0)
 
-op = pd.read_csv(r"C:\Users\hmtha\Desktop\Optimisation_resultx21-consolidated.csv").loc[:,:]
-
-co = op.iloc[1:,52:]
-op = op.iloc[1:,:52]
+co = pd.read_csv(r"Results/GGTA-consolidated.csv")
+co = co[co['Scenario'] == 21] 
+co = co[co['n_year'] == -1]
+co = co[co['Zone'].isna()]
+co['event'] = pd.to_numeric(co['event']).fillna(0)
 co.columns = [col.split('.')[0] for col in co.columns]
 
 op = pd.melt(
     op
-    , id_vars = ['Scenario', 'Zone', 'n_year', 'trial'] 
+    , id_vars = ['Scenario', 'Zone', 'n_year', 'event'] 
     , value_vars = ['pv-N_Broken Hill (GW)',
            'pv-N_Central NSW Tablelands (GW)', 'pv-N_Central West NSW (GW)',
            'pv-N_Murray River (GW)', 'pv-N_North West New South Wales (GW)',
@@ -62,7 +68,7 @@ op['Source'] = op['Source'].apply(lambda x: {
 
 fig, ax = plt.subplots(figsize = (7, 6))
 
-sns.barplot(
+sns.boxplot(
     op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :]
     , x = 'ZoneName'
     , y = 'capacity'
@@ -77,7 +83,7 @@ sns.barplot(
     , dodge = False
     , width = 0.85
     )
-
+ax.set_yscale('log')
 xlim = ax.get_xlim()
 # ax.set_xlim(xlim[0], xlim[1]+1)
 ax.set_ylabel('Capacity (GW)')
@@ -114,7 +120,7 @@ co = co.rename(columns={
 
 co = pd.melt(
     co
-    , id_vars = ['Scenario', 'Zone', 'n_year', 'trial'] 
+    , id_vars = ['Scenario', 'Zone', 'n_year', 'event'] 
     , value_vars = [
         'Solar (GW)', 'Wind (GW)', 'Storage (GW)', 'Storage (GWh)',
         'Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss'
@@ -123,34 +129,83 @@ co = pd.melt(
     , value_name = 'Quantity'
     )
 
-fig, ax = plt.subplots(figsize = (7,4))
+fig, ax = plt.subplots(figsize = (6,4))
+
+comedian = co.groupby(['Scenario','Source']).median().reset_index()
 
 sns.barplot(
-    co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)' , 'Storage (GWh)'
-                              ]),:]
+    comedian.loc[comedian['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)' , 'Storage (GWh)']),:]
     , x = 'Source'
     , y = 'Quantity'
+    , hue = 'Source'
+    , dodge = False
+    , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
+    , hue_order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
+    , ax = ax
+    # , markers = 'D'
+    )
+
+for a in list(ax.get_children()):
+    a.set_zorder(-1)
+
+sns.swarmplot(
+    co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)' , 'Storage (GWh)']),:]
+    , x = 'Source'
+    , y = 'Quantity'
+    , hue = 'Source'
+    , palette = 'dark:black'
     , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
     , ax = ax
+    , alpha = 0.9
+    , dodge = False
+    , size = 4
+    , zorder = np.inf
     )
 
 
-
+ax.legend_.remove()
 ax.set_ylabel('Power or Energy (GW or GWh)')
 ax.set_title('Range of energy mix')
 ax.set_yticks(np.arange(7)*100)
+ax.set_xlabel(None)
 
 
-fig, ax = plt.subplots(figsize = (9, 4))
+
+fig, ax = plt.subplots(figsize = (7,4))
 
 sns.barplot(
-    co.loc[co['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
+    comedian.loc[comedian['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
     , x = 'Source'
     , y = 'Quantity'
     , palette = 'Set2'
+    , hue = 'Source'
+    , dodge = False
     , order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
+    , hue_order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
+    , ax = ax 
+    # , markers = 'D'
     )
+
+for a in list(ax.get_children()):
+    a.set_zorder(-1)
+
+sns.swarmplot(
+    co.loc[co['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
+    , x = 'Source'
+    , y = 'Quantity'
+    , hue = 'Source'
+    , palette = 'dark:black'
+    , order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
+    , ax = ax
+    , alpha = 0.9
+    , dodge = False
+    , size = 4
+    , zorder = np.inf
+    )
+ax.legend_.remove()
 ax.set_title('Range of levelised costs')
 ax.set_ylabel('Cost ($/MWh)')
-ax.set_xlabel('Source')
+ax.set_xlabel(None)
 
+
+os.chdir('graphs')

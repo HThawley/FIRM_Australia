@@ -78,8 +78,8 @@ def cfgraphWrapper(source='both', weighting = None):
         plt.show()
         return
     
-    fig, axs = plt.subplots(2, figsize = (11,6))
-    plt.subplots_adjust(hspace = 0.4)
+    fig, axs = plt.subplots(2, figsize = (10,7))
+    plt.subplots_adjust(hspace = 0.42)
     
     
     cfgraph(axs[0], 'Solar', weighting[0])
@@ -96,6 +96,7 @@ def cfgraph(ax, source, weighting):
     if source == 'Wind':
         df = pd.read_csv('Data/wind.csv')
 
+    if year is not None: df = df[df['Year'] == year]
     df = df.groupby(['Month', 'Day']).mean().reset_index()
     
     cdf = pd.DataFrame(df[['Month', 'Day']].apply(lambda x: dt(2000,*x), axis = 1), columns=['dt'])
@@ -144,8 +145,8 @@ def cfgraph(ax, source, weighting):
     
     if source == 'Solar': no =  'a)' 
     if source == 'Wind': no = 'b)'
-    ax.set_title(f'{no} Fragile instances, daily mean {source.lower()} capacity factor, state of storage, and power demand.')
-    ax.set_ylabel('CF, Demand & Deficit (%)')
+    ax.set_title(f'{no} 10-year daily maximum power deficit, 10-year daily mean power demand,\nand 10-year daily weighted mean capacity factor of {source.lower()} generation.')
+    ax.set_ylabel('Maximum deficit, demand,\n& capacity factor(%)')
     ax.set_xlabel('Date')
     ax.set_ylim(-5,105)
     # ax.set_ylabel('Power and energy (% of maximum)')
@@ -162,7 +163,7 @@ def cfgraph(ax, source, weighting):
         lns #+ lns2
         , labs #+ labs2
         , loc = 'center right'
-        , bbox_to_anchor = (1.28, 0.5)
+        , bbox_to_anchor = (1.33, 0.5)
         )
     
 
@@ -175,8 +176,9 @@ if __name__ == '__main__':
     
     scenario = 21
     n_year = 25
-    eventZone = np.array([7])
+    eventZone = np.array([10])
     event = 'e'
+    year = None
     
     sdata = pd.read_csv(f'Results/S{scenario}-{eventZone}-{n_year}-{event}.csv')
     capacities = np.genfromtxt(f'Results/Optimisation_resultx{scenario}-{eventZone}-{n_year}-{event}.csv',dtype=float, delimiter=',')
@@ -185,11 +187,13 @@ if __name__ == '__main__':
     
     sdata['eventDeficit%'] = 100*sdata['eventDeficit'] / sdata['Operational demand (original)']
     sdata['Date & time'] = pd.to_datetime(sdata['Date & time'], format='%a -%d %b %Y %H:%M')
-    
+        
     sdata['Day'] = sdata['Date & time'].dt.day
     sdata['Month'] = sdata['Date & time'].dt.month
     sdata['Year'] = sdata['Date & time'].dt.year
     sdata = sdata.drop(columns = ['Date & time'])
+    
+    if year is not None: sdata = sdata[sdata['Year'] == year]
     
     sdataMax = sdata.groupby(['Month', 'Day']).max().reset_index()
     sdataMean = sdata.groupby(['Month', 'Day']).mean().reset_index()
