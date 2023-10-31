@@ -152,7 +152,9 @@ x0 = None
 if x0mode == 3: 
     x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx21-[14]-25-d.csv', delimiter=',')
 if x0mode == 2: 
-    try: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter = ',')
+    try: 
+        if trial is None: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter = ',')
+        else: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter = ',')
     except FileNotFoundError: pass 
 if x0 is None and x0mode >= 1:
     try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
