@@ -129,7 +129,23 @@ if __name__ == '__main__':
     
     baseCaps = data.loc[data['n_year'] == -1, ['Scenario']+genColumns+costColumns]
     baseCaps['Total Gen'] = baseCaps[['Solar (GW)', 'Wind (GW)', 'Hydro & Bio (GW)']].sum(axis=1)
-    baseCaps = baseCaps
+    
+    minbaseCaps = baseCaps.groupby(['Scenario']).min()
+    maxbaseCaps = baseCaps.groupby(['Scenario']).max()
+    meanbaseCaps = baseCaps.groupby(['Scenario']).mean()
+    
+    precision = ((maxbaseCaps - minbaseCaps)/meanbaseCaps/2)
+    
+    minCosts = baseCaps.groupby(['Scenario'])['LCOE ($/MWh)'].min().reset_index()
+    baseCaps = pd.merge(baseCaps, minCosts, on = ['Scenario', 'LCOE ($/MWh)'], how='inner')
+    baseCaps = baseCaps[~baseCaps.duplicated()]
+    
+    x, y = baseCaps.groupby('Scenario'), baseCaps.groupby('Scenario')
+    x = baseCaps.groupby('Scenario').max().multiply(1+precision).reset_index()
+    y = baseCaps.groupby('Scenario').max().multiply(1-precision).reset_index()
+    baseCaps = pd.concat([baseCaps, x, y], ignore_index = True)
+    
+    
     
     data = pd.merge(data, baseCaps, on = 'Scenario', how = 'inner', suffixes = ('', '_relative'))
     
@@ -170,10 +186,13 @@ if __name__ == '__main__':
         , 'Leigh Creek':'Leigh Creek (SA)'
         }.get(x,x))
     
+    #%%
     
-    fig, axs = plt.subplots(2, figsize = (11,6))
-    plt.subplots_adjust(hspace = 0.4)
-    ax = axs[1]
+    # fig, axs = plt.subplots(2, figsize = (11,6))
+    # plt.subplots_adjust(hspace = 0.4)
+    # ax = axs[1]
+    
+    fig, ax = plt.subplots(figsize=(8,6), dpi=2000)
     
     sns.barplot(
         data1#.loc[data1.loc[:,'Scenario'] == 21, :]
@@ -194,7 +213,8 @@ if __name__ == '__main__':
     # ax.set_yticks(np.arange(-0.5, 1.75, 0.5, float))
     ax.set_xlabel('Zone affected by HILP wind events')
     ax.set_ylabel('Relative Cost ($/MWh)')
-    ax.set_title('b) Levelised costs of resilient grids relative to base scenario')
+    # ax.set_title('b) Levelised costs of resilient grids relative to base scenario')
+    ax.set_title('Levelised costs of resilient grids relative to base scenario')
 
     pos = ax.get_position()
     ax.set_position([pos.x0, pos.y0, pos.width*0.95, pos.height])
@@ -206,7 +226,7 @@ if __name__ == '__main__':
         lns 
         , labs 
         , loc = 'center right'
-        , bbox_to_anchor = (1.215, 0.5)
+        , bbox_to_anchor = (1.285, 0.5)
         ) 
     # plt.show()
     
@@ -232,8 +252,8 @@ if __name__ == '__main__':
         'Pumped Hydro (GW)':'Storage (GW)', 
         'Pumped Hydro (GWh)': 'Storage (GWh)'}.get(x,x))
     
-    # fig, ax = plt.subplots(figsize = (12,4))
-    ax1 = axs[0]
+    fig, ax1 = plt.subplots(figsize = (8,6), dpi=2000)
+    # ax1 = axs[0]
 
     sns.barplot(
         data2#.loc[data2.loc[:,'variable'] != 'Pumped Hydro (GWh)', :]
@@ -275,7 +295,8 @@ if __name__ == '__main__':
     ax1.set_xlabel('Zone affected by HILP wind events')
     ax1.set_ylabel('Relative Capacity (%)')
     # ax2.set_ylabel('Relative Energy Storage Capacity (GWh)')
-    ax1.set_title('a) Energy mix of resilient grids relative to base case')
+    # ax1.set_title('a) Energy mix of resilient grids relative to base case')
+    ax1.set_title('Energy resources of resilient grids relative to base case')
 
     pos = ax1.get_position()
     ax1.set_position([pos.x0, pos.y0, pos.width*0.95, pos.height])
@@ -287,7 +308,7 @@ if __name__ == '__main__':
         lns #+ lns2
         , labs #+ labs2
         , loc = 'center right'
-        , bbox_to_anchor = (1.215, 0.5)
+        , bbox_to_anchor = (1.285, 0.5)
         ) 
 
     plt.show()

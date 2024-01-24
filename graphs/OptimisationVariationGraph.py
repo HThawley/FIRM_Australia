@@ -14,7 +14,11 @@ import os
 
 os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
 
-op = pd.read_csv(r"Results\Optimisation_resultx21-consolidated.csv")
+scenario = 21
+cost_and_energymix_combined = True
+
+
+op = pd.read_csv(fr"Results\Optimisation_resultx{scenario}-consolidated.csv")
 op = op[op['Zone'].isna()]
 op['event'] = op['event'].fillna(0)
 
@@ -24,6 +28,9 @@ co = co[co['n_year'] == -1]
 co = co[co['Zone'].isna()]
 co['event'] = pd.to_numeric(co['event']).fillna(0)
 co.columns = [col.split('.')[0] for col in co.columns]
+
+co = co.reset_index(drop=True).drop(index=0).reset_index(drop=True)
+op = op.reset_index(drop=True).drop(index=0).reset_index(drop=True)
 
 op = pd.melt(
     op
@@ -66,7 +73,7 @@ op['Source'] = op['Source'].apply(lambda x: {
     , '':'Storage (GWh)'
     }.get(x))
 
-fig, ax = plt.subplots(figsize = (7, 6))
+fig, ax = plt.subplots(figsize = (8, 6), dpi = 2000)
 
 sns.boxplot(
     op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :]
@@ -129,49 +136,92 @@ co = pd.melt(
     , value_name = 'Quantity'
     )
 
-fig, ax = plt.subplots(figsize = (6,4))
+
+if cost_and_energymix_combined is True: 
+    fig, axs = plt.subplots(2, figsize = (8,6), dpi = 2000)
+    fig.subplots_adjust(hspace=0.25)
+    prefix=''
+else: 
+    axs = []
+    fig, ax = plt.subplots(figsize = (8,3))
+    axs.append(ax)
+    prefix = ''
 
 comedian = co.groupby(['Scenario','Source']).median().reset_index()
-
 sns.barplot(
-    comedian.loc[comedian['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)' , 'Storage (GWh)']),:]
+    comedian.loc[comedian['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'
     , dodge = False
     , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
     , hue_order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
-    , ax = ax
+    , ax = axs[0]
     # , markers = 'D'
     )
 
-for a in list(ax.get_children()):
+for a in list(axs[0].get_children()):
     a.set_zorder(-1)
 
+ax02 = axs[0].twinx()
+
+sns.barplot(
+    comedian.loc[comedian['Source'].isin(['Storage (GWh)']),:]
+    , x = 'Source'
+    , y = 'Quantity'
+    , hue = 'Source'
+    , dodge = False
+    , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
+    , hue_order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
+    , ax = ax02
+    # , markers = 'D'
+    )
+
 sns.swarmplot(
-    co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)' , 'Storage (GWh)']),:]
+    co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'
     , palette = 'dark:black'
     , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
-    , ax = ax
+    , ax = axs[0]
     , alpha = 0.9
     , dodge = False
     , size = 4
     , zorder = np.inf
     )
 
+sns.swarmplot(
+    co.loc[co['Source'].isin(['Storage (GWh)']),:]
+    , x = 'Source'
+    , y = 'Quantity'
+    , hue = 'Source'
+    , palette = 'dark:black'
+    , order = ['Solar (GW)', 'Wind (GW)', 'Storage (GW)','Storage (GWh)']
+    , ax = ax02
+    , alpha = 0.9
+    , dodge = False
+    , size = 4
+    , zorder = np.inf
+    )
 
-ax.legend_.remove()
-ax.set_ylabel('Power or Energy (GW or GWh)')
-ax.set_title('Range of energy mix')
-ax.set_yticks(np.arange(7)*100)
-ax.set_xlabel(None)
+axs[0].legend_.remove()
+ax02.legend_.remove()
+axs[0].set_ylabel('Power (GW)')
+ax02.set_ylabel('Energy (GWh)')
+axs[0].set_title(prefix + 'Range of energy mix')
+# axs[0].set_yticks(np.arange(7)*100)
+axs[0].set_xlabel(None)
 
+axs[0].set_ylim([0,100])
+ax02.set_ylim([0,600])
 
+if cost_and_energymix_combined is True: 
+    prefix=''
+else: 
+    fig, ax = plt.subplots(figsize = (8,3))
+    axs.append(ax)
 
-fig, ax = plt.subplots(figsize = (7,4))
 
 sns.barplot(
     comedian.loc[comedian['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
@@ -182,7 +232,7 @@ sns.barplot(
     , dodge = False
     , order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
     , hue_order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
-    , ax = ax 
+    , ax = axs[1]
     # , markers = 'D'
     )
 
@@ -196,16 +246,16 @@ sns.swarmplot(
     , hue = 'Source'
     , palette = 'dark:black'
     , order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']
-    , ax = ax
+    , ax = axs[1]
     , alpha = 0.9
     , dodge = False
     , size = 4
     , zorder = np.inf
     )
-ax.legend_.remove()
-ax.set_title('Range of levelised costs')
-ax.set_ylabel('Cost ($/MWh)')
-ax.set_xlabel(None)
+axs[1].legend_.remove()
+axs[1].set_title(prefix + 'Range of levelised costs')
+axs[1].set_ylabel('Cost ($/MWh)')
+axs[1].set_xlabel(None)
 
 
 os.chdir('graphs')
