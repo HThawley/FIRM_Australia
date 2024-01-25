@@ -65,6 +65,7 @@ def R(x):
 
 def callback(x_k, convergence):
     history.append(R(x_k))
+    pophistory.append(x_k)
 
 
 if __name__=='__main__':
@@ -76,6 +77,7 @@ if __name__=='__main__':
     ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.] 
 
     history = []
+    pophistory = []
 
     result = differential_evolution(func=R, bounds=list(zip(lb, ub)), tol=0, x0 = x0, 
                                     maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
@@ -107,6 +109,8 @@ if __name__=='__main__':
 
     if trial is None: np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
     else: np.savetxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), history, delimiter=',')
+
+    np.savetxt('Results/SolutionHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), pophistory, delimiter=',')
 
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)

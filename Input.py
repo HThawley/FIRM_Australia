@@ -159,9 +159,12 @@ if x0mode == 2:
 if x0 is None and x0mode >= 1:
     try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
     except FileNotFoundError: pass
-    
-OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
-costConstraint = costConstraintFactor*OptimisedCost
+
+if costConstraintFactor is not None:
+    OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
+    costConstraint = costConstraintFactor*OptimisedCost
+else: 
+    costConstraintFactor = np.inf
 
 def cost(solution): 
 
