@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, relative, eventZone, n_year, x0mode, event, trial
+from Optimisation import scenario, costConstraintFactor, eventZone, n_year, x0mode, event, trial
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
@@ -233,9 +233,6 @@ class Solution:
         
         if self.eventZoneIndx is not None:
             eventZoneFrag = windFrag.copy()[self.eventZoneIndx]
-            if relative: 
-                eventZoneFrag = eventZoneFrag/eventZoneFrag.sum()
-                eventZoneFrag = np.array(pd.Series(eventZoneFrag).map(dict(zip(np.sort(eventZoneFrag), np.flip(np.sort(eventZoneFrag))))))
             eventZoneFrag = 1 - eventZoneFrag
             
             self.windFrag[self.eventZoneIndx] = eventZoneFrag

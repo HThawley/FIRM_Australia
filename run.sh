@@ -3,8 +3,11 @@
 
 
 
-# python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 1
-# python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 2
-# python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 3
-python3 Optimisation.py -i 150 -s 14 -z None -v 1 -n 1 -x 2 
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 7 -v 1
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 8
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 9
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 10
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 11
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 12
+python3 Optimisation.py -s 21 -z None -n 25 -e None -x 2 -i 500 -t 13
 
