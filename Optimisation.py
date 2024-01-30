@@ -107,20 +107,20 @@ if __name__=='__main__':
             if trial is None:
                 try: 
                     history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=','), history)
-                    history = np.append(np.genfromtxt('Results/SolutionHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=','), pophistory)
+                    pophistory = np.append(np.genfromtxt('Results/SolutionHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=','), pophistory)
                 except FileNotFoundError: pass
             else: 
                 try: 
                     history = np.append(np.genfromtxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=','), history)
-                    history = np.append(np.genfromtxt('Results/SolutionHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=','), history)
+                    pophistory = np.append(np.genfromtxt('Results/SolutionHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter=','), pophistory)
                 except FileNotFoundError: pass
 
         if trial is None: 
             np.savetxt('Results/OptimisationHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
-            np.savetxt('Results/SolutionHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), history, delimiter=',')
+            np.savetxt('Results/SolutionHistory{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), pophistory, delimiter=',')
         else: 
             np.savetxt('Results/OptimisationHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), history, delimiter=',')
-            np.savetxt('Results/SolutionHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), history, delimiter=',')
+            np.savetxt('Results/SolutionHistory{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), pophistory, delimiter=',')
 
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)
