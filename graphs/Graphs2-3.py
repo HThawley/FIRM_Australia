@@ -57,6 +57,7 @@ for event in ('e',):#, 's'):
         data['eventDeficit%'] = 100*data['eventDeficit'] / data['Operational demand (original)']
         
         fig, ax = plt.subplots(figsize=size)
+        
         sns.histplot(data = data.loc[data['eventDeficit'] != 0, :]
                      , x = 'eventDeficit'
                       , binwidth = 2500

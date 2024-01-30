@@ -42,9 +42,9 @@ def consolidateGGTA(output = False, cap = None):
         for file in files:   
             df = pd.concat([
                     pd.DataFrame([[int(file[4:6]), 
-                                  reSearchWrapper('(\[.*\]|all|None)', file),
-                                  reSearchWrapper('(?<=-)\d+(?=-\w.csv)', file), 
-                                  reSearchWrapper('(?<=-)\w(?=.csv)', file)]]),
+                                  reSearchWrapper('(?<=-)(\[.*\]|all|None)(?=-)', file),
+                                  reSearchWrapper('(?<=-)\d+(?=-)', file), 
+                                  reSearchWrapper('(?<=-)(\w|\d+)(?=.csv)', file)]]),
                     pd.read_csv(file, header=None)
                     ], axis = 1)
             ggta = pd.concat([ggta, df])
@@ -105,9 +105,9 @@ def consolidateCapacities(output=False):
                 if file[20:22] != scenario: continue
                 df = pd.concat([
                     pd.DataFrame([[int(file[20:22]), 
-                                   reSearchWrapper('(\[.*\]|all|None)', file),
-                                   reSearchWrapper('(?<=-)\d+(?=.csv)', file), 
-                                   reSearchWrapper('(?<=-)\w(?=.csv)', file)]]),
+                                   reSearchWrapper('(?<=-)(\[.*\]|all|None)(?=-)', file),
+                                   reSearchWrapper('(?<=-)\d+(?=-)', file), 
+                                   reSearchWrapper('(?<=-)(\w|\d+)(?=.csv)', file)]]),
                     pd.read_csv(file, header=None)
                     ], axis = 1)
                 
@@ -187,7 +187,7 @@ def zoneTypeIndx(scenario, eventZone=None, wdir=None):
 
 #%%
 if __name__ == '__main__':
-    os.chdir(r'C:\Users\hmtha\Desktop\FIRM_Australia')
+    # os.chdir(r'C:\Users\hmtha\Desktop\FIRM_Australia')
     output = True
     cap = consolidateCapacities(output)
     ggta = consolidateGGTA(output, cap)

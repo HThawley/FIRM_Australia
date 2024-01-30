@@ -19,10 +19,12 @@ cost_and_energymix_combined = True
 
 
 op = pd.read_csv(fr"Results\Optimisation_resultx{scenario}-consolidated.csv")
+op = op.applymap(lambda e: {'None':pd.NA}.get(e,e))
 op = op[op['Zone'].isna()]
 op['event'] = op['event'].fillna(0)
 
 co = pd.read_csv(r"Results/GGTA-consolidated.csv")
+co = co.applymap(lambda e: {'None':pd.NA}.get(e,e))
 co = co[co['Scenario'] == 21] 
 co = co[co['n_year'] == -1]
 co = co[co['Zone'].isna()]
@@ -76,7 +78,7 @@ op['Source'] = op['Source'].apply(lambda x: {
 fig, ax = plt.subplots(figsize = (8, 6), dpi = 2000)
 
 sns.boxplot(
-    op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :]
+    data = op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :]
     , x = 'ZoneName'
     , y = 'capacity'
     # , color = sns.color_palette()[0]
@@ -149,7 +151,7 @@ else:
 
 comedian = co.groupby(['Scenario','Source']).median().reset_index()
 sns.barplot(
-    comedian.loc[comedian['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)']),:]
+    data = comedian.loc[comedian['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'
@@ -166,7 +168,7 @@ for a in list(axs[0].get_children()):
 ax02 = axs[0].twinx()
 
 sns.barplot(
-    comedian.loc[comedian['Source'].isin(['Storage (GWh)']),:]
+    data = comedian.loc[comedian['Source'].isin(['Storage (GWh)']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'
@@ -178,7 +180,7 @@ sns.barplot(
     )
 
 sns.swarmplot(
-    co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)']),:]
+    data = co.loc[co['Source'].isin(['Solar (GW)', 'Wind (GW)', 'Storage (GW)']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'
@@ -192,7 +194,7 @@ sns.swarmplot(
     )
 
 sns.swarmplot(
-    co.loc[co['Source'].isin(['Storage (GWh)']),:]
+    data = co.loc[co['Source'].isin(['Storage (GWh)']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'
@@ -214,7 +216,7 @@ axs[0].set_title(prefix + 'Range of energy mix')
 axs[0].set_xlabel(None)
 
 axs[0].set_ylim([0,100])
-ax02.set_ylim([0,600])
+# ax02.set_ylim([0,600])
 
 if cost_and_energymix_combined is True: 
     prefix=''
@@ -224,7 +226,7 @@ else:
 
 
 sns.barplot(
-    comedian.loc[comedian['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
+    data = comedian.loc[comedian['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
     , x = 'Source'
     , y = 'Quantity'
     , palette = 'Set2'
@@ -240,7 +242,7 @@ for a in list(ax.get_children()):
     a.set_zorder(-1)
 
 sns.swarmplot(
-    co.loc[co['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
+    data = co.loc[co['Source'].isin(['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Loss']),:]
     , x = 'Source'
     , y = 'Quantity'
     , hue = 'Source'

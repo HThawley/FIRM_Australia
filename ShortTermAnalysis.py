@@ -14,7 +14,7 @@ import seaborn as sns
 
 
 scenario = 21
-eventZone = np.array([7])
+eventZone = np.array([10])
 n_year = 25
 event = 'e'
 
@@ -72,33 +72,33 @@ ecols=['Hydro & Bio (GW)', 'Solar (GW)', 'Wind (GW)', 'Storage (GW)', 'Spillage 
 df[pcols+['Demand']] = df[pcols+['Demand']]/1000.
 edf[ecols] = edf[ecols]/1000.
 
-# fig, axs = plt.subplots(2, 1, figsize=(8, 9))
-# plt.subplots_adjust(hspace=0.52)
-# ax1, ax2 = axs[0], axs[1]
+fig, axs = plt.subplots(2, 1, figsize=(8, 9))#,  dpi = 2500)
+plt.subplots_adjust(hspace=0.52)
+ax1, ax2 = axs[0], axs[1]
 
-fig, ax2 = plt.subplots(figsize=(8, 6), dpi = 2500)
+# fig, ax2 = plt.subplots(figsize=(8, 6), dpi = 2500)
 
 
-# l = ax1.stackplot(
-#     df['Date & time']
-#     , *(df[col] for col in pcols)
-#     , labels = pcols
-#     # , colors = cmap(np.rint(np.arange(len(pcols))*cmap.N/(len(pcols)-1)).astype(int))
-#     )
+l = ax1.stackplot(
+    df['Date & time']
+    , *(df[col] for col in pcols)
+    , labels = pcols
+    # , colors = cmap(np.rint(np.arange(len(pcols))*cmap.N/(len(pcols)-1)).astype(int))
+    )
 
-# l[0].set_color(sns.color_palette()[5])
-# l[1].set_color(sns.color_palette()[0])
-# l[2].set_color(sns.color_palette()[1])
-# l[3].set_color(sns.color_palette()[2])
-# l[4].set_color(sns.color_palette()[4])
+l[0].set_color(sns.color_palette()[5])
+l[1].set_color(sns.color_palette()[0])
+l[2].set_color(sns.color_palette()[1])
+l[3].set_color(sns.color_palette()[2])
+l[4].set_color(sns.color_palette()[4])
 
 # fixes extra ring caused by plotting negative spillage
-# l = ax1.stackplot(
-#     df['Date & time']
-#     , *(df[col] for col in ['Hydro & Bio (GW)', 'Solar (GW)', 'Wind (GW)', 'Storage (GW)', '0'])
-#     , colors = [(1,1,1,0)]
-#     )
-# l[-1].set_color((1,1,1,1))
+l = ax1.stackplot(
+    df['Date & time']
+    , *(df[col] for col in ['Hydro & Bio (GW)', 'Solar (GW)', 'Wind (GW)', 'Storage (GW)', '0'])
+    , colors = [(1,1,1,0)]
+    )
+l[-1].set_color((1,1,1,1))
 
 l = ax2.stackplot(
     edf['Date & time']
@@ -121,14 +121,14 @@ l = ax2.stackplot(
     )
 l[-1].set_color((1,1,1,1))
 
-# ax1.plot(
-#     df['Date & time']
-#     , df['Demand']
-#     , color = 'cyan'#sns.color_palette()[len(pcols)+1]
-#     , linestyle='-'
-#     , linewidth = 1.25
-#     , label = 'Demand (GW)'
-#     )
+ax1.plot(
+    df['Date & time']
+    , df['Demand']
+    , color = 'cyan'#sns.color_palette()[len(pcols)+1]
+    , linestyle='-'
+    , linewidth = 1.25
+    , label = 'Demand (GW)'
+    )
 
 ax2.plot(
     df['Date & time']
@@ -139,20 +139,20 @@ ax2.plot(
     , label = 'Demand (GW)'
     )
 
-# ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
-# ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
+ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
+ax1.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
 ax2.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
 ax2.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
 
-# ax12 = ax1.twinx()
-# ax12.plot(
-#     df['Date & time']
-#     , df['expec%']
-#     , linestyle='--'
-#     , color='grey'
-#     , label='Regular Storage (%)'
-#     )
-# ax12.set_ylim(0,None)
+ax12 = ax1.twinx()
+ax12.plot(
+    df['Date & time']
+    , df['expec%']
+    , linestyle='--'
+    , color='grey'
+    , label='Regular Storage (%)'
+    )
+ax12.set_ylim(0,None)
 
 ax22 = ax2.twinx()
 ax22.plot(
@@ -181,28 +181,30 @@ ax22.plot(
 ax22.set_ylim(0,None)
 from datetime import datetime as dt
 
-# ax1.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
+ax1.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
 ax2.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
 
-# ax1.xaxis.set_major_formatter(pltd.DateFormatter('%b-%d %H:%M'))
+ax1.xaxis.set_major_formatter(pltd.DateFormatter('%b-%d %H:%M'))
 ax2.xaxis.set_major_formatter(pltd.DateFormatter('%b-%d %H:%M'))
 
-# plt.setp(ax1.get_xticklabels(), rotation=-45, ha='left')
+plt.setp(ax1.get_xticklabels(), rotation=-45, ha='right')
 plt.setp(ax2.get_xticklabels(), rotation=45, ha='right')
 
-# ax1.set_title('a) Energy supply-demand under regular conditions')
-ax2.set_title('Energy supply-demand under HILP conditions in Southern NSW Tablelands')
+# ax1.set_title('a) Energy supply-demand under regular conditions in Southern NSW Tablelands')
+# ax2.set_title('b) Energy supply-demand under HILP conditions in Southern NSW Tablelands')
+ax1.set_title('a) Energy supply-demand under regular conditions in Fitzroy')
+ax2.set_title('b) Energy supply-demand under HILP conditions in Fitzroy')
 
-# ax1.set_ylabel('Power (GW)')
+ax1.set_ylabel('Power (GW)')
 ax2.set_ylabel('Power (GW)')
 
-# ax12.set_ylabel('Energy Storage (%)')
+ax12.set_ylabel('Energy Storage (%)')
 ax22.set_ylabel('Energy Storage (%)')
 
-# ax1.set_xlabel('Date and Time')
+ax1.set_xlabel('Date and Time')
 ax2.set_xlabel('Date and Time')
 
-for axs in (#(ax1, ax12),
+for axs in ((ax1, ax12),
              (ax2, ax22),):
     pos = axs[0].get_position()
     axs[0].set_position([pos.x0, pos.y0, pos.width*0.92, pos.height])
@@ -232,13 +234,13 @@ wind['dt'] = wind[['Year', 'Month', 'Day', 'Interval']].apply(
 
 wind = wind.loc[(wind['dt']<df['Date & time'].max()) & (wind['dt']>df['Date & time'].min())]
 
-fig, ax = plt.subplots(figsize = (8,4))
+fig, ax = plt.subplots(figsize = (8,4))#, dpi=1800)
 
 ax.plot(
         wind['dt']
         , wind['N_Southern NSW Tablelands']*100
         , color = sns.color_palette('dark')[1]
-        , label = 'Southern NSW Tablelands'
+        , label = 'Southern NSW\nTablelands'
         )
 ax.plot(
         wind['dt']
@@ -271,7 +273,8 @@ ax.legend(
     lns 
     , labs
     , loc = 'center right'
-    , bbox_to_anchor = (1.47, 0.5)
+    , bbox_to_anchor = (1.32, 0.5)
     )
 
-plt.show()'''
+plt.show()
+'''

@@ -195,7 +195,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots(figsize=(8,6), dpi=2000)
     
     sns.barplot(
-        data1#.loc[data1.loc[:,'Scenario'] == 21, :]
+        data = data1#.loc[data1.loc[:,'Scenario'] == 21, :]
         , x = 'Zone Name'
         , y = 'value'
         , hue = 'variable'
@@ -256,7 +256,7 @@ if __name__ == '__main__':
     # ax1 = axs[0]
 
     sns.barplot(
-        data2#.loc[data2.loc[:,'variable'] != 'Pumped Hydro (GWh)', :]
+        data = data2#.loc[data2.loc[:,'variable'] != 'Pumped Hydro (GWh)', :]
         , x = 'Zone Name'
         , y = 'value'
         , hue = 'variable'

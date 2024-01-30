@@ -144,7 +144,7 @@ def cfgraphComb(ax, weighting):
     ls[1].set_linewidth(2)
     
     ax.axhline(0.0, linewidth=1, color = 'black')
-    ax.set_title('10-year daily maximum power deficit\nand 10-year daily weighted mean capacity factor of renewable generation.')
+    ax.set_title('10-year daily maximum power deficit due to HILP events in Fitzroy QLD\nand 10-year daily weighted mean capacity factor of renewable generation.')
     ax.set_ylabel('Maximum deficit (%)\n& capacity factor (%)')
     ax.set_xlabel('Date')
     ax.set_ylim([0,None])
