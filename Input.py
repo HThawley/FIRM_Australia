@@ -5,11 +5,16 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, eventZone, n_year, x0mode, event, trial
+from Optimisation import scenario, costConstraintFactor, eventZone, n_year, x0mode, event, trial, logic
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
 #%%
+if trial is None: 
+    suffix = '{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0])
+else:
+    suffix = '{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial)
+
 if isinstance(eventZone, str):
     if eventZone.lower() == 'all': eventZone = 'All'
     elif eventZone.lower() == 'none': eventZone = 'None'
@@ -31,8 +36,6 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
-windFrag = np.genfromtxt('Data/windFragility.csv', delimiter=',', skip_header=1, usecols=range(0,len(Windl)))
-windFrag, eventDur = windFrag[0], windFrag[1].astype(int)
 
 if event in ('storm', 'drought'):
     durations = np.genfromtxt(f'Data/{event}Durations.csv', delimiter=',', usecols=[0,1])
@@ -45,7 +48,7 @@ if event in ('storm', 'drought'):
     
     durations = durations[-int(percentile*len(durations)):1-int(percentile*len(durations))]
         
-    eventDur = np.repeat(int(durations[0]*2), len(eventDur))
+    eventDur = np.repeat(int(durations[0]*2), len(Windl))
     
 elif event == 'event':
     coverage = np.genfromtxt('Data/stormCoverage.csv'), np.genfromtxt('Data/droughtCoverage.csv')
@@ -64,7 +67,7 @@ elif event == 'event':
     rank = int(percentile*len(durations))
     
     durations = durations[-rank:1-rank]
-    eventDur = np.repeat(int(durations[0]*2), len(eventDur))
+    eventDur = np.repeat(int(durations[0]*2), len(Windl))
 
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
@@ -92,7 +95,6 @@ if scenario<=17:
     MLoad, MLoadD = [x[:, np.where(Nodel==node)[0]] for x in (MLoad, MLoadD)]
     TSPV = TSPV[:, np.where(PVl==node)[0]]
     TSWind = TSWind[:, np.where(Windl==node)[0]]
-    windFrag = windFrag[np.where(Windl==node)[0]]
     eventDur = eventDur[np.where(Windl==node)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(Nodel==node)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
@@ -120,7 +122,6 @@ if scenario>=21:
     MLoad, MLoadD = [x[:, np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (MLoad, MLoadD)]
     TSPV = TSPV[:, np.where(np.in1d(PVl, coverage)==True)[0]]
     TSWind = TSWind[:, np.where(np.in1d(Windl, coverage)==True)[0]]
-    windFrag = windFrag[np.where(np.in1d(Windl, coverage)==True)[0]]
     eventDur = eventDur[np.where(np.in1d(Windl, coverage)==True)[0]]
     
     CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
@@ -165,7 +166,7 @@ if costConstraintFactor is not None:
     costConstraint = costConstraintFactor*OptimisedCost
 else: 
     costConstraintFactor = np.inf
-
+#%%
 def cost(solution): 
 
     Deficit, DeficitD = Reliability(solution, flexible=np.zeros(intervals), output=True) # solutionj-EDE(t, j), MW
@@ -201,6 +202,7 @@ class Solution:
     def __init__(self, x):
         self.x = x
         
+        self.logic = logic
         if isinstance(eventZone, str):
             if eventZone == 'All': self.eventZone, self.eventZoneIndx = 'All', np.arange(wzones)
             elif eventZone == 'None': self.eventZone, self.eventZoneIndx = 'None', None                
@@ -228,57 +230,36 @@ class Solution:
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
         self.CHydro = CHydro # GW, GWh
         
-        self.windFrag = np.ones(windFrag.shape)
         self.eventDur = np.zeros(eventDur.shape)
         
         if self.eventZoneIndx is not None:
-            eventZoneFrag = windFrag.copy()[self.eventZoneIndx]
-            eventZoneFrag = 1 - eventZoneFrag
             
-            self.windFrag[self.eventZoneIndx] = eventZoneFrag
             self.eventDur[self.eventZoneIndx] = eventDur[self.eventZoneIndx]
         
         self.eventDur = np.rint(self.eventDur).astype(int)
-        self.CWindR = self.CWind*(self.windFrag)
-        self.GWindR = TSWind * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
+        if len(eventZoneIndx) > 1 and logic == 'and': 
+            assert len(np.unique(self.eventDur[np.where(self.eventDur != 0)])) == 1
         
-        if self.eventZoneIndx is not None:
-            self.WindDiff = self.GWindR - self.GWind
-        else: 
-            self.WindDiff = np.zeros(self.GWind.shape)
+        self.CWindR = np.array(self.CWind)*~self.eventDur.astype(bool)
+        self.TSWindR = np.zeros(TSWind.shape)
+        self.TSWindR[:, ~self.eventDur.astype(bool)] = TSWind[:, ~self.eventDur.astype(bool)]
+        self.GWindR = self.TSWindR * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
+        self.WindDiff = self.GWindR-self.GWind
         
         self.OptimisedCost, self.costConstraint = OptimisedCost, costConstraint
-        # self.LossR = self.GWind.sum(axis=1) - self.GWindR.sum(axis=1)        
 
         self.eventDeficit, self.cost, self.penalties = cost(self)
         
-        # self.fragility = self.eventDeficit/(a constant?)
 
     def __repr__(self):
         """S = Solution(list(np.ones(64))) >> print(S)"""
         return 'Solution({})'.format(self.x)
     
-#%%
-def printInfo(x):
-    S = Solution(x)
-    print(f"""
-          eventZone: {S.eventZone}
-          eventZoneIndx: {S.eventZoneIndx}
-          cost: {S.cost}
-          penalties: {S.penalties}
-          eventDef: {S.eventDeficit}
-          ObjectiveFunction: {RSolution(S)}
-          windFrag: {S.windFrag[S.eventZoneIndx]}
-          eventDur: {S.eventDur[S.eventZoneIndx]}
-          capacity: {np.array(S.CWind)[S.eventZoneIndx]}""")
 
-def RSolution(S):
-    eventDeficit, penalties, cost = S.eventDeficit, S.penalties, S.cost
+#%%
+if __name__ == '__main__': 
+    s = Solution(np.genfromtxt(r"C:\Users\u6942852\Documents\Repos\FIRM_Australia\CostOptimisationResults\Optimisation_resultx21-None.csv", delimiter=','))
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(s, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3))
+    print(RDeficit.sum())
     
-    if penalties > 0: penalties = penalties*pow(10,6)
     
-    func = eventDeficit + penalties + cost
-    
-    if cost > costConstraint: func = func*pow(10,6)
-    
-    return func

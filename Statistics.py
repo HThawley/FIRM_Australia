@@ -77,10 +77,7 @@ def LPGM(solution, RSim=None):
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
     if RSim is None: 
-        if trial is None:
-            np.savetxt('Results/S{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
-        else: 
-            np.savetxt('Results/S{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), C, fmt='%s', delimiter=',', header=header, comments='')
+        np.savetxt('Results/S'+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
     else: 
         C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 97, :] #2 weeks before event + 2 day after 
         if trial is None: 
@@ -183,10 +180,7 @@ def GGTA(solution, verbose=False):
               + list(solution.CDC) 
               + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
-    if trial is None: 
-        np.savetxt('Results/GGTA{}-{}-{}-{}.csv'.format(scenario,eventZone, n_year, str(event)[0]), D, fmt='%f', delimiter=',')
-    else: 
-        np.savetxt('Results/GGTA{}-{}-{}-{}-{}.csv'.format(scenario,eventZone, n_year, str(event)[0], trial), D, fmt='%f', delimiter=',')
+    np.savetxt('Results/GGTA'+suffix, D, fmt='%f', delimiter=',')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
@@ -313,6 +307,6 @@ def verifyDispatch(capacities, flexible, resilience=False):
 
 if __name__ == '__main__': 
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    capacities = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',')
-    CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter=',', skip_header=1)
+    capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
+    CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible'+suffix, delimiter=',', skip_header=1)
     DeficitInformation(costCapacities, CRFlex, 1)

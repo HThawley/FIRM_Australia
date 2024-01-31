@@ -21,14 +21,18 @@ cost_and_energymix_combined = True
 op = pd.read_csv(fr"Results\Optimisation_resultx{scenario}-consolidated.csv")
 op = op.applymap(lambda e: {'None':pd.NA}.get(e,e))
 op = op[op['Zone'].isna()]
-op['event'] = op['event'].fillna(0)
+# op['event'] = op['event'].fillna(0)
+op = op.dropna(subset=['event'])
+
 
 co = pd.read_csv(r"Results/GGTA-consolidated.csv")
 co = co.applymap(lambda e: {'None':pd.NA}.get(e,e))
 co = co[co['Scenario'] == 21] 
-co = co[co['n_year'] == -1]
+# co = co[co['n_year'] == -1]
 co = co[co['Zone'].isna()]
-co['event'] = pd.to_numeric(co['event']).fillna(0)
+# co['event'] = pd.to_numeric(co['event']).fillna(0)
+co = co.dropna(subset=['event'])
+
 co.columns = [col.split('.')[0] for col in co.columns]
 
 co = co.reset_index(drop=True).drop(index=0).reset_index(drop=True)
@@ -75,7 +79,7 @@ op['Source'] = op['Source'].apply(lambda x: {
     , '':'Storage (GWh)'
     }.get(x))
 
-fig, ax = plt.subplots(figsize = (8, 6), dpi = 2000)
+fig, ax = plt.subplots(figsize = (8, 6))#, dpi = 2000)
 
 sns.boxplot(
     data = op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :]
@@ -140,7 +144,7 @@ co = pd.melt(
 
 
 if cost_and_energymix_combined is True: 
-    fig, axs = plt.subplots(2, figsize = (8,6), dpi = 2000)
+    fig, axs = plt.subplots(2, figsize = (8,6))#, dpi = 2000)
     fig.subplots_adjust(hspace=0.25)
     prefix=''
 else: 

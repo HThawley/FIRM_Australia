@@ -89,8 +89,8 @@ def zoneTypeIndx(scenario, eventZone=None, wdir=None):
 
 def lambdaReadDeficit(scenario, zone, n_year, event):
     try: return pd.read_csv(fr'S{scenario}-{zone}-{n_year}-{event}.csv')['eventDeficit'].sum()
-    except FileNotFoundError: 
-        if n_year == -1: return 0
+    except (FileNotFoundError, OSError): 
+        if pd.isna(zone): return 0
         else: return np.nan
 
     
@@ -101,10 +101,8 @@ if __name__ == '__main__':
     events = ('e',)
     
     os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
-    os.chdir('Results')
-    
-    
-    
+    os.chdir('Results') 
+        
     data = pd.read_csv('GGTA-consolidated.csv')
     # data = pd.read_csv(r'C:\Users\hmtha\Desktop\GGTA-consolidated.csv')
     data['Grid'] = data['Scenario'].map({11:'NSW', 
@@ -116,6 +114,7 @@ if __name__ == '__main__':
                                          # 17:'WA', 
                                          21:'NEM'})
     data = data.dropna(subset = ['Grid']).reset_index(drop=True)
+    data = data.applymap(lambda e: {'None':pd.NA}.get(e,e))
     
     os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
     data['Zone Name'] = data[['Scenario', 'Zone']].apply(lambda x: lambdaZoneNames(*x), axis=1)
@@ -127,7 +126,7 @@ if __name__ == '__main__':
     costColumns = ['LCOE ($/MWh)', 'LCOG ($/MWh)', 'LCOB (storage)', 'LCOB (transmission)', 
                    'LCOB (spillage & loss)']
     
-    baseCaps = data.loc[data['n_year'] == -1, ['Scenario']+genColumns+costColumns]
+    baseCaps = data.loc[data['Zone'].isna(), ['Scenario']+genColumns+costColumns]
     baseCaps['Total Gen'] = baseCaps[['Solar (GW)', 'Wind (GW)', 'Hydro & Bio (GW)']].sum(axis=1)
     
     minbaseCaps = baseCaps.groupby(['Scenario']).min()
@@ -282,16 +281,16 @@ if __name__ == '__main__':
     # s[2].set_color(sns.color_palette()[3])
 
     
-    ax1.grid(True, 'major', 'y')
+    # ax1.grid(True, 'major', 'y')
     # ax1.set_xlim([None, 6.5])
     # yscaleFactor = 1+int(ax1.get_ylim()[1]/ax2.get_ylim()[1])
-    # ax1.set_ylim([-4.05,6.05])
-    # ax1.set_yticks(np.arange(-4.0, 8.0, 2.0, float))
+    ax1.set_ylim([-4.05,6.05])
+    ax1.set_yticks(np.arange(-4.0, 8.0, 2.0, float))
 
     # ax2.set_ylim([25*val for val in ax1.get_ylim()])
     # ax2.set_yticks([25*val for val in ax1.get_yticks()])
     
-    # ax1.set_yticks(np.arange(-2,5)*5.0)    
+    ax1.set_yticks(np.arange(-2,5)*5.0)    
     ax1.set_xlabel('Zone affected by HILP wind events')
     ax1.set_ylabel('Relative Capacity (%)')
     # ax2.set_ylabel('Relative Energy Storage Capacity (GWh)')
