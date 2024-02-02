@@ -190,9 +190,9 @@ def TransmissionFactors(solution, flexible, resilience = False, deficit = False)
     
     if scenario>=21:
         if resilience: 
-            solution.TDC, solution.TDCR = Transmission(solution, True, resilience, deficit) # TDC(t, k), MW
+            solution.TDC, solution.TDCR = Transmission(solution, True, deficit) # TDC(t, k), MW
         else: 
-            solution.TDC = Transmission(solution, True, resilience, deficit) # TDC(t, k), MW
+            solution.TDC = Transmission(solution, True, deficit) # TDC(t, k), MW
     else:
         solution.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
         

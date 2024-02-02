@@ -120,7 +120,8 @@ def Resilience(solution, flexible, start=None, end=None, output = 'deficits'):
     else: 
         RCharge, RChargeD, RDischarge, RDischargeD, RP2V, RStorage, RStorageD, RDeficit, RDeficitD, RSpillage = (
             Charge, ChargeD, Discharge, DischargeD, P2V, Storage, StorageD, Deficit, DeficitD, Spillage)
-        
+        storageAdj = np.zeros(Netload.shape)
+        RNetload = Netload.copy()
         simulate_resilience_losses()
         
     solution.Discharge, solution.Charge, solution.Storage, solution.P2V = (Discharge, Charge, Storage, P2V)

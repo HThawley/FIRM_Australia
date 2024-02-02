@@ -68,6 +68,10 @@ elif event == 'event':
     
     durations = durations[-rank:1-rank]
     eventDur = np.repeat(int(durations[0]*2), len(Windl))
+else: 
+    assert event is None 
+    eventDur = np.zeros(len(Windl))
+
 
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
@@ -233,12 +237,12 @@ class Solution:
         self.eventDur = np.zeros(eventDur.shape)
         
         if self.eventZoneIndx is not None:
-            
             self.eventDur[self.eventZoneIndx] = eventDur[self.eventZoneIndx]
         
         self.eventDur = np.rint(self.eventDur).astype(int)
-        if len(eventZoneIndx) > 1 and logic == 'and': 
-            assert len(np.unique(self.eventDur[np.where(self.eventDur != 0)])) == 1
+        if self.eventZoneIndx is not None:
+            if len(self.eventZoneIndx) > 1 and self.logic == 'and': 
+                assert len(np.unique(self.eventDur[np.where(self.eventDur != 0)])) == 1
         
         self.CWindR = np.array(self.CWind)*~self.eventDur.astype(bool)
         self.TSWindR = np.zeros(TSWind.shape)
