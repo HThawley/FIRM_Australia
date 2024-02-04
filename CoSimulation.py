@@ -64,10 +64,7 @@ def Resilience(solution, flexible, start=None, end=None, output = 'deficits'):
         assert np.amin(RSpillage) >= 0, 'RSpillage below zero'
         
         if i is not None: 
-            solution.RDischarge[:,i] = RDischarge
-            solution.RCharge[:,i] = RCharge
-            solution.RStorage[:,i] = RStorage
-            solution.RP2V[:,i] = RP2V
+            solution.RDischarge[:,i], solution.RCharge[:,i], solution.RStorage[:,i], solution.RP2V[:,i] = (RDischarge, RCharge, RStorage, RP2V)
             solution.RDischargeD[:,i], solution.RChargeD[:,i], solution.RStorageD[:,i] = (RDischargeD, RChargeD, RStorageD)
             solution.RDeficit[:,i], solution.RDeficitD[:,i], solution.RSpillage[:,i] = (RDeficit, RDeficitD, RSpillage)                 
         else: 
@@ -84,14 +81,14 @@ def Resilience(solution, flexible, start=None, end=None, output = 'deficits'):
             windDiff = windDiff.sum(axis=1).reshape((-1,1))
         
         if len(eventZoneIndx) == 1: 
-            RNetload = Netload + windDiff.sum(axis=1)
+            RNetload = Netload - windDiff.sum(axis=1)
     
             # State of charge is taken as the state of charge {eventDuration} steps ago 
             # +/- the charging that occurs under the modified generation capacity   
             storageAdj = [
                 np.lib.stride_tricks.sliding_window_view(
                     np.concatenate([np.zeros(eventDur[i] - 1), #function only recognises full length windows -> pad with zeros
-                                    np.clip(windDiff[:,i]+Spillage, None, 0)]), 
+                                    np.clip(windDiff[:,i]-Spillage, None, 0)]), 
                     eventDur[i]).sum(axis=1)
             for i in eventZoneIndx]
                 
@@ -110,10 +107,10 @@ def Resilience(solution, flexible, start=None, end=None, output = 'deficits'):
                 
                 storageAdj = np.lib.stride_tricks.sliding_window_view(
                         np.concatenate([np.zeros(eventDur[i] - 1), #function only recognises full length windows -> pad with zeros
-                                        np.clip(windDiff[:,i]+Spillage, None, 0)]), 
+                                        np.clip(windDiff[:,i]-Spillage, None, 0)]), 
                         eventDur[i]).sum(axis=1)
                 
-                RNetload = Netload+windDiff[:,i]
+                RNetload = Netload - windDiff[:,i], 
             
                 simulate_resilience_losses(i)
                 

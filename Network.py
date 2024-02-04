@@ -5,7 +5,7 @@
 
 import numpy as np
 
-def Transmission(solution, output=False, deficit=False):
+def Transmission(solution, output=False, deficit=False, resilience=False):
     """TDC = Network.Transmission(S)"""
 
     Nodel, PVl, Windl = (solution.Nodel, solution.PVl, solution.Windl)

@@ -79,11 +79,8 @@ def LPGM(solution, RSim=None):
     if RSim is None: 
         np.savetxt('Results/S'+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
     else: 
-        C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 97, :] #2 weeks before event + 2 day after 
-        if trial is None: 
-            np.savetxt('Results/S-Deficit{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, RSim[0], str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
-        else: 
-            np.savetxt('Results/S-Deficit{}-{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, RSim[0], str(event)[0], trial), C, fmt='%s', delimiter=',', header=header, comments='')
+        C = C[max(0, RSim[1] - solution.eventDur.max() - 96):RSim[1] + 97, :] #2 days before event + 2 day after 
+        np.savetxt('Results/SDeficit{}-'.format(RSim[0])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
 
 
     if scenario>=21:
@@ -105,10 +102,7 @@ def LPGM(solution, RSim=None):
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
             if RSim is None: 
-                if trial is None:
-                    np.savetxt('Results/S{}{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
-                else: 
-                    np.savetxt('Results/S{}{}-{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, str(event)[0], trial), C, fmt='%s', delimiter=',', header=header, comments='')
+                np.savetxt('Results/S{}'.format(solution.Nodel[j])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
             else: pass
                 # C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 49, :] #2 weeks before event + 1 day after 
                 # np.savetxt('Results/S-Deficit{}{}-{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, RSim[0], str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
@@ -267,7 +261,8 @@ def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
     S = TransmissionFactors(S, flexible)
-    if trial is None: LPGM(S)
+    if trial is None: 
+        LPGM(S)
     DeficitAnalysis(capacities, flexible, NDeficitAnalysis)
 
     end = dt.datetime.now()
@@ -298,8 +293,10 @@ def verifyDispatch(capacities, flexible, resilience=False):
     S = Solution(capacities)
     
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
-    if resilience: assert (RDeficit + RDeficitD).sum() * resolution < 1., f'R - Energy generation and demand are not balanced. deficit = {round((RDeficit + RDeficitD).sum() * resolution,2)}'
-    else: assert (Deficit + DeficitD).sum() * resolution < 1.0, f'Energy generation and demand are not balanced. deficit = {round((Deficit + DeficitD).sum() * resolution,2)}'
+    if resilience: 
+        assert (RDeficit + RDeficitD).sum() * resolution < 1., f'R - Energy generation and demand are not balanced. deficit = {round((RDeficit + RDeficitD).sum() * resolution,2)}'
+    else: 
+        assert (Deficit + DeficitD).sum() * resolution < 1.0, f'Energy generation and demand are not balanced. deficit = {round((Deficit + DeficitD).sum() * resolution,2)}'
     
     return True
 

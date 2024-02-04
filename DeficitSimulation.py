@@ -35,55 +35,66 @@ def DeficitSimulation(solution, flexible, RSim, start=None, end=None, output = '
     windDiffInst = np.zeros(windDiff.shape)
     for i in eventZoneIndx:
         windDiffInst[max(0, RSim-eventDur[i]):RSim+1, i] = windDiff[max(0, RSim-eventDur[i]):RSim+1, i] 
-    windDiff, solution.WindDiff = windDiffInst, windDiffInst
     
-    try: RNetload = Netload + windDiffInst.sum(axis=1) 
-    except np.AxisError: RNetload = Netload + windDiffInst
+    try: 
+        RNetload = Netload - windDiffInst.sum(axis=1) 
+    except np.AxisError: 
+        RNetload = Netload - windDiffInst
     
-    if eventZoneIndx is not None: 
-        storageAdj = windDiff.sum(axis=1)
-        storageAdj[np.where(storageAdj!=0)] = np.cumsum(storageAdj[np.where(storageAdj!=0)])
+    # if eventZoneIndx is not None: 
+    #     storageAdj = np.clip(windDiff.sum(axis=1) - Spillage, None, 0)
+    #     storageAdj[np.where(storageAdj!=0)] = np.cumsum(storageAdj[np.where(storageAdj!=0)])
+        
 
     # =============================================================================
     # Re-simulate with resilience losses due to windevent, and including storage depletion
     # =============================================================================
 
-    Storage_1, StorageD_1 = np.roll(Storage, 1, axis = 0), np.roll(StorageD, 1, axis = 0)
-    Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD
+    # Storage_1, StorageD_1 = np.roll(Storage, 1, axis = 0), np.roll(StorageD, 1, axis = 0)
+    # Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD
     
-    RStorage_1 = np.maximum(0, Storage_1 + storageAdj)
-    RStorageD_1 = np.maximum(0, StorageD_1 + np.clip(Storage_1 + storageAdj, None, 0))
-    RDeficit = np.maximum(0, -(StorageD_1 + Storage_1 + storageAdj))
+    # RStorage_1 = np.maximum(0, Storage_1 + storageAdj)
+    # RStorageD_1 = np.maximum(0, StorageD_1 + np.clip(Storage_1 + storageAdj, None, 0))
+    # RDeficit = np.maximum(0, -(StorageD_1 + Storage_1 + storageAdj))
     
-    RDischarge = np.minimum(np.minimum(np.maximum(0, RNetload), Pcapacity), RStorage_1 / resolution)
-    RCharge = np.minimum(np.minimum(-1 * np.minimum(0, RNetload), Pcapacity), (Scapacity - RStorage_1) /efficiency /resolution)        
-    RStorage = RStorage_1 - RDischarge * resolution + RCharge * resolution * efficiency
+    # RDischarge = np.minimum(np.minimum(np.maximum(0, RNetload), Pcapacity), RStorage_1 / resolution)
+    # RCharge = np.minimum(np.minimum(-1 * np.minimum(0, RNetload), Pcapacity), (Scapacity - RStorage_1) /efficiency /resolution)        
+    # RStorage = RStorage_1 - RDischarge * resolution + RCharge * resolution * efficiency
     
-    RDischargeD = np.minimum(ConsumeD, StorageD_1 / resolution)
-    RChargeD = np.minimum(np.minimum(-1 * np.minimum(0, RNetload + RCharge), PcapacityD), (ScapacityD - RStorageD_1) /efficiencyD /resolution)
-    RStorageD = RStorageD_1 - RDischargeD * resolution + RChargeD * resolution * efficiencyD
+    # RDischargeD = np.minimum(ConsumeD, StorageD_1 / resolution)
+    # RChargeD = np.minimum(np.minimum(-1 * np.minimum(0, RNetload + RCharge), PcapacityD), (ScapacityD - RStorageD_1) /efficiencyD /resolution)
+    # RStorageD = RStorageD_1 - RDischargeD * resolution + RChargeD * resolution * efficiencyD
 
-    Rdiff = ConsumeD - RDischargeD 
-    RP2V = np.minimum(Rdiff / efficiencyD, Pcapacity - RDischarge - RCharge) 
-    RP2V[np.where((Rdiff <= 0) | (RStorage / resolution <= Rdiff / efficiencyD))] = 0
+    # Rdiff = ConsumeD - RDischargeD 
+    # RP2V = np.minimum(Rdiff / efficiencyD, Pcapacity - RDischarge - RCharge) 
+    # RP2V[np.where((Rdiff <= 0) | (RStorage / resolution <= Rdiff / efficiencyD))] = 0
 
-    RDischarge = RDischarge + RP2V
-    RStorage = RStorage - RP2V * resolution 
+    # RDischarge = RDischarge + RP2V
+    # RStorage = RStorage - RP2V * resolution 
+    RStorage = Storage.copy()
+    RStorageD = StorageD.copy()
+    RDischarge = Discharge.copy()
+    RP2V = P2V.copy()
+    RCharge = Charge.copy()
+    RStorage = Storage.copy()
+    RDischargeD = DischargeD.copy()
+    RChargeD = ChargeD.copy()
+    RStorageD = StorageD.copy()
 
-    for t in range(RSim, solution.intervals):
-        Netloadt = Netload[t]
+    for t in range(RSim-eventDur[i], solution.intervals):
+        RNetloadt = RNetload[t]
         
         RStoraget_1 = RStorage[t-1] if t>0 else 0.5 * Scapacity
         RStorageDt_1 = RStorageD[t-1] if t>0 else 0.5 * ScapacityD
 
-        RDischarget = min(max(0, Netloadt), Pcapacity, RStoraget_1 / resolution)
-        RCharget = min(-1 * min(0, Netloadt), Pcapacity, (Scapacity - RStoraget_1) / efficiency / resolution)
+        RDischarget = min(max(0, RNetloadt), Pcapacity, RStoraget_1 / resolution)
+        RCharget = min(-1 * min(0, RNetloadt), Pcapacity, (Scapacity - RStoraget_1) / efficiency / resolution)
         RStoraget = RStoraget_1 - RDischarget * resolution + RCharget * resolution * efficiency
         
         ConsumeDt = ConsumeD[t]
 
         RDischargeDt = min(ConsumeDt, RStorageDt_1 / resolution)
-        RChargeDt = min(-1 * min(0, Netloadt + RCharget), PcapacityD, (ScapacityD - RStorageDt_1) / efficiencyD / resolution)
+        RChargeDt = min(-1 * min(0, RNetloadt + RCharget), PcapacityD, (ScapacityD - RStorageDt_1) / efficiencyD / resolution)
         RStorageDt = RStorageDt_1 - RDischargeDt * resolution + RChargeDt * resolution * efficiencyD
 
         Rdiff = ConsumeDt - RDischargeDt

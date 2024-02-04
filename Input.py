@@ -248,7 +248,7 @@ class Solution:
         self.TSWindR = np.zeros(TSWind.shape)
         self.TSWindR[:, ~self.eventDur.astype(bool)] = TSWind[:, ~self.eventDur.astype(bool)]
         self.GWindR = self.TSWindR * np.tile(self.CWindR, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
-        self.WindDiff = self.GWindR-self.GWind
+        self.WindDiff = self.GWindR - self.GWind
         
         self.OptimisedCost, self.costConstraint = OptimisedCost, costConstraint
 

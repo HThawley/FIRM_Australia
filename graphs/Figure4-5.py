@@ -17,6 +17,7 @@ from graphutils import directory_up, adjust_legend
 
 scenario = 21
 eventZone = np.array([10])
+# zoneName = 'S-NSW Tablelands'
 zoneName = 'Fitzroy'
 n_year = 25
 event = 'e'
@@ -26,32 +27,29 @@ deficit_index=0 #rank (0-indexed)
 
 directory_up()
 
-df = pd.read_csv(f"Results/S-Deficit{deficit_index}-{scenario}-{eventZone}-{n_year}-{event}.csv")
-
-df['idx'] = range(len(df))
-df['Date & time'] = pd.to_datetime(df['Date & time'], format='%a -%d %b %Y %H:%M')
-
-df = df.rename(columns={'Operational demand (original)':'Demand (GW)'})
-
+df = pd.read_csv(f"Results/SDeficit{deficit_index}-{scenario}-{eventZone}-{n_year}-{event}-1.csv")
+df  =  df.iloc[-350:, :]
 deficitMask = df['eventDeficit'] > 0
 
-df  =  df.iloc[674:-72, :]
+
+df['Date & time'] = pd.to_datetime(df['Date & time'], format='%a -%d %b %Y %H:%M')
 
 df['expec%'] = 100*df['PHES-Storage']/df['PHES-Storage'].max()
 df['HILP%'] = 100*df['eventStorage']/df['PHES-Storage'].max()
 
 df['Hydro & Bio (GW)'] = df['Hydropower'] + df['Biomass']
 
-edf = df[['Date & time', 'Hydro & Bio (GW)', 'Solar photovoltaics', 'eventPower', 
-       'eventPHES-power', 'eventSpillage', 'expec%', 'HILP%', 'Demand (GW)', 'eventPHES-Charge']]
-
 df = df.rename(columns={
     'Wind':'Wind (GW)',
     'Solar photovoltaics':'Solar (GW)',
     'PHES-power':'Storage (GW)',
     'Energy spillage':'Spillage (GW)',
-    'PHES-Charge':'Charging (GW)'
+    'PHES-Charge':'Charging (GW)',
+    'Operational demand (original)':'Demand (GW)'
     })
+
+edf = df[['Date & time', 'Hydro & Bio (GW)', 'Solar (GW)', 'eventPower', 
+       'eventPHES-power', 'eventSpillage', 'expec%', 'HILP%', 'Demand (GW)', 'eventPHES-Charge']]
 
 edf = edf.rename(columns={
     'Solar photovoltaics':'Solar (GW)',
@@ -81,7 +79,7 @@ def plot_axis(ax, df, event):
     
     cols=['Hydro & Bio (GW)', 'Solar (GW)', 'Wind (GW)', 'Storage (GW)']
     negs=['Charging (GW)', 'Spillage (GW)']
-    df[cols+negs+['Demand (GW)']] = df[cols+negs+['Demand (GW)']]/1000. # MW to GW
+    df[cols+negs+['Demand (GW)']] = df[cols+ negs+['Demand (GW)']]/1000. # MW to GW
     
     # plot generation areas
     ax.stackplot(
@@ -109,7 +107,7 @@ def plot_axis(ax, df, event):
         label = 'Demand (GW)',
         )
         
-
+    # Plot battery levels on secondary axis
     ax1 = ax.twinx()
     ax1.plot(
         df['Date & time']
@@ -129,8 +127,9 @@ def plot_axis(ax, df, event):
             )
     
     #plot event markers
-    ax.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
-    ax.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
+    #TO DO - more robust way based on .iloc
+    ax.axvline(df.iloc[-96, :].loc['Date & time'], color='r', linewidth=0.5, alpha = 0.5)
+    ax.axvline(df.iloc[-96, :].loc['Date & time']-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
     
     ax1.set_ylim(0,None)
 
@@ -139,7 +138,7 @@ def plot_axis(ax, df, event):
     else:
         ax.set_title('a) Energy supply-demand under regular conditions in '+zoneName)
 
-    ax.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
+    # ax.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
     ax.xaxis.set_major_formatter(pltd.DateFormatter('%b-%d %H:%M'))
     plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
 
