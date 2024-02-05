@@ -83,7 +83,7 @@ def LPGM(solution, RSim=None):
         np.savetxt('Results/SDeficit{}-'.format(RSim[0])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
 
 
-    if scenario>=21:
+    if scenario>=21 and RSim is None:
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
                  'Hydropower,Biomass,Solar photovoltaics,Wind,eventPower,' \
                  'PHES-power,Energy deficit,Energy spillage,Transmission,PHES-Charge,' \
@@ -96,16 +96,10 @@ def LPGM(solution, RSim=None):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
                           solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.RMWind[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
-                          solution.MStorage[:, j],(solution.MWind[:,j]-solution.RMWind[:, j]), solution.RMDeficit[:, j], 
-                          solution.RMStorage[:, j], solution.RMDischarge[:, j],-1*solution.RMCharge[:, j],-1*solution.RMSpillage[:, j]])
+                          solution.MStorage[:, j]])
             C = np.around(C.transpose())
-
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            if RSim is None: 
-                np.savetxt('Results/S{}'.format(solution.Nodel[j])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
-            else: pass
-                # C = C[max(0, RSim[1] - solution.eventDur.max() - 672):RSim[1] + 49, :] #2 weeks before event + 1 day after 
-                # np.savetxt('Results/S-Deficit{}{}-{}-{}-{}-{}.csv'.format(scenario, solution.Nodel[j], eventZone, n_year, RSim[0], str(event)[0]), C, fmt='%s', delimiter=',', header=header, comments='')
+            np.savetxt('Results/S{}'.format(solution.Nodel[j])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -179,14 +173,10 @@ def GGTA(solution, verbose=False):
 
     return True
 
-def TransmissionFactors(solution, flexible, resilience = False, deficit = False):
-    if resilience == True: raise NotImplementedError("Even if you're doing FIRM_resilience, don't use this")
+def TransmissionFactors(solution, flexible, deficit = False):
     
     if scenario>=21:
-        if resilience: 
-            solution.TDC, solution.TDCR = Transmission(solution, True, deficit) # TDC(t, k), MW
-        else: 
-            solution.TDC = Transmission(solution, True, deficit) # TDC(t, k), MW
+        solution.TDC= Transmission(solution, True, deficit) # TDC(t, k), MW
     else:
         solution.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
         
@@ -204,20 +194,6 @@ def TransmissionFactors(solution, flexible, resilience = False, deficit = False)
 
         solution.MChargeD = np.tile(solution.ChargeD, (nodes, 1)).transpose()
         solution.MP2V = np.tile(solution.P2V, (nodes, 1)).transpose()
-        
-        if resilience: 
-            solution.TDCR = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
-            solution.MWindR = solution.GWindR.sum(axis=1) if solution.GWindR.shape[1]>0 else np.zeros((intervals, 1))
-            
-            solution.MDischargeR = np.tile(solution.RDischarge, (nodes, 1)).transpose()
-            solution.MDeficitR = np.tile(solution.RDeficit, (nodes, 1)).transpose()
-            solution.MChargeR = np.tile(solution.RCharge, (nodes, 1)).transpose()
-            solution.MStorageR = np.tile(solution.RStorage, (nodes, 1)).transpose()
-            solution.MSpillageR = np.tile(solution.RSpillage, (nodes, 1)).transpose()
-
-            solution.MChargeDR = np.tile(solution.RChargeD, (nodes, 1)).transpose()
-            solution.MP2VR = np.tile(solution.RP2V, (nodes, 1)).transpose()
-            
             
     solution.CDC = np.amax(abs(solution.TDC), axis = 0) * pow(10, -3)
     solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV = map(lambda k: solution.TDC[:, k], range(solution.TDC.shape[1]))
@@ -258,7 +234,6 @@ def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
     print("Deficit Statistics start at", start)
     
     S = Solution(capacities)
-    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
 
     S = TransmissionFactors(S, flexible)
     if trial is None: 
@@ -270,20 +245,15 @@ def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
     return True
    
 def DeficitAnalysis(capacities, flexible, N=1):   
-    if N is None: return True
+    if N is None: 
+        return True
     solution = Solution(capacities)
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=flexible)
     topNDeficitIndx = np.flip(np.argpartition(RDeficit, -N)[-N:])
     
     for n, indx in enumerate(topNDeficitIndx):
         solution = Solution(capacities)
-        solution = DeficitSimulation(
-            solution
-            , flexible
-            # , start = indx - 2*solution.eventDur[eventZoneIndx].max() 
-            # , end = indx + solution.eventDur[eventZoneIndx].max() 
-            , RSim=indx
-            , output='solution')
+        solution = DeficitSimulation(solution, flexible, RSim=indx, output='solution')
         solution = TransmissionFactors(solution, flexible, deficit = True)
         LPGM(solution, (n, indx))
     return True 

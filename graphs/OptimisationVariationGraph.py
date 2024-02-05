@@ -12,7 +12,9 @@ import seaborn as sns
 import numpy as np
 import os 
 
-os.chdir('\\'.join(os.getcwd().split('\\')[:-1]))
+from graphutils import directory_up
+
+directory_up()
 
 scenario = 21
 cost_and_energymix_combined = True
@@ -219,7 +221,7 @@ axs[0].set_title(prefix + 'Range of energy mix')
 # axs[0].set_yticks(np.arange(7)*100)
 axs[0].set_xlabel(None)
 
-axs[0].set_ylim([0,100])
+# axs[0].set_ylim([0,100])
 # ax02.set_ylim([0,600])
 
 if cost_and_energymix_combined is True: 

@@ -16,9 +16,9 @@ from datetime import datetime as dt
 from graphutils import directory_up, adjust_legend
 
 scenario = 21
-eventZone = np.array([7])
-zoneName = 'S-NSW Tablelands'
-# zoneName = 'Fitzroy'
+eventZone = np.array([10])
+# zoneName = 'S-NSW Tablelands'
+zoneName = 'Fitzroy'
 n_year = 25
 event = 'e'
 dpi = 200
@@ -28,7 +28,7 @@ deficit_index=0 #rank (0-indexed)
 directory_up()
 
 df = pd.read_csv(f"Results/SDeficit{deficit_index}-{scenario}-{eventZone}-{n_year}-{event}-1.csv")
-df  =  df.iloc[-350:, :]
+df = df.iloc[-350:, :]
 deficitMask = df['eventDeficit'] > 0
 
 
@@ -153,33 +153,30 @@ graphWrapper()
 
 #%%
 
-'''
-from datetime import datetime as dt
-
 wind = pd.read_csv('Data/wind.csv', dtype = float)
 wind['dt'] = wind[['Year', 'Month', 'Day', 'Interval']].apply(
     lambda x: dt(int(x[0]), int(x[1]), int(x[2]), int((x[3]-1)//2), int(30*((x[3]-1)%2))), axis = 1)
 
 wind = wind.loc[(wind['dt']<df['Date & time'].max()) & (wind['dt']>df['Date & time'].min())]
 
-fig, ax = plt.subplots(figsize = (8,4))#, dpi=1800)
+fig, ax = plt.subplots(figsize = (8,4), dpi=dpi)
 
 ax.plot(
-        wind['dt']
-        , wind['N_Southern NSW Tablelands']*100
-        , color = sns.color_palette('dark')[1]
-        , label = 'Southern NSW\nTablelands'
+        wind['dt'],
+        wind['N_Southern NSW Tablelands']*100,
+        color = sns.color_palette('dark')[1],
+        label = 'Southern NSW\nTablelands',
         )
 ax.plot(
-        wind['dt']
-        , wind['Q_Fitzroy']*100
-        , color = sns.color_palette('dark')[0]
-        , label = 'Fitzroy'
+        wind['dt'],
+        wind['Q_Fitzroy']*100,
+        color = sns.color_palette('dark')[0],
+        label = 'Fitzroy',
         )
 
-ax.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
+# ax.set_xticks([dt(2025, 6, i, j, 0) for i in range(19, 25) for j in (12,)])
 ax.xaxis.set_major_formatter(pltd.DateFormatter('%b-%d %H:%M'))
-plt.setp(ax.get_xticklabels(), rotation=-45, ha='left')
+plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
 
 ax.legend()
 ax.set_title("Capacity factor over time")
@@ -188,21 +185,10 @@ ax.set_yticks(np.arange(6)*20)
 ax.set_ylabel('Capacity Factor (%)')
 ax.set_xlabel('Date and Time')
 
-ax.axvline(df.loc[deficitMask, 'Date & time'].values[-1]-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
-ax.axvline(df.loc[deficitMask, 'Date & time'].values[-1], color='r', linewidth=0.5, alpha = 0.5)
+ax.axvline(df.iloc[-96, :].loc['Date & time'], color='r', linewidth=0.5, alpha = 0.5)
+ax.axvline(df.iloc[-96, :].loc['Date & time']-np.timedelta64(int(127.5*60), 'm'),color='r', linewidth=0.5, alpha = 0.5)
 
-
-pos = ax.get_position()
-ax.set_position([pos.x0, pos.y0, pos.width*0.92, pos.height])
-
-lns, labs = ax.get_legend_handles_labels()
-
-ax.legend(
-    lns 
-    , labs
-    , loc = 'center right'
-    , bbox_to_anchor = (1.32, 0.5)
-    )
+adjust_legend(ax, 1.32, 0.5, 0.92)
 
 plt.show()
-'''
+
