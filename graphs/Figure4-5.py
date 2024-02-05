@@ -16,9 +16,9 @@ from datetime import datetime as dt
 from graphutils import directory_up, adjust_legend
 
 scenario = 21
-eventZone = np.array([10])
-# zoneName = 'S-NSW Tablelands'
-zoneName = 'Fitzroy'
+eventZone = np.array([7])
+zoneName = 'S-NSW Tablelands'
+# zoneName = 'Fitzroy'
 n_year = 25
 event = 'e'
 dpi = 200

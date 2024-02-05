@@ -29,58 +29,24 @@ def DeficitSimulation(solution, flexible, RSim, start=None, end=None, output = '
          Charge, ChargeD, P2V) = Reliability(solution, flexible, output=False, resilience = True)
  
   
-    # =============================================================================
-    # Simulate a single event which has been going until the specified time instance 
-    # =============================================================================
+    # Calculate power generation difference for duration of event
     windDiffInst = np.zeros(windDiff.shape)
     for i in eventZoneIndx:
         windDiffInst[max(0, RSim-eventDur[i]):RSim+1, i] = windDiff[max(0, RSim-eventDur[i]):RSim+1, i] 
     
+    # Create new net load 
     try: 
         RNetload = Netload - windDiffInst.sum(axis=1) 
     except np.AxisError: 
         RNetload = Netload - windDiffInst
     
-    # if eventZoneIndx is not None: 
-    #     storageAdj = np.clip(windDiff.sum(axis=1) - Spillage, None, 0)
-    #     storageAdj[np.where(storageAdj!=0)] = np.cumsum(storageAdj[np.where(storageAdj!=0)])
-        
-
-    # =============================================================================
-    # Re-simulate with resilience losses due to windevent, and including storage depletion
-    # =============================================================================
-
-    # Storage_1, StorageD_1 = np.roll(Storage, 1, axis = 0), np.roll(StorageD, 1, axis = 0)
-    # Storage_1[0], StorageD_1[0] = 0.5 * Scapacity, 0.5 * ScapacityD
     
-    # RStorage_1 = np.maximum(0, Storage_1 + storageAdj)
-    # RStorageD_1 = np.maximum(0, StorageD_1 + np.clip(Storage_1 + storageAdj, None, 0))
-    # RDeficit = np.maximum(0, -(StorageD_1 + Storage_1 + storageAdj))
-    
-    # RDischarge = np.minimum(np.minimum(np.maximum(0, RNetload), Pcapacity), RStorage_1 / resolution)
-    # RCharge = np.minimum(np.minimum(-1 * np.minimum(0, RNetload), Pcapacity), (Scapacity - RStorage_1) /efficiency /resolution)        
-    # RStorage = RStorage_1 - RDischarge * resolution + RCharge * resolution * efficiency
-    
-    # RDischargeD = np.minimum(ConsumeD, StorageD_1 / resolution)
-    # RChargeD = np.minimum(np.minimum(-1 * np.minimum(0, RNetload + RCharge), PcapacityD), (ScapacityD - RStorageD_1) /efficiencyD /resolution)
-    # RStorageD = RStorageD_1 - RDischargeD * resolution + RChargeD * resolution * efficiencyD
-
-    # Rdiff = ConsumeD - RDischargeD 
-    # RP2V = np.minimum(Rdiff / efficiencyD, Pcapacity - RDischarge - RCharge) 
-    # RP2V[np.where((Rdiff <= 0) | (RStorage / resolution <= Rdiff / efficiencyD))] = 0
-
-    # RDischarge = RDischarge + RP2V
-    # RStorage = RStorage - RP2V * resolution 
-    RStorage = Storage.copy()
-    RStorageD = StorageD.copy()
-    RDischarge = Discharge.copy()
+    RStorage, RStorageD = Storage.copy(), StorageD.copy()
+    RDischarge, RDischargeD = Discharge.copy(), DischargeD.copy()
+    RCharge, RChargeD =Charge.copy(), ChargeD.copy()
     RP2V = P2V.copy()
-    RCharge = Charge.copy()
-    RStorage = Storage.copy()
-    RDischargeD = DischargeD.copy()
-    RChargeD = ChargeD.copy()
-    RStorageD = StorageD.copy()
 
+    # Recalculate step-wise energy flows from start of event 
     for t in range(RSim-eventDur[i], solution.intervals):
         RNetloadt = RNetload[t]
         
@@ -122,11 +88,15 @@ def DeficitSimulation(solution, flexible, RSim, start=None, end=None, output = '
     assert np.amin(RDeficitD) > -0.1, 'RDeficitD below zero: {}'.format(np.amin(RDeficitD))
     assert np.amin(RSpillage) >= 0, 'RSpillage below zero'
 
-    solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (RDischarge, RCharge, RStorage, RP2V)
-    solution.RDischargeD, solution.RChargeD, solution.RStorageD = (RDischargeD, RChargeD, RStorageD)
-    solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage) 
+    # solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (RDischarge, RCharge, RStorage, RP2V)
+    # solution.RDischargeD, solution.RChargeD, solution.RStorageD = (RDischargeD, RChargeD, RStorageD)
+    # solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage) 
 
-    if output =='deficits': return Deficit, DeficitD, RDeficit, RDeficitD
-    elif output == 'solution': return solution
-    elif output is None: return None
-    else: raise Exception("Specify output")
+    if output =='deficits': 
+        return Deficit, DeficitD, RDeficit, RDeficitD
+    elif output == 'solution': 
+        return solution
+    elif output is None: 
+        return None
+    else: 
+        raise Exception("Specify output")

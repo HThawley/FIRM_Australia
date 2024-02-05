@@ -28,42 +28,7 @@ def Flexible(year, x):
             flexible[i: i+timestep] = Fcapacity
             
     flexible = np.clip(flexible - S.Spillage, 0, None)
-    return pd.DataFrame([[0, year, flexible]])
-
-    
-def RFlexible(year, x):
-    """Energy source of high flexibility"""
-    print('r-', year, end=', ')
-    S = Solution(x)
-    
-    startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
-    endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
-
-    Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
-    flexible = Fcapacity * np.ones(endidx - startidx)
-    
-    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-            
-    flexible = np.clip(flexible - S.RSpillage, 0, None)
-    return pd.DataFrame([[1, year, flexible]])
-    
-    
-def CRFlexible(year, x):
-    """Energy source of high flexibility"""
-    print('cr-', year, end=', ')
-    S = Solution(x)
-    
-    startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
-    endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
-
-    Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
-    flexible = Fcapacity * np.ones(endidx - startidx)
-    
-    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible, start=startidx, end=endidx, output='deficits') # Sj-EDE(t, j), MW
-            
-    flexible = np.clip(flexible - S.RSpillage, 0, None)
-    return pd.DataFrame([[2, year, flexible]])
-
+    return {year:flexible}
 
 def Analysis(x, flex=True):
     """Dispatch.Analysis(result.x)"""
@@ -74,46 +39,34 @@ def Analysis(x, flex=True):
         print('Dispatch works on: ', end='')
 
         # Multiprocessing
-        with Pool(processes=min(cpu_count(), 3*(finalyear - firstyear + 1))) as pool:
+        with Pool(processes=min(cpu_count(), (finalyear - firstyear + 1))) as pool:
             instances  = [(year, x) for year in range(firstyear, finalyear + 1)]
-            instancesCR = [(year, costCapacities) for year in range(firstyear, finalyear + 1)]
-    
             Dispresult = pool.starmap(Flexible, instances)
-            DispresultR = pool.starmap(RFlexible, instances)
-            DispresultCR = pool.starmap(CRFlexible, instancesCR)
             
-        result = list(Dispresult) + list(DispresultR) + list(DispresultCR)
-        
-        result = pd.concat(result)
-        result = result.sort_values(1)
-        
-        Flex, RFlex, CRFlex = (np.array(np.concatenate(list(result.loc[result[0]==i, 2]))) for i in range(3))
+        result = {year:flex for res in Dispresult for year,flex in res.items()}
+        Flex = np.concatenate([result[year] for year in range(firstyear, finalyear + 1)])
         
         np.savetxt('Results/Dispatch_Flexible'+suffix, Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-        np.savetxt('Results/Dispatch_RFlexible'+suffix, RFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
-        np.savetxt('Results/Dispatch_CRFlexible'+suffix, CRFlex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
         endtime = dt.datetime.now()
         print('.\nDispatch took', endtime - starttime)
 
     else: 
         Flex = np.genfromtxt('Results/Dispatch_Flexible'+suffix, delimiter=',')
-        RFlex = np.genfromtxt('Results/Dispatch_RFlexible'+suffix, delimiter=',')
-        CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible'+suffix, delimiter=',')
 
     from Statistics import Information, DeficitInformation, verifyDispatch
-    try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
-    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, C deficit assertion failed')
-    try: verifyDispatch(x, Flex)
-    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, deficit assertion failed')
-    try: verifyDispatch(x, RFlex, resilience=True)    
-    except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, R deficit assertion failed')
+    # try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
+    # except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, C deficit assertion failed')
+    # try: verifyDispatch(x, Flex)
+    # except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, deficit assertion failed')
+    # try: verifyDispatch(x, RFlex, resilience=True)    
+    # except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, R deficit assertion failed')
 
 
     Information(x, Flex, resilience=False)
     # Information(x, RFlex, resilience=True)
     if eventZone != 'None':
-        DeficitInformation(costCapacities, CRFlex, 1)
+        DeficitInformation(costCapacities, Fcapacity * np.ones(intervals), 1)
     
     return True
 

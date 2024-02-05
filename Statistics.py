@@ -305,5 +305,4 @@ def verifyDispatch(capacities, flexible, resilience=False):
 if __name__ == '__main__': 
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
-    CRFlex = np.genfromtxt('Results/Dispatch_CRFlexible'+suffix, delimiter=',', skip_header=1)
-    DeficitInformation(costCapacities, CRFlex, 1)
+    DeficitInformation(costCapacities, Fcapacity * np.ones(intervals), 1)
