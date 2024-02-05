@@ -305,4 +305,4 @@ def verifyDispatch(capacities, flexible, resilience=False):
 if __name__ == '__main__': 
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
-    DeficitInformation(costCapacities, Fcapacity * np.ones(intervals), 1)
+    DeficitInformation(costCapacities, CPeak.sum() * pow(10, 3) * np.ones(intervals), 1)

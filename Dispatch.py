@@ -66,7 +66,7 @@ def Analysis(x, flex=True):
     Information(x, Flex, resilience=False)
     # Information(x, RFlex, resilience=True)
     if eventZone != 'None':
-        DeficitInformation(costCapacities, Fcapacity * np.ones(intervals), 1)
+        DeficitInformation(costCapacities, CPeak.sum() * pow(10, 3) * np.ones(intervals), 1)
     
     return True
 
