@@ -28,16 +28,19 @@ class working_solution:
         self.inc = inc
         self.base_obj = self.objective(base_x)
         
-        if it is not None:
-            self.it = it
+        self.j = j
+        self.it = it
         
         if j is not None:  
             self.p_obj, self.p_x = self.eval_sample(base_x, inc, j)
             self.n_obj, self.n_x = self.eval_sample(base_x, -inc, j)
             
-            self.p_grad = (self.p_obj - self.base_obj)/self.inc
-            self.n_grad = (self.n_obj - self.base_obj)/self.inc
+            self.p_step = (self.p_obj - self.base_obj)
+            self.n_step = (self.n_obj - self.base_obj)
             
+            self.p_grad = self.p_step/self.inc
+            self.n_grad = self.n_step/self.inc
+
             if (self.p_grad < 0) and (self.n_grad < 0):
                 assert convex is not True, "Problem is non-convex"
                 self.p_grad = 0 if self.p_grad > self.n_grad else self.p_grad
@@ -56,7 +59,7 @@ class working_solution:
         return self.objective(samp_x), samp_x
         
 
-def gradient_descent(func, x0, bounds=None, maxiter=1000, disp=False, callback=None, incs=(10,1,0.1,0.01), convex=None):
+def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=None, incs=(10,1,0.1,0.01), convex=None):
     
     if bounds is not None:
         lb, ub = zip(*((pair for pair in bounds)))
@@ -75,11 +78,12 @@ def gradient_descent(func, x0, bounds=None, maxiter=1000, disp=False, callback=N
         print(f"Optimisation starts: {datetime.now()}\n{'-'*40}")
     
     while i < maxiter:
+        if disp is True: 
+                print(f"iteration {i}: {ws.base_obj}")
+        base_obj=ws.base_objobj
         for j in range(len(base_x)):
             ws.update_self(base_x, inc, j, i)
             
-            if disp is True: 
-                print(f"iteration {i}: {ws.base_obj}")
             if callback is not None: 
                 callback(ws)
             
@@ -89,12 +93,13 @@ def gradient_descent(func, x0, bounds=None, maxiter=1000, disp=False, callback=N
             elif ws.n_grad < 0:
                 base_x[j] -= inc
                 base_x = np.clip(base_x, lb, ub)
-            else:
-                try: 
-                    ii+=1
-                    inc = incs[ii]
-                except IndexError():
-                    break
+        
+        if abs(ws.base_obj - base_obj) < 1e-6:
+            try: 
+                ii+=1
+                inc = incs[ii]
+            except IndexError:
+                break
         i+=1
             
     if j == len(incs): 
@@ -107,14 +112,12 @@ def gradient_descent(func, x0, bounds=None, maxiter=1000, disp=False, callback=N
 def callback(ws):
     with open(cbfile, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([ws.it, ws.base_obj, 0] + list(ws.base_x))
-        writer.writerow([ws.it, ws.p_obj, ws.inc] + list(ws.p_x))
-        writer.writerow([ws.it, ws.n_obj, -ws.inc] + list(ws.n_x))
+        writer.writerow([ws.it, ws.j, ws.base_obj, ws.inc, ws.p_step, ws.n_step] + list(ws.base_x))
 
 def init_callbackfile(n):
     with open(cbfile, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['iteration', 'objective', 'increment'] + ['steps']*n)
+        writer.writerow(['iteration', 'dvar index', 'objective', 'increment', 'pos step obj', 'neg step obj'] + ['dvar']*n)
     
 if __name__ == '__main__':
     x0 = np.array([ 10.18518519,   0.92592593,   0.92592593,   2.77777778,
@@ -131,13 +134,13 @@ if __name__ == '__main__':
 
     from Optimisation import F
     
-    ws, termination = gradient_descent(
+    ws, termination = local_sampling(
         func=F,
         x0=x0,        
         bounds=list(zip(lb, ub)), 
         maxiter=20,
         disp=True,
-        incs=(1,0.1,0.001,0.0001),
+        incs=[(10**n) for n in range(1, -6, -1)],
         callback=callback,
         convex=None,
         )
