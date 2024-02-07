@@ -59,7 +59,7 @@ class working_solution:
         return self.objective(samp_x), samp_x
         
 
-def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=None, incs=(10,1,0.1,0.01), convex=None):
+def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=None, incs=(10,1,0.1,0.01), convex=True, atol=1e-6, rtol=-np.inf):
     
     if bounds is not None:
         lb, ub = zip(*((pair for pair in bounds)))
@@ -80,7 +80,7 @@ def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=Non
     while i < maxiter:
         if disp is True: 
                 print(f"iteration {i}: {ws.base_obj}")
-        base_obj=ws.base_objobj
+        base_obj=ws.base_obj
         for j in range(len(base_x)):
             ws.update_self(base_x, inc, j, i)
             
@@ -93,19 +93,20 @@ def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=Non
             elif ws.n_grad < 0:
                 base_x[j] -= inc
                 base_x = np.clip(base_x, lb, ub)
-        
-        if abs(ws.base_obj - base_obj) < 1e-6:
+
+        dif = abs(ws.base_obj - base_obj) 
+        if dif < atol or dif/base_obj < rtol:
             try: 
                 ii+=1
                 inc = incs[ii]
             except IndexError:
+                termination = "Reached finest increment resolution"
                 break
         i+=1
-            
-    if j == len(incs): 
-        termination = "Reached finest increment resolution"
+
     if i == maxiter:
         termination = "Reached maximum iterations"
+        
     return ws, termination
     
 
@@ -120,11 +121,9 @@ def init_callbackfile(n):
         writer.writerow(['iteration', 'dvar index', 'objective', 'increment', 'pos step obj', 'neg step obj'] + ['dvar']*n)
     
 if __name__ == '__main__':
-    x0 = np.array([ 10.18518519,   0.92592593,   0.92592593,   2.77777778,
-            15.94650206,  15.74074074,   0.92592593,   2.77777778,
-             2.77777778,   2.77777778,   0.72016461,   2.77777778,
-             2.77777778,   2.77777778,   8.33333333,  20.74685416,
-           270.91906722])
+    x0 = np.array([3.454179258,0.230092614,0.044433406,0.183133615,36.38895302,
+    0.05077638,0.19521627,4.644015261,0.018616018,2.355593449,0.0,0.063368246,
+    0.251671379,0.002893853,8.737580989,19.34367039999999,541.0359338000002])
     
     lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
     ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
@@ -138,7 +137,7 @@ if __name__ == '__main__':
         func=F,
         x0=x0,        
         bounds=list(zip(lb, ub)), 
-        maxiter=20,
+        maxiter=50,
         disp=True,
         incs=[(10**n) for n in range(1, -6, -1)],
         callback=callback,
