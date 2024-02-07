@@ -1473,3 +1473,8 @@ BOM Wind Data/Daily-MaxWindGust/DC02D_Data_300055_9999999910323008.txt
 BOM Wind Data/Daily-MaxWindGust/DC02D_Notes_9999999910323008.txt
 BOM Wind Data/Daily-MaxWindGust/DC02D_StnDet_9999999910323008.txt
 Data/AUS_wind-speed_100m.tif
+__pycache__/Input.cpython-310.pyc
+__pycache__/Network.cpython-310.pyc
+__pycache__/Optimisation_direct.cpython-310.pyc
+__pycache__/Optimisation.cpython-310.pyc
+__pycache__/Simulation.cpython-310.pyc
