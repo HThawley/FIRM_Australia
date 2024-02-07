@@ -81,7 +81,8 @@ if __name__=='__main__':
         bounds=list(zip(lb, ub)), 
         maxfun=args.i*len(lb),
         maxiter=args.i, 
-        callback=cb
+        callback=cb,
+        vol_tol=0,
         )
 
     with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
