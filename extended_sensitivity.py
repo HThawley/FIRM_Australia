@@ -19,27 +19,29 @@ class working_solution:
         self.base_x = base_x
         self.inc = inc
         self.lb, self.ub = lb, ub
+        self.it = 0
         
         self = self.update_self(base_x, inc)
 
-    def update_self(self, base_x, inc):
+    def update_self(self, base_x, inc, j=None, it=None):
         self.base_x = base_x
         self.inc = inc
         self.base_obj = self.objective(base_x)
         
-        self.p_objs = np.array([self.eval_sample(base_x, inc, i) for i in range(len(base_x))])
-        self.n_objs = np.array([self.eval_sample(base_x, -inc, i) for i in range(len(base_x))])
+        if it is not None:
+            self.it = it
         
-        self.p_grads = (self.p_objs - self.base_obj)/self.inc
-        self.n_grads = (self.n_objs - self.base_obj)/self.inc
-        
-        if self.p_grads.min() < 0 or self.n_grads.min() < 0: 
-            self.p_mask, self.n_mask = self.p_grads<0, self.n_grads<0
+        if j is not None:  
+            self.p_obj, self.p_x = self.eval_sample(base_x, inc, j)
+            self.n_obj, self.n_x = self.eval_sample(base_x, -inc, j)
             
-            if (b_mask:=(self.p_mask * self.n_mask)).sum() != 0:
+            self.p_grad = (self.p_obj - self.base_obj)/self.inc
+            self.n_grad = (self.n_obj - self.base_obj)/self.inc
+            
+            if (self.p_grad < 0) and (self.n_grad < 0):
                 assert convex is not True, "Problem is non-convex"
-                self.p_mask[(self.p_grads>self.n_grads)*b_mask] = False
-                self.n_mask[(self.p_grads<self.n_grads)*b_mask] = False
+                self.p_grad = 0 if self.p_grad > self.n_grad else self.p_grad
+                self.n_grad = 0 if self.p_grad < self.n_grad else self.n_grad
         
         return self
 
@@ -51,18 +53,21 @@ class working_solution:
         else:
             samp_x = np.clip(samp_x, self.lb, None)
         
-        return self.objective(samp_x) 
+        return self.objective(samp_x), samp_x
         
 
-def gradient_descent(func, x0, bounds, maxiter, disp, callback, incs, convex):
+def gradient_descent(func, x0, bounds=None, maxiter=1000, disp=False, callback=None, incs=(10,1,0.1,0.01), convex=None):
     
-    lb, ub = zip(*((pair for pair in bounds)))
-    lb, ub = np.array(lb), np.array(ub)
-    assert (x0 < lb).sum() == (x0 > ub).sum() == 0, "starting point outside of bounds"
+    if bounds is not None:
+        lb, ub = zip(*((pair for pair in bounds)))
+        lb, ub = np.array(lb), np.array(ub)
+        assert (x0 < lb).sum() == (x0 > ub).sum() == 0, "starting point outside of bounds"
+    else:
+        lb, ub = None, None
          
     base_x = x0.copy()
-    j, i = 0, 0
-    inc = incs[j]
+    ii, i = 0, 0
+    inc = incs[ii]
     
     ws = working_solution(func, base_x, inc, ub, lb, convex)
     
@@ -70,27 +75,28 @@ def gradient_descent(func, x0, bounds, maxiter, disp, callback, incs, convex):
         print(f"Optimisation starts: {datetime.now()}\n{'-'*40}")
     
     while i < maxiter:
-
-            ws.update_self(base_x, inc)
+        for j in range(len(base_x)):
+            ws.update_self(base_x, inc, j, i)
             
             if disp is True: 
                 print(f"iteration {i}: {ws.base_obj}")
             if callback is not None: 
                 callback(ws)
             
-            if ws.p_grads.min() < 0 or ws.n_grads.min() < 0: 
-                base_x[ws.p_mask] += (inc/10.)
-                base_x[ws.n_mask] -= (inc/10.)
+            if ws.p_grad < 0: 
+                base_x[j] += inc
                 base_x = np.clip(base_x, lb, ub)
-            
+            elif ws.n_grad < 0:
+                base_x[j] -= inc
+                base_x = np.clip(base_x, lb, ub)
             else:
                 try: 
-                    j+=1
-                    inc = incs[j]
+                    ii+=1
+                    inc = incs[ii]
                 except IndexError():
                     break
-            i+=1
-    True
+        i+=1
+            
     if j == len(incs): 
         termination = "Reached finest increment resolution"
     if i == maxiter:
@@ -101,14 +107,14 @@ def gradient_descent(func, x0, bounds, maxiter, disp, callback, incs, convex):
 def callback(ws):
     with open(cbfile, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([ws.base_obj, 0] + list(ws.base_x))
-        writer.writerow([-1, ws.inc] + list(ws.p_objs))
-        writer.writerow([-1, -ws.inc] + list(ws.n_objs))
+        writer.writerow([ws.it, ws.base_obj, 0] + list(ws.base_x))
+        writer.writerow([ws.it, ws.p_obj, ws.inc] + list(ws.p_x))
+        writer.writerow([ws.it, ws.n_obj, -ws.inc] + list(ws.n_x))
 
 def init_callbackfile(n):
     with open(cbfile, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['objective', 'increment'] + ['steps']*n)
+        writer.writerow(['iteration', 'objective', 'increment'] + ['steps']*n)
     
 if __name__ == '__main__':
     x0 = np.array([ 10.18518519,   0.92592593,   0.92592593,   2.77777778,
