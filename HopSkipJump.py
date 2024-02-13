@@ -17,12 +17,12 @@ else:
     costConstraint = np.inf
 
 def callback(xk, convergence=None):
-    with open('Results/AltHist{}-{}.csv'.format(scenario, n), 'a', newline='') as csvfile:
+    with open('Results/AltHist{}-{}.csv'.format(scenario, alt), 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow([F(xk), objective(xk)] + list(xk))
 
 def init_callbackfile(n, m):
-    with open('Results/AltHist{}-{}.csv'.format(scenario, n), 'w', newline='') as csvfile:
+    with open('Results/AltHist{}-{}.csv'.format(scenario, alt), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['origfunc', 'HSJ func'] + ['dvar']*m)
 
@@ -30,9 +30,9 @@ def solutionDif(x, x1):
     return 1-np.absolute(x-x1)/maxDif
 
 def objective(x):
-    alts = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario)
-                                 , delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
-    func = np.array([solutionDif(x, xn[1:]) for xn in alts]).sum()/(alts.shape[0]*alts.shape[1])
+    alts = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario), 
+                         delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
+    func = np.array([solutionDif(x, xn[1:]) for xn in alts]).sum()/(alts.shape[0]*(alts.shape[1]-1))
         
     if F(x) > costConstraint:
         func = func*10e6
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     
         with open('Results/Optimisation_alternativesx{}.csv'.format(scenario), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([F(x)] + list(result.x))
+            writer.writerow([F(result.x)] + list(result.x))
     
         endtime = dt.datetime.now()
         print("Optimisation took", endtime - starttime)
