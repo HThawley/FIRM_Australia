@@ -27,12 +27,12 @@ def init_callbackfile(n, m):
         writer.writerow(['origfunc', 'HSJ func'] + ['dvar']*m)
 
 def solutionDif(x, x1):
-    return (maxDif-np.absolute(x-x1)).sum()
+    return 1-np.absolute(x-x1)/maxDif
 
 def objective(x):
-    alternatives = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario)
+    alts = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario)
                                  , delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
-    func = sum([solutionDif(x, xn[1:]) for xn in alternatives])
+    func = np.array([solutionDif(x, xn[1:]) for xn in alts]).sum()/(alts.shape[0]*alts.shape[1])
         
     if F(x) > costConstraint:
         func = func*10e6
