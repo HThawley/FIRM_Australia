@@ -7,10 +7,8 @@ from scipy.optimize import direct
 from argparse import ArgumentParser
 import datetime as dt
 import csv
+from Optimisation import F, parser
 
-parser = ArgumentParser()
-parser.add_argument('-i', default=500, type=int, required=False, help='maxiter=4000, 400')
-parser.add_argument('-s', default=11, type=int, required=False, help='11, 12, 13, ...')
 parser.add_argument('-his', default=1, type=int, required=False, help="save history")
 
 args = parser.parse_args()
@@ -18,8 +16,6 @@ args = parser.parse_args()
 scenario = args.s
 
 from Input import *
-from Simulation import Reliability
-from Network import Transmission
 
 def callback(x_k):
     with open(cbfile, 'a', newline='') as csvfile:
@@ -31,34 +27,6 @@ def init_callbackfile(n):
         writer = csv.writer(csvfile)
         writer.writerow(['objective'] + ['dvar']*n)
 
-def F(x):
-    """This is the objective function."""
-
-    S = Solution(x)
-
-    Deficit, DeficitD = Reliability(S, flexible=np.zeros(intervals)) # Sj-EDE(t, j), MW
-    Flexible = (Deficit + DeficitD / efficiencyD).sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
-    Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
-    PenHydro = max(0, Hydro - 20 * pow(10, 6)) # TWh p.a. to MWh p.a.
-
-    Deficit, DeficitD = Reliability(S, flexible=np.ones(intervals) * CPeak.sum() * pow(10, 3)) # Sj-EDE(t, j), GW to MW
-    PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-
-    TDC = Transmission(S) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
-    CDC = np.amax(abs(TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
-    PenDC = max(0, CDC[6] - CDC6max) * pow(10, 3) # GW to MW
-
-    cost = factor * np.array([sum(S.CPV), sum(S.CWind), sum(S.CPHP), S.CPHS] + list(CDC) + [sum(S.CPV), sum(S.CWind), Hydro * pow(10, -6), -1, -1]) # $b p.a.
-    if scenario<=17:
-        cost[-1], cost[-2] = [0] * 2
-    cost = cost.sum()
-    loss = np.sum(abs(TDC), axis=0) * DCloss
-    loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
-    LCOE = cost / abs(energy - loss)
-
-    Func = LCOE + PenHydro + PenDeficit + PenDC
-
-    return Func
 
 #%%
 
@@ -92,5 +60,5 @@ if __name__=='__main__':
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)
 
-    # from Dispatch import Analysis
-    # Analysis(result.x)
+    from Dispatch import Analysis
+    Analysis(result.x)

@@ -1,19 +1,17 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Feb  7 10:20:24 2024
-
-@author: u6942852
-"""
+# To optimise the configurations of energy generation, storage and transmission assets
+# Copyright (c) 2019, 2020 Bin Lu, The Australian National University
+# Licensed under the MIT Licence
+# Correspondence: bin.lu@anu.edu.au
 
 import numpy as np 
-from Input import *
 import csv
 import warnings
 from datetime import datetime
+from Setup import *
+
 
 
 class working_solution:
-    
     def __init__(self, func, base_x, inc, ub, lb, convex=None):
         self.objective = func
         self.base_x = base_x
@@ -59,7 +57,27 @@ class working_solution:
         return self.objective(samp_x), samp_x
         
 
-def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=None, incs=(10,1,0.1,0.01), convex=True, atol=1e-6, rtol=-np.inf):
+def local_sampling(
+        func, 
+        x0, 
+        bounds=None,
+        maxiter=1000,
+        disp=False, 
+        callback=None, 
+        incs=(10,1,0.1,0.01), 
+        convex=True, 
+        atol=1e-6, 
+        rtol=-np.inf):
+    
+    def writerow_callback(ws):
+        with open(callback, 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([ws.it, ws.j, ws.base_obj, ws.inc, ws.p_step, ws.n_step] + list(ws.base_x))
+
+    def init_callbackfile(n):
+        with open(callback, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['iteration', 'dvar index', 'objective', 'increment', 'pos step obj', 'neg step obj'] + ['dvar']*n)
     
     if bounds is not None:
         lb, ub = zip(*((pair for pair in bounds)))
@@ -67,7 +85,10 @@ def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=Non
         assert (x0 < lb).sum() == (x0 > ub).sum() == 0, "starting point outside of bounds"
     else:
         lb, ub = None, None
-         
+    
+    if callback is not None and args.x<2: 
+        init_callbackfile(len(x0))
+    
     base_x = x0.copy()
     ii, i = 0, 0
     inc = incs[ii]
@@ -85,7 +106,7 @@ def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=Non
             ws.update_self(base_x, inc, j, i)
             
             if callback is not None: 
-                callback(ws)
+                writerow_callback(ws)
             
             if ws.p_grad < 0: 
                 base_x[j] += inc
@@ -109,38 +130,22 @@ def local_sampling(func, x0, bounds=None, maxiter=1000, disp=False, callback=Non
         
     return ws, termination
     
-
-def callback(ws):
-    with open(cbfile, 'a', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([ws.it, ws.j, ws.base_obj, ws.inc, ws.p_step, ws.n_step] + list(ws.base_x))
-
-def init_callbackfile(n):
-    with open(cbfile, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['iteration', 'dvar index', 'objective', 'increment', 'pos step obj', 'neg step obj'] + ['dvar']*n)
-    
 if __name__ == '__main__':
-    x0 = np.array([3.454179258,0.230092614,0.044433406,0.183133615,36.38895302,
-    0.05077638,0.19521627,4.644015261,0.018616018,2.355593449,0.0,0.063368246,
-    0.251671379,0.002893853,8.737580989,19.34367039999999,541.0359338000002])
+    x0 = np.genfromtext('costOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario))
     
-    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
-    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
-    
-    cbfile = 'Results/GOptimHistory{}.csv'.format(scenario) 
-    init_callbackfile(len(lb))
+    if args.his == 1: 
+        cbfile = 'Results/GOptimHistory{}.csv'.format(scenario) 
+    else:
+        cbfile = None
 
-    from Optimisation import F
-    
     ws, termination = local_sampling(
         func=F,
         x0=x0,        
-        bounds=list(zip(lb, ub)), 
+        bounds=bounds, 
         maxiter=50,
         disp=True,
         incs=[(10**n) for n in range(1, -6, -1)],
-        callback=callback,
+        callback=cbfile,
         convex=None,
         )
 
