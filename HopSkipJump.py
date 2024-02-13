@@ -82,7 +82,7 @@ if __name__ == '__main__':
     
         with open('Results/Optimisation_alternativesx{}.csv'.format(scenario), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([f(x)] + list(result.x))
+            writer.writerow([F(x)] + list(result.x))
     
         endtime = dt.datetime.now()
         print("Optimisation took", endtime - starttime)
