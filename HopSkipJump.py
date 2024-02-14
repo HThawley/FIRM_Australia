@@ -34,8 +34,8 @@ def objective(x):
     alts = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario), 
                          delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
     func = np.array([solutionDif(x, xn[1:]) for xn in alts]).sum()/(alts.shape[0]*(alts.shape[1]-1))
-    # if F(x) > costConstraint:
-    #     return func*1e10
+    if F(x) > costConstraint:
+        return func*1e10
     return func
 #%%
 
@@ -54,11 +54,11 @@ if __name__ == '__main__':
     if args.his == 1: 
         init_callbackfile(n, len(bounds))
     
-    constraints = [NonlinearConstraint(lcoe, -np.inf, costConstraint),
-                    NonlinearConstraint(penHydro, -np.inf, 0),
-                    NonlinearConstraint(penDeficit, -np.inf, 0),
-                    NonlinearConstraint(penDC, -np.inf, 0),
-                    ]
+    # constraints = [NonlinearConstraint(lcoe, -np.inf, costConstraint),
+    #                 NonlinearConstraint(penHydro, -np.inf, 0),
+    #                 NonlinearConstraint(penDeficit, -np.inf, 0),
+    #                 NonlinearConstraint(penDC, -np.inf, 0),
+    #                 ]
     
     for alt in range(n):
     
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             updating='deferred', 
             workers=-1,
             callback=callback if args.his==1 else None,
-            constraints = constraints,
+            # constraints = constraints,
             )
     
         with open('Results/Optimisation_alternativesx{}.csv'.format(scenario), 'a', newline="") as csvfile:
