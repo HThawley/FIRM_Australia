@@ -16,7 +16,7 @@ if args.c is not None:
     costConstraint = args.c*optimisedCost
 else: 
     costConstraint = np.inf
-
+print(costConstraint)
 def callback(xk, convergence=None):
     with open('Results/AltHist{}.csv'.format(scenario), 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -27,22 +27,24 @@ def init_callbackfile(n, m):
         writer = csv.writer(csvfile)
         writer.writerow(['alt', 'origfunc', 'HSJ func'] + ['dvar']*m)
 
-def solutionDif(x, x1):
-    return 1-np.absolute(x-x1)/maxDif
+def normalised_dist_sq(x, x1):
+    normalDif = (x-x1)/brange
+    return np.square(normalDif).sum()
 
 def objective(x):
     alts = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario), 
                          delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
-    func = np.array([solutionDif(x, xn[1:]) for xn in alts]).sum()/(alts.shape[0]*(alts.shape[1]-1))
+    func = sum([-normalised_dist_sq(x, xn[1:]) for xn in alts])/alts.shape[0]
     if F(x) > costConstraint:
-        return func*1e10
+        return func + 1e6
     return func
 #%%
 
-maxDif = np.array([ub-lb for lb, ub in bounds])
+brange = np.array([ub-lb for lb, ub in bounds])
+
 
 if __name__ == '__main__':
-    x0 = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float).reshape(-1,len(bounds))[0]
+    x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float).reshape(-1,len(bounds))[0]
 
     if args.x == 1: 
         with open('Results/Optimisation_alternativesx{}.csv'.format(scenario), 'w', newline="") as csvfile:

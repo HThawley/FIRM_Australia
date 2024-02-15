@@ -58,7 +58,7 @@ if __name__=='__main__':
     if args.x == 2: 
         x0 = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float)
     elif args.x == 1:
-        x0 = np.genfromtxt('costOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',', dtype=float)
+        x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float)
     else:
         x0 = np.random.rand(len(bounds)) * np.array(ub)
     
@@ -99,9 +99,10 @@ if __name__=='__main__':
             ),
         2)
     
-    # with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
-    #     writer = csv.writer(csvfile)
-    #     writer.writerow(result.x)
+    with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        for res in result: 
+            writer.writerow(res.x)
     
     endtime = dt.datetime.now()
     print("Optimisation took", endtime - starttime)
