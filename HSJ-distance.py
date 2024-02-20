@@ -16,7 +16,7 @@ if args.c is not None:
     costConstraint = args.c*optimisedCost
 else: 
     costConstraint = np.inf
-print(costConstraint)
+
 def callback(xk, convergence=None):
     with open('Results/AltHist{}.csv'.format(scenario), 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -34,14 +34,14 @@ def normalised_dist_sq(x, x1):
 def objective(x):
     alts = np.genfromtxt('Results/Optimisation_alternativesx{}.csv'.format(scenario), 
                          delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
-    func = sum([-normalised_dist_sq(x, xn[1:]) for xn in alts])/alts.shape[0]
+    func = sum([maxDistSq-normalised_dist_sq(x, xn[1:]) for xn in alts])#/alts.shape[0]
     if F(x) > costConstraint:
         return func + 1e6
     return func
 #%%
 
 brange = np.array([ub-lb for lb, ub in bounds])
-
+maxDistSq = len(bounds)
 
 if __name__ == '__main__':
     x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float).reshape(-1,len(bounds))[0]
@@ -56,21 +56,30 @@ if __name__ == '__main__':
     if args.his == 1: 
         init_callbackfile(n, len(bounds))
     
-    # constraints = [NonlinearConstraint(lcoe, -np.inf, costConstraint),
-    #                 NonlinearConstraint(penHydro, -np.inf, 0),
-    #                 NonlinearConstraint(penDeficit, -np.inf, 0),
-    #                 NonlinearConstraint(penDC, -np.inf, 0),
-    #                 ]
-    
     for alt in range(n):
     
         starttime = dt.datetime.now()
         print(f"Beginning alternative {alt+1}/{n}.\nOptimisation starts at", starttime)
     
+    
+        from scipy.optimize import minimize 
+        
+        # result = minimize(
+        #     fun=objective,
+        #     x0=x0,
+        #     method='Nelder-Mead',
+        #     bounds=bounds,
+        #     options={
+        #         'disp':True,
+        #         'maxiter':args.i,
+        #         'adaptive':False,
+        #         },
+        #     )
+    
         result = differential_evolution(
             func=objective,
             x0=x0,
-            bounds=list(zip(lb, ub)),
+            bounds=bounds,
             tol=0,
             maxiter=args.i, 
             popsize=args.p, 
@@ -81,7 +90,6 @@ if __name__ == '__main__':
             updating='deferred', 
             workers=-1,
             callback=callback if args.his==1 else None,
-            # constraints = constraints,
             )
     
         with open('Results/Optimisation_alternativesx{}.csv'.format(scenario), 'a', newline="") as csvfile:
