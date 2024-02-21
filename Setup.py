@@ -7,6 +7,9 @@ Created on Thu Feb  8 11:54:57 2024
 
 from argparse import ArgumentParser
 import numpy as np
+from multiprocessing import Pool, cpu_count
+import pandas as pd
+import csv
 
 parser = ArgumentParser()
 parser.add_argument('-i',  default=400,   type=int,  required=False, help='maxiter=4000, 400')
@@ -30,6 +33,15 @@ from Network import Transmission
 lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
 ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
 bounds = list(zip(lb, ub))
+
+def penalties(x):
+    with Pool(processes=cpu_count()) as processPool:
+        arrs = [xn for xn in x.T] if len(x.shape) == 0 else [x]
+        pHydro = processPool.map(penHydro, arrs)
+        pDeficit = processPool.map(penDeficit, arrs)
+        pDC = processPool.map(penDC, arrs)
+    results = np.stack([np.array(pool) for pool in (pHydro, pDeficit, pDC)], axis = 1)
+    return results.sum(axis=0)
 
 def penHydro(x, S=None):
     S = Solution(x) if S is None else S
@@ -92,8 +104,24 @@ def F(x, S=None):
     loss = loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
     LCOE = cost.sum() / abs(energy - loss)
     
+    if PenHydro+PenDeficit+PenDC > 0.1:
+        return np.inf
+    
     return LCOE + PenHydro + PenDeficit + PenDC
 
 
-
+def F_v(x, callback=False):
+    """This is the objective function."""
+    with Pool(processes = min(x.shape[1], cpu_count())) as processPool:
+        results = processPool.map(F, [xn for xn in x.T])
+    results = np.array(results)
+    
+    if callback is True: 
+        printout = np.concatenate((results.reshape(-1, 1), x.T), axis = 1)
+        with open('Results/OpHist{}.csv'.format(scenario), 'a', newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            for row in printout:
+                writer.writerow(row)
+    
+    return results
 

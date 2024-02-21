@@ -20,45 +20,26 @@ else:
     costConstraint = np.inf
 
 def callback(xk, convergence=None):
+    global ave_caps
     with open('Results/AltHist{}.csv'.format(scenario), 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([n, F(xk), objective(xk)] + list(xk))
+        writer.writerow([n, F(xk), objective(xk, ave_caps)] + list(xk))
 
-def init_callbackfile(n, m):
+def init_callbackfile(m):
     with open('Results/AltHist{}.csv'.format(scenario), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['alt', 'origfunc', 'HSJ func'] + ['dvar']*m)
 
 
+def weighted_sum(x, ave_caps):
+    weights = np.abs(1-x/ave_caps)   
+    return (x*weights).sum()
 
-
-def weighted_sum(x, x1):
-    
-    return sum(x*weightings)
-
-def objective(x):
-    alts = np.genfromtxt('Results/HSJ-ea_alternativesx{}.csv'.format(scenario), 
-                         delimiter=',', dtype=float).reshape(-1, len(bounds)+3)
-    func = sum([weighted_sum(x, xn[3:]) for xn in alts])#/alts.shape[0]
+def objective(x, ave_caps):
+    func = weighted_sum(x, ave_caps)
     if F(x) > costConstraint:
         return func + 1e6
-    return 
-
-
-def generate_weightings():
-    prior_weights=np.genfromtxt('Results/HSJ-ea_weights{}.csv'.format(scenario),
-                                delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
-    prior_sols=np.genfromtxt('Results/HSJ-ea_alternativesx{}.csv'.format(scenario),
-                             delimiter=',', dtype=float).reshape(-1, len(bounds)+3)
-    
-    assert prior_weights.shape[0] == prior_sols.shape[0]
-    prior_weights=prior_weights[:,1:]
-    prior_sols=prior_sols[:,3:]
-    
-    
-    
-    
-    return 
+    return func
 
 #%%
 
@@ -72,55 +53,54 @@ if __name__ == '__main__':
         with open('Results/HSJ-ea_alternativesx{}.csv'.format(scenario), 'w', newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([0, None, F(x0)]+list(x0))
-        with open('Results/HSJ-ea_weights{}.csv'.format(scenario), 'w', newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([n]+list(np.zeros(x0.shape)))
     assert args.x in (1,2)
     
     if args.his == 1: 
-        init_callbackfile(n, len(bounds))
+        init_callbackfile(len(bounds))
     
-
+    for alt in range(n):
+        starttime = dt.datetime.now()
+        print(f"Beginning alternative {alt+1}/{n}.\nOptimisation starts at", starttime)
+        
+        ave_caps = np.genfromtxt('Results/HSJ-ea_alternativesx{}.csv'.format(scenario),
+                                 delimiter=',', dtype=float).reshape(-1, len(bounds)+3)
+        ave_caps = ave_caps[:,3:].sum(axis=0) / ave_caps.shape[0]
+        
+        # result = minimize(
+        #     fun=objective,
+        #     x0=x0,
+        #     method='Nelder-Mead',
+        #     bounds=bounds,
+        #     options={
+        #         'disp':True,
+        #         'maxiter':args.i,
+        #         'adaptive':False,
+        #         },
+        #     )
     
+        result = differential_evolution(
+            func=objective,
+            x0=x0,
+            args=(ave_caps,),
+            bounds=bounds,
+            tol=0,
+            maxiter=args.i, 
+            popsize=args.p, 
+            mutation=args.m, 
+            recombination=args.r,
+            disp=True, 
+            polish=False, 
+            updating='deferred', 
+            workers=-1,
+            callback=callback if args.his==1 else None,
+            )
     
-    starttime = dt.datetime.now()
-    print(f"Beginning alternative {alt+1}/{n}.\nOptimisation starts at", starttime)
-
+        with open('Results/HSJ-ea_alternativesx{}.csv'.format(scenario), 'a', newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([n, obj(result.x), F(result.x)] + list(result.x))
     
-    # result = minimize(
-    #     fun=objective,
-    #     x0=x0,
-    #     method='Nelder-Mead',
-    #     bounds=bounds,
-    #     options={
-    #         'disp':True,
-    #         'maxiter':args.i,
-    #         'adaptive':False,
-    #         },
-    #     )
-
-    result = differential_evolution(
-        func=objective,
-        x0=x0,
-        bounds=bounds,
-        tol=0,
-        maxiter=args.i, 
-        popsize=args.p, 
-        mutation=args.m, 
-        recombination=args.r,
-        disp=True, 
-        polish=False, 
-        updating='deferred', 
-        workers=-1,
-        callback=callback if args.his==1 else None,
-        )
-
-    with open('Results/HSJ-ea_alternativesx{}.csv'.format(scenario), 'a', newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([n, obj(result.x), F(result.x)] + list(result.x))
-
-    endtime = dt.datetime.now()
-    print("Optimisation took", endtime - starttime)
+        endtime = dt.datetime.now()
+        print("Optimisation took", endtime - starttime)
 
     
     
