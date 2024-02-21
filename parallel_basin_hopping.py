@@ -81,7 +81,7 @@ if __name__=='__main__':
     #     max_workers=-1
     #     )
     
-    result = parallelbasinhopping(
+    results = parallelbasinhopping(
         (F,     # func
          x0,    # x0
          1,     # niter
