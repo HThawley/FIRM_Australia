@@ -34,6 +34,13 @@ lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
 ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
 bounds = list(zip(lb, ub))
 
+if args.c is not None:
+    optimisedCost = np.genfromtxt('CostOptimisationResults/Costs.csv', delimiter=',', skip_header=1)
+    optimisedCost = optimisedCost[optimisedCost[:,0] == scenario, 1][0]
+    costConstraint = args.c*optimisedCost
+else: 
+    costConstraint = np.inf
+
 def penalties(x):
     with Pool(processes=cpu_count()) as processPool:
         arrs = [xn for xn in x.T] if len(x.shape) == 0 else [x]
@@ -118,7 +125,7 @@ def F_v(x, callback=False):
     
     if callback is True: 
         printout = np.concatenate((results.reshape(-1, 1), x.T), axis = 1)
-        with open('Results/OpHist{}.csv'.format(scenario), 'a', newline="") as csvfile:
+        with open('Results/OpHist{}-{}.csv'.format(scenario, args.x), 'a', newline="") as csvfile:
             writer = csv.writer(csvfile)
             for row in printout:
                 writer.writerow(row)

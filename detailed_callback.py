@@ -47,7 +47,11 @@ from multiprocessing import Pool, cpu_count
 #     return LCOE + penalties
 
 if __name__=='__main__':
-    if args.x == 1: 
+    if args.x > 2: 
+        x0 = np.ones(len(bounds))*(np.array(ub)/2)
+        x0[args.x] = lb[args.x]
+ 
+    elif args.x == 1: 
         x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float).reshape(-1,len(bounds))[0]
     elif args.x == 0:
         x0 = None
@@ -80,7 +84,7 @@ if __name__=='__main__':
         #     ]
         )
 
-    with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:
+    with open('Results/Optimisation_resultx{}-{}.csv'.format(scenario, args.x), 'a', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(result.x)
 
