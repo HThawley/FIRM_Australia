@@ -64,7 +64,7 @@ if __name__=='__main__':
     result = differential_evolution(
         func=F_v,
         x0=x0, 
-        args=(True,),
+        args=(True, ),
         bounds=list(zip(lb, ub)),
         tol=0,
         maxiter=args.i, 
