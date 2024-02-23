@@ -3,7 +3,7 @@
 # Licensed under the MIT Licence
 # Correspondence: bin.lu@anu.edu.au
 
-from scipy.optimize import differential_evolution, NonlinearConstraint
+from scipy.optimize import differential_evolution
 from argparse import ArgumentParser
 import datetime as dt
 import csv

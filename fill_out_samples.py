@@ -4,22 +4,33 @@ Created on Fri Feb 23 16:07:11 2024
 
 @author: u6942852
 """
+from scipy.optimize import differential_evolution
+from argparse import ArgumentParser
+import datetime as dt
+import csv
 
-from Setup import * 
+from Setup import *
+
+from Simulation import Reliability
+from Network import Transmission
+from multiprocessing import Pool, cpu_count
 
 def normalised_dist_sq(x, x1):
     normalDif = (x-x1)/brange
     return np.square(normalDif).sum()
 
-def distance(x):
-    alts = np.genfromtxt('Results/OpHist{}.csv'.format(scenario), 
-                         delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
+def distance(x, alts):
+    print(alts)
+    raise Exception
     return sum([maxDistSq-normalised_dist_sq(x, xn[1:]) for xn in alts])/alts.shape[0]
 
-def vectorize(x):
+def distance_v(x, callback=False):
+    alts = np.genfromtxt('Results/OpHist{}-{}.csv'.format(scenario, args.x), 
+                        delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
+    alts = (alts.sum(axis=0)/alts.shape[1]).reshape(1,-1)
     """This is the objective function."""
     with Pool(processes = min(x.shape[1], cpu_count())) as processPool:
-        results = processPool.map(distance, [xn for xn in x.T])
+        results = processPool.starmap(distance, [(xn, alts) for xn in x.T])
         
         F_values = processPool.map(F, [xn for xn in x.T])
         
@@ -54,9 +65,9 @@ if __name__=='__main__':
     workermap = Pool(processes=cpu_count()).map
     
     result = differential_evolution(
-        func=vectorize,
+        func=distance_v,
         x0=x0, 
-        args=(distance, True),
+        args=(True,),
         bounds=list(zip(lb, ub)),
         tol=0,
         maxiter=args.i, 
