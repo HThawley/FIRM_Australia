@@ -25,9 +25,9 @@ varCols=[f'var{n}' for n in range(1,len(data.columns))]
 
 data.columns = ['cost']+varCols
 
-# data = data[data['cost'] != inf]
-data = data[data['cost'] < costConstraint]
 print("full data length: ", len(data))
+data = data[data['cost'] != np.inf]
+data = data[data['cost'] < costConstraint]
 # data = data.iloc[:len(data)//10,:]
 print("trunced data length: ", len(data))
 
@@ -54,7 +54,7 @@ brange = np.array([ub-lb for lb, ub in bounds])
 # norm_data = data[varCols].div(brange)
 
 # data=data.drop(columns=varCols)
-#%%
+##%%
 # dbc = cluster.DBSCAN(
 #     eps=0.1
 #     )
@@ -64,7 +64,7 @@ brange = np.array([ub-lb for lb, ub in bounds])
 
 # data['cluster'] = dbc.labels_
 # data1 = data.loc[data['cluster'] > 0, :]
-data1 = data.loc[:, :]
+# data1 = data.loc[:, :]
 
 # del dbc
 
@@ -73,45 +73,52 @@ data1 = data.loc[:, :]
 #     x = 's/w',
 #     y = 'phhrs', 
 #     hue = 'cost',
-#     # size='gen'
+#     size='gen'
 #     )
 
 # plt.figure()
 # sns.scatterplot(
-#     data = data1,
-#     x = 'solar', 
-#     y = 'wind',
-#     hue = 'cost', 
-#     )
+plt.figure()
+sns.scatterplot(
+    data = data1,
+    x = 'solar', 
+    y = 'wind',
+    hue = 'clusrter', 
+    size = size,
+    )
 
-# plt.figure()
-# sns.scatterplot(
-#     data = data1,
-#     x = 's/w', 
-#     y = 'phhrs',
-#     hue = 'cost',
-#     )
-# plt.figure()
-# sns.scatterplot(
-#     data = data1,
-#     x = 's/w', 
-#     y = 'gen',
-#     hue = 'cluster',
-#     )
-# plt.figure()
-# sns.scatterplot(
-#     data=data1,
-#     x='s/w',import bokeh
-#     y='cost',
-#     hue='gen'
-# )
-# plt.figure()
-# sns.scatterplot(
-#     data=data1,
-#     x='php',
-#     y='phs',
-#     hue='cost'
-# )
+plt.figure()
+sns.scatterplot(
+    data = data1,
+    x = 's/w', 
+    y = 'phhrs',
+    hue = 'cost',
+    size = size,
+    )
+plt.figure()
+sns.scatterplot(
+    data = data1,
+    x = 's/w', 
+    y = 'gen',
+    hue = 'cost',
+    size = size,
+    )
+plt.figure()
+sns.scatterplot(
+    data=data1,
+    x='s/w',
+    y='gen',
+    hue='cost',
+    size = size,
+)
+plt.figure()
+sns.scatterplot(
+    data=data1,
+    x='php',
+    y='phs',
+    hue='cost',
+    size = size,
+)
 
 # plt.show()
 
@@ -169,8 +176,8 @@ plt.colorbar(cb)
 #     hue='cost',
 # )
 
-plt.figure()
-data['var4'].hist()
+# plt.figure()
+# data['var4'].hist()
 
 plt.show()
 

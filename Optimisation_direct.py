@@ -4,23 +4,16 @@
 # Correspondence: bin.lu@anu.edu.au
 
 from scipy.optimize import direct
-from argparse import ArgumentParser
+
 import datetime as dt
 import csv
-from Optimisation import F, parser
 
-parser.add_argument('-his', default=1, type=int, required=False, help="save history")
+from Setup import *
 
-args = parser.parse_args()
-
-scenario = args.s
-
-from Input import *
-
-def callback(x_k):
+def callback(xk):
     with open(cbfile, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow([F(x_k)] + list(x_k))
+        writer.writerow([F(xk)] + list(xk))
 
 def init_callbackfile(n):
     with open(cbfile, 'w', newline='') as csvfile:
@@ -45,12 +38,14 @@ if __name__=='__main__':
         cb = None
         
     result = direct(
-        func=F, 
+        func=F_d, 
+        eps=1e-3,
         bounds=list(zip(lb, ub)), 
         maxfun=args.i*len(lb),
         maxiter=args.i, 
         callback=cb,
         vol_tol=0,
+        locally_biased=False,
         )
 
     with open('Results/Optimisation_resultx{}.csv'.format(scenario), 'a', newline="") as csvfile:

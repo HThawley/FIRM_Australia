@@ -19,24 +19,28 @@ def normalised_dist_sq(x, x1):
     normalDif = (x-x1)/brange
     return np.square(normalDif).sum()
 
-def distance(x, alts):
-    print(alts)
-    raise Exception
-    return sum([maxDistSq-normalised_dist_sq(x, xn[1:]) for xn in alts])/alts.shape[0]
+def F_wrapper(x, n):
+    return n, F(x)
+
+def distance(x, n, alts):
+
+    return n, sum([maxDistSq-normalised_dist_sq(x, xn[1:]) for xn in alts])/alts.shape[0]
 
 def distance_v(x, callback=False):
     alts = np.genfromtxt('Results/OpHist{}-{}.csv'.format(scenario, args.x), 
                         delimiter=',', dtype=float).reshape(-1, len(bounds)+1)
-    alts = (alts.sum(axis=0)/alts.shape[1]).reshape(1,-1)
+    alts = (alts.sum(axis=0)/alts.shape[0]).reshape(1,-1)
     """This is the objective function."""
     with Pool(processes = min(x.shape[1], cpu_count())) as processPool:
-        results = processPool.starmap(distance, [(xn, alts) for xn in x.T])
-        
-        F_values = processPool.map(F, [xn for xn in x.T])
+        results = processPool.starmap(distance, [(x.T[n], n, alts) for n in range(x.shape[1])])
+        F_values = processPool.starmap(F_wrapper, [(x.T[n], n) for n in range(x.shape[1])])
         
     results = np.array(results)
     F_values = np.array(F_values)
     
+    results=results[results[:,0].argsort(), 1]
+    F_values=F_values[F_values[:,0].argsort(),1]
+
     if callback is True: 
         printout = np.concatenate((F_values.reshape(-1, 1), x.T), axis = 1)
         with open('Results/OpHist{}-{}.csv'.format(scenario, args.x), 'a', newline="") as csvfile:

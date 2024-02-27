@@ -114,14 +114,19 @@ def F(x, S=None):
     if PenHydro+PenDeficit+PenDC > 0.1:
         return np.inf
     
-    return LCOE + PenHydro + PenDeficit + PenDC
+    return LCOE
 
 
 def F_v(x, callback=False):
     """This is the objective function."""
-    with Pool(processes = min(x.shape[1], cpu_count())) as processPool:
-        results = processPool.map(F, [xn for xn in x.T])
-    results = np.array(results)
+    
+    if len(x.shape) > 1:
+        with Pool(processes = min(x.shape[1], cpu_count())) as processPool:
+            results = processPool.map(F, [xn for xn in x.T])
+        results = np.array(results)
+    else :
+        results = np.array([F(x)])
+        x = x.reshape(len(bounds), -1)
     
     if callback is True: 
         printout = np.concatenate((results.reshape(-1, 1), x.T), axis = 1)
@@ -132,3 +137,11 @@ def F_v(x, callback=False):
     
     return results
 
+def F_d(x):
+    func = F(x)
+
+    with open('Results/dOpHist{}.csv'.format(scenario), 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([func] + list(x))
+
+    return func

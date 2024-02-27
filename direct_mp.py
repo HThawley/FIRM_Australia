@@ -18,11 +18,11 @@ from scipy.optimize._constraints import old_bound_to_new
 from multiprocessing import Pool, cpu_count
 from itertools import product
 import datetime as dt
-
+from tqdm import tqdm
 
 from Setup import *
 
-ndim = sidx
+ndim = sidx+1
 
 NoneType = type(None)
 
@@ -54,13 +54,17 @@ def signs_of_array(arr, tol=1e-10):
     return np.sign(arr)
 
 class hypercube():
-    def __init__(self, centre, f, bounds, parent_f):
+    def __init__(self, centre, f, bounds, parent_f, parent_n):
         self.centre = centre
         self.parent_f = parent_f
         self.f = float(f)
         self.bounds = bounds
         self.rdif = self.f/self.parent_f
         self.adif = self.f-self.parent_f
+        self.n = parent_n + 1
+        # volume = 10^vol_indx - this method avoid floating point error for tiny volumes in high dim
+        self.vol_indx = (np.log10(self.bounds.ub-self.bounds.lb)).sum()
+        
 
     def is_same(self, cube):
         ub_same = (self.bounds.ub == cube.bounds.ub).product() == 1 
@@ -71,55 +75,38 @@ class hypercube():
 
     def borders(self, cube, tol=1e-10):
         """ 
-        a hypercube borders another by a line, plane, or hyperplane if:
-        1.  the upper bound of an axis should be more than or equal to 
-            the upper bound on the same axis of the second cube
-            and 
-            the lower bound on the same axis should be less than or equal to 
-            the lower bound on the same axis of the second cube  
-        AND
-        2. the upper (or lower) bound of an axis equals 
-            the lower (or upper) bound on the same axis of the second cube
-
-        an n-dimensional hypercube borders another by an n-1 hyperplane (face) if: 
-
         """
         # directions where the domains of each cube touch
         touch = (((self.bounds.ub - cube.bounds.lb) >= -tol) * 
                  ((cube.bounds.ub - self.bounds.lb) >= -tol))
 
-        # the domains in each direction touch  
-        cond1 = touch.sum() == ndim
-        if cond1 is False:
+        # the domains in each direction touch   
+        if not (touch.sum() == ndim):
             return False
 
         # in ndim-1 directions the directions' domains overlap (either perfectly, or one inside another)
-        overlap = (signs_of_array(self.bounds.ub - cube.bounds.ub, tol) == 
+        overlap = (signs_of_array(self.bounds.ub - cube.bounds.ub, tol) ==
                    signs_of_array(cube.bounds.lb - self.bounds.lb, tol))
-        cond2 = overlap.sum() == ndim-1
-        if cond2 is False:
+        if not (overlap.sum() == ndim-1):
             return False
 
         # in exactly one direction domains do not overlap (although they may touch)
-        cond3 = (~overlap).sum() == 1 
-        if cond3 is False:
+        if not ((~overlap).sum() == 1):
             return False
         
         # adjacent (ub=lb or lb=ub) (higher OR lower) in exactly one dimension
         adjacency = ((np.abs(self.bounds.ub - cube.bounds.lb) < tol) +
                      (np.abs(self.bounds.lb - cube.bounds.ub) < tol)) 
-        cond4 = adjacency.sum() == 1
-        if cond4 is False:
-             return False
+        if not (adjacency.sum() == 1):
+            return False
 
         # Direction of adjacency is the direction not overlapping
-        cond5 = (adjacency == ~overlap).sum() == 1 
-        if cond5 is False:
+        if not ((adjacency == ~overlap).prod() == 1):
             return False
         return True
 
-def eval_hypercube(centre, f, bounds, parent_f):
-    return hypercube(centre, f, bounds, parent_f)
+def eval_hypercube(centre, f, bounds, parent_f, parent_n):
+    return hypercube(centre, f, bounds, parent_f, parent_n)
 
 def direct(
     func: Callable[[npt.ArrayLike, Tuple[Any]], float],
@@ -137,6 +124,7 @@ def direct(
     callback: Optional[Callable[[npt.ArrayLike], NoneType]] = None,
     vectorizable: bool = True,
     population: int = 1,
+    min_vol_indx:float=-np.inf,
 ):
   
     def _func_wrap(x, args=None):
@@ -150,11 +138,11 @@ def direct(
     def _algorithm():
 
         def divide_cube(cube):
-            
             indcs = np.array(list(product([True,False], repeat=len(cube.centre))))
             
             centres = generate_centres(cube, indcs)
             bounds = generate_bounds(cube, indcs)
+            
             if vectorizable is True: 
                 f_values = _func_wrap((norm*centres).T, args)
             else: 
@@ -163,7 +151,7 @@ def direct(
             with Pool(processes=min(cpu_count(), bounds.shape[0])) as processPool:
                 cubes = processPool.starmap(
                     eval_hypercube, 
-                    [(centres[n], f_values[n], bounds[n], cube.f) for n in range(bounds.shape[0])],
+                    [(centres[k], f_values[k], bounds[k], cube.f, cube.n) for k in range(bounds.shape[0])],
                     )
 
             return cubes
@@ -186,8 +174,8 @@ def direct(
                     (cube.bounds.lb.reshape(-1,1),
                      cube.centre.reshape(-1,1)),
                     axis=1),
-                    
-                indx) for indx in indcs])
+                indx
+                ) for indx in indcs])
             return bounds
 
         def generate_centres(cube, indcs):
@@ -203,45 +191,40 @@ def direct(
                 (cube.centre + cube.bounds.lb)/2,
                 indx) for indx in indcs])
             return centres
-        
+
         i=0
-        parent = hypercube(norm_bounds.ub/2, _func_wrap(norm*norm_bounds.ub/2, args)[0], norm_bounds, np.inf)
+        parent = hypercube(norm_bounds.ub/2, _func_wrap(norm*norm_bounds.ub/2, args)[0], norm_bounds, np.inf, -1)
         parents = [parent]
         archive = np.array([], dtype=int)
 
-        it_start = dt.datetime.now()
         while i < maxiter:
+            it_start = dt.datetime.now()
             # split all cubes to be split from previous iteration
             new_cubes = np.array([divide_cube(parent) for parent in parents]).flatten()
 
+            # all cubes which do not have any children  
+            childless = np.concatenate((new_cubes, archive))
+
             # generate pairs of list-index and cost
-            fs = np.array([(j, cube.f) for j, cube in enumerate(new_cubes)])
+            fs = np.array([(j, cube.f) for j, cube in enumerate(childless)])
             # sort list indices by cost
-            fs = fs[fs[:,1].argsort(), 0]
+            fs = fs[fs[:,1].argsort(),0]
             # get list-indicies of the best {population} cubes by cost 
-            best = np.array(fs[:population], dtype=int)
+            best = np.array(fs[:min(population, len(fs))], dtype=int)
 
             # find list-indices of cubes adjacent to best in the new generation of cubes
-            new_accepted = np.array([j for b in new_cubes[best] for j, cube in enumerate(new_cubes) if b.borders(cube)], dtype=int)
-            # find list-indices of cubes adjacent to best in the old-generation cube archive
-            archive_accepted = np.array([j for b in new_cubes[best] for j, cube in enumerate(archive) if b.borders(cube)], dtype=int)
- 
+            new_accepted = np.array([j for b in childless[best] for j, cube in enumerate(childless) if b.borders(cube) and cube.vol_indx>min_vol_indx], dtype=int)
+            
             # combine new and archived cubes to be split next iteration
-            parents = np.concatenate((
-                new_cubes[np.unique(np.concatenate((best, new_accepted)))], 
-                archive[np.unique(archive_accepted)],
-            )) 
+            parents = childless[np.unique(np.concatenate((best, new_accepted)))]
 
-            # get list-indices of archived cubes which are not to be split
-            arch_keep = np.array(list(set(range(len(archive))) - set(archive_accepted)), dtype=int)
+            # get list-indices of childless cubes which are not to be split
+            to_arch = np.array(list(set(range(len(childless))) - set(new_accepted)), dtype=int)
     
-            # get list-indices of new cubes which are not to be split
-            arch_new = np.array(list(set(range(len(new_cubes))) - set(new_accepted) - set(best)), dtype=int)
-            # remove archived cubes to be split and add new cubes which aren't to be split to archive
-            archive = np.concatenate((archive[arch_keep], new_cubes[arch_new]))
+            # update archive
+            archive = childless[to_arch]
 
-            it_end = dt.datetime.now()
-            print(f'i = {i}: #cubes = {len(parents)}. Took: {it_end-it_start}')
+            print(f'i = {i}: #cubes = {len(parents)}. Took: {dt.datetime.now()-it_start}')
             i+=1
         
         best = [(cube.f, norm*cube.centre) for cube in parents]
@@ -285,14 +268,15 @@ if __name__ == '__main__':
     result = direct(
         func=F_v, 
         args=(True,),
-        population=1,
-        # eps=1e-3,
+        population=args.p,
+        # eps=0.5,
         bounds=list(zip(lb, ub)), 
         # maxfun=args.i*len(lb),
         maxiter=args.i, 
+        min_vol_indx=-3*ndim, #1 MW in each direction
         # callback=cb,
-        vol_tol=0,
-        locally_biased=False,
+        # vol_tol=0,
+        vectorizable=True,
         )
 
     endtime = dt.datetime.now()

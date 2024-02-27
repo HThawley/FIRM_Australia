@@ -58,8 +58,6 @@ if __name__=='__main__':
 
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
-
-    workermap = Pool(processes=cpu_count()).map
     
     result = differential_evolution(
         func=F_v,
