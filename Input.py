@@ -89,18 +89,19 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
-    def __init__(self, x, vectorized=False):
-        self.vectorized = vectorized
+    def __init__(self, x, vectorize=False):
+        self.vectorize = vectorize
 
-        if self.vectorized:
-            assert len(x.shape) == 2, "Input vector has shape {} but vectorized is {}".format(x.shape, vectorized)
+        if self.vectorize:
+            assert len(x.shape) == 2, "Input vector has shape {} but vectorized is {}".format(x.shape, vectorize)
             assert x.shape[0] == sidx + 1, "Input vector has shape {} but shape[0] should equal {}. Perhaps you need to transpose?".format(x.shape, sidx+1)
         else: 
-            assert len(x.shape) == 1, "Input vector has shape {} but vectorized is {}".format(x.shape, vectorized)
+            assert len(x.shape) == 1, "Input vector has shape {} but vectorized is {}".format(x.shape, vectorize)
             assert x.shape[0] == sidx + 1, "Input vector has shape {} but should have ({},).".format(x.shape, sidx+1)
             x = x.reshape(-1, 1)
 
         self.x = x
+        self.nvec = x.shape[1]
 
         shape3d = (intervals, nodes, 1)
         

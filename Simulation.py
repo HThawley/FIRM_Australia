@@ -11,7 +11,8 @@ def Reliability(solution, flexible, start=None, end=None):
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
               - flexible # Sj-ENLoad(j, t), MW
 
-    length, nvec = Netload.shape
+    length = Netload.shape[0]
+    nvec = solution.nvec
     solution.flexible = flexible # MW
 
     Pcapacity = sum(solution.CPHP) * pow(10, 3) # S-CPHP(j), GW to MW
@@ -55,7 +56,7 @@ def Reliability(solution, flexible, start=None, end=None):
 
     Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
-    Spillage = -1 * np.clip(Netload + Charge + ChargeD, None, 0)
+    Spillage = -1 * np.minimum(Netload + Charge + ChargeD, 0)
 
     assert (0 <= np.floor(np.amax(Storage, axis=0))).all(), 'Storage below zero '
     assert (np.floor(np.amax(Storage, axis=0)) <= Scapacity).all(), 'Storage exceeds max storage capacity'
