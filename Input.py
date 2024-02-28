@@ -23,12 +23,12 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
 
-assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(np.float)
+assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
 CBaseload = np.array([0, 0, 0, 0, 0, 1.0, 0, 0]) # 24/7, GW
 CPeak = CHydro + CBio - CBaseload # GW
 
-cars = np.genfromtxt('Data/cars.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(np.float)
+cars = np.genfromtxt('Data/cars.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CDP = DSP * cars[:, 0] * 9.6 * pow(10, -6) # kW to GW
 CDS = DSP * cars[:, 0] * 77 * 0.75 * pow(10, -6) # kWh to GWh
 
@@ -89,26 +89,39 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
-    def __init__(self, x):
+    def __init__(self, x, vectorized=False):
+        self.vectorized = vectorized
+
+        if self.vectorized:
+            assert len(x.shape) == 2, "Input vector has shape {} but vectorized is {}".format(x.shape, vectorized)
+            assert x.shape[0] == sidx + 1, "Input vector has shape {} but shape[0] should equal {}. Perhaps you need to transpose?".format(x.shape, sidx+1)
+        else: 
+            assert len(x.shape) == 1, "Input vector has shape {} but vectorized is {}".format(x.shape, vectorized)
+            assert x.shape[0] == sidx + 1, "Input vector has shape {} but should have ({},).".format(x.shape, sidx+1)
+            x = x.reshape(-1, 1)
+
         self.x = x
-        self.MLoad, self.MLoadD = (MLoad, MLoadD)
+
+        shape3d = (intervals, nodes, 1)
+        
+        self.MLoad, self.MLoadD = (MLoad.reshape(shape3d), MLoadD.reshape(shape3d))
         self.intervals, self.nodes = (intervals, nodes)
         self.resolution = resolution
 
-        self.CPV = list(x[: pidx]) # CPV(i), GW
-        self.CWind = list(x[pidx: widx]) # CWind(i), GW
-        self.GPV = TSPV * np.tile(self.CPV, (intervals, 1)) * pow(10, 3) # GPV(i, t), GW to MW
-        self.GWind = TSWind * np.tile(self.CWind, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
+        self.CPV =x[: pidx, :] # CPV(i), GW
+        self.CWind = x[pidx: widx, :] # CWind(i), GW
+        self.GPV = np.stack([TSPV]*self.CPV.shape[1], axis=2) * np.tile(self.CPV, (intervals, 1, 1)) * pow(10, 3) # GPV(i, t), GW to MW
+        self.GWind = np.stack([TSWind]*self.CWind.shape[1], axis=2) * np.tile(self.CWind, (intervals, 1, 1)) * pow(10, 3) # GWind(i, t), GW to MW
 
-        self.CPHP = list(x[widx: sidx]) # CPHP(j), GW
-        self.CPHS = x[sidx] # S-CPHS(j), GWh
+        self.CPHP = x[widx: sidx, :] # CPHP(j), GW
+        self.CPHS = x[sidx, :] # S-CPHS(j), GWh
         self.CDP, self.CDS = (CDP, CDS)  # GW, GWh
         self.efficiency, self.efficiencyD = (efficiency, efficiencyD)
 
         self.Nodel, self.PVl, self.Windl = (Nodel, PVl, Windl)
         self.scenario = scenario
 
-        self.GBaseload, self.CPeak = (GBaseload, CPeak)
+        self.GBaseload, self.CPeak = (GBaseload.reshape(shape3d), CPeak)
         self.CHydro = CHydro # GW, GWh
 
     def __repr__(self):

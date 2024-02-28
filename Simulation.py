@@ -11,7 +11,7 @@ def Reliability(solution, flexible, start=None, end=None):
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] \
               - flexible # Sj-ENLoad(j, t), MW
 
-    length = len(Netload)
+    length, nvec = Netload.shape
     solution.flexible = flexible # MW
 
     Pcapacity = sum(solution.CPHP) * pow(10, 3) # S-CPHP(j), GW to MW
@@ -20,7 +20,7 @@ def Reliability(solution, flexible, start=None, end=None):
     ScapacityD = sum(solution.CDS) * pow(10, 3) # S-CDS(j), GWh to MWh
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
 
-    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V = map(np.zeros, [length] * 7)
+    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V = map(np.zeros, [(length, nvec)] * 7)
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
     for t in range(length):
@@ -29,18 +29,18 @@ def Reliability(solution, flexible, start=None, end=None):
         Storaget_1 = Storage[t-1] if t>0 else 0.5 * Scapacity
         StorageDt_1 = StorageD[t-1] if t>0 else 0.5 * ScapacityD
 
-        Discharget = min(max(0, Netloadt), Pcapacity, Storaget_1 / resolution)
-        Charget = min(-1 * min(0, Netloadt), Pcapacity, (Scapacity - Storaget_1) / efficiency / resolution)
+        Discharget = np.minimum(np.minimum(np.maximum(0, Netloadt), Pcapacity), Storaget_1 / resolution)
+        Charget = np.minimum(np.minimum(-1 * np.minimum(0, Netloadt), Pcapacity), (Scapacity - Storaget_1) / efficiency / resolution)
         Storaget = Storaget_1 - Discharget * resolution + Charget * resolution * efficiency
 
         ConsumeDt = ConsumeD[t]
 
-        DischargeDt = min(ConsumeDt, StorageDt_1 / resolution)
-        ChargeDt = min(-1 * min(0, Netloadt + Charget), PcapacityD, (ScapacityD - StorageDt_1) / efficiencyD / resolution)
+        DischargeDt = np.minimum(ConsumeDt, StorageDt_1 / resolution)
+        ChargeDt = np.minimum(np.minimum(-1 * np.minimum(0, Netloadt + Charget), PcapacityD), (ScapacityD - StorageDt_1) / efficiencyD / resolution)
         StorageDt = StorageDt_1 - DischargeDt * resolution + ChargeDt * resolution * efficiencyD
 
         diff = ConsumeDt - DischargeDt
-        P2Vt = min(diff / efficiencyD, Pcapacity - Discharget - Charget) if diff > 0 and Storaget / resolution > diff / efficiencyD else 0
+        P2Vt = np.minimum(diff / efficiencyD, Pcapacity - Discharget - Charget) if diff > 0 and Storaget / resolution > diff / efficiencyD else np.zeros((length, nvec))
 
         Discharge[t] = Discharget + P2Vt
         P2V[t] = P2Vt
@@ -51,9 +51,9 @@ def Reliability(solution, flexible, start=None, end=None):
         ChargeD[t] = ChargeDt
         StorageD[t] = StorageDt
 
-    Deficit = np.maximum(Netload - Discharge + P2V, 0)
+    Deficit = np.clip(Netload - Discharge + P2V, 0, None)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
-    Spillage = -1 * np.minimum(Netload + Charge + ChargeD, 0)
+    Spillage = -1 * np.clip(Netload + Charge + ChargeD, None, 0)
 
     assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
     assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
