@@ -21,7 +21,7 @@ def Reliability(solution, flexible, start=None, end=None):
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
 
     Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V = map(np.zeros, [(length, nvec)] * 7)
-    ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
+    ConsumeD = np.stack([solution.MLoadD.sum(axis=(1,2))[start:end] * efficiencyD]*nvec).T
 
     for t in range(length):
 
@@ -40,7 +40,9 @@ def Reliability(solution, flexible, start=None, end=None):
         StorageDt = StorageDt_1 - DischargeDt * resolution + ChargeDt * resolution * efficiencyD
 
         diff = ConsumeDt - DischargeDt
-        P2Vt = np.minimum(diff / efficiencyD, Pcapacity - Discharget - Charget) if diff > 0 and Storaget / resolution > diff / efficiencyD else np.zeros((length, nvec))
+        P2Vt = np.zeros(nvec) 
+        diffMask = (diff > 0) * (Storaget / resolution > diff / efficiencyD )
+        P2Vt[diffMask] = np.minimum(diff / efficiencyD, Pcapacity - Discharget - Charget)[diffMask]
 
         Discharge[t] = Discharget + P2Vt
         P2V[t] = P2Vt
@@ -51,12 +53,14 @@ def Reliability(solution, flexible, start=None, end=None):
         ChargeD[t] = ChargeDt
         StorageD[t] = StorageDt
 
-    Deficit = np.clip(Netload - Discharge + P2V, 0, None)
+    Deficit = np.maximum(Netload - Discharge + P2V, 0)
     DeficitD = ConsumeD - DischargeD - P2V * efficiencyD
     Spillage = -1 * np.clip(Netload + Charge + ChargeD, None, 0)
 
-    assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
-    assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
+    assert (0 <= np.floor(np.amax(Storage, axis=0))).all(), 'Storage below zero '
+    assert (np.floor(np.amax(Storage, axis=0)) <= Scapacity).all(), 'Storage exceeds max storage capacity'
+    assert (0 <= np.floor(np.amax(StorageD, axis=0))).all(), 'StorageD below zero'
+    assert (np.floor(np.amax(StorageD, axis=0)) <= ScapacityD).all(), 'StorageD or exceeds max storage capacity'
     assert np.amin(Deficit) >= 0, 'Deficit below zero'
     assert np.amin(DeficitD) > -0.1, 'DeficitD below zero: {}'.format(np.amin(DeficitD))
     assert np.amin(Spillage) >= 0, 'Spillage below zero'
