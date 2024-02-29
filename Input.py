@@ -88,7 +88,6 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
-
     def __init__(self, x, vectorize=False):
         self.vectorize = vectorize
 
@@ -128,3 +127,6 @@ class Solution:
     def __repr__(self):
         """S = Solution(list(np.ones(64))) >> print(S)"""
         return 'Solution({})'.format(self.x)
+    
+
+    
