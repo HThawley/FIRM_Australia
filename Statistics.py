@@ -63,7 +63,8 @@ def LPGM(solution, RSim=None):
     C = np.stack([(solution.MLoad + solution.MLoadD).sum(axis=1), (solution.MLoad + solution.MChargeD + solution.MP2V).sum(axis=1),
                   solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), solution.GPV.sum(axis=1), solution.GWind.sum(axis=1), solution.GWindR.sum(axis=1),
                   solution.Discharge, solution.Deficit, -1 * solution.Spillage, -1 * solution.Charge, solution.Storage,
-                  (solution.GWind - solution.GWindR).sum(axis=1), solution.RDeficit, solution.RStorage,solution.RDischarge, -1*solution.RCharge,-1*solution.RSpillage,
+                  (solution.GWind - solution.GWindR).sum(axis=1), solution.RDeficit.sum(axis=1), solution.RStorage.sum(axis=1),
+                  solution.RDischarge.sum(axis=1), -1*solution.RCharge.sum(axis=1),-1*solution.RSpillage.sum(axis=1),
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
     C = np.around(C.transpose())
 
@@ -223,7 +224,7 @@ def Information(x, flexible, NDeficitAnalysis=None, resilience=False):
     if not resilience: Debug(S)
     
     if not resilience: GGTA(S) 
-
+    LPGM(S)
     end = dt.datetime.now()
     print("Statistics took", end - start)
 
@@ -236,8 +237,8 @@ def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
     S = Solution(capacities)
 
     S = TransmissionFactors(S, flexible)
-    if trial is None: 
-        LPGM(S)
+    # if trial is None: 
+    #     LPGM(S)
     DeficitAnalysis(capacities, flexible, NDeficitAnalysis)
 
     end = dt.datetime.now()
@@ -247,15 +248,15 @@ def DeficitInformation(capacities, flexible, NDeficitAnalysis=None):
 def DeficitAnalysis(capacities, flexible, N=1):   
     if N is None: 
         return True
-    solution = Solution(capacities)
-    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=flexible)
-    topNDeficitIndx = np.flip(np.argpartition(RDeficit, -N)[-N:])
+    S = Solution(capacities)
+    Deficit, DeficitD, RDeficit, RDeficitD = Resilience(S, flexible=flexible)
+    topNDeficitIndx = np.flip(np.argpartition(RDeficit[:,0], -N)[-N:])
     
     for n, indx in enumerate(topNDeficitIndx):
-        solution = Solution(capacities)
-        solution = DeficitSimulation(solution, flexible, RSim=indx, output='solution')
-        solution = TransmissionFactors(solution, flexible, deficit = True)
-        LPGM(solution, (n, indx))
+        S = Solution(capacities)
+        S = DeficitSimulation(S, flexible, RSim=indx, output='solution')
+        S = TransmissionFactors(S, flexible, deficit = True)
+        LPGM(S, (n, indx))
     return True 
 
     
@@ -275,4 +276,10 @@ def verifyDispatch(capacities, flexible, resilience=False):
 if __name__ == '__main__': 
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
-    DeficitInformation(costCapacities, CPeak.sum() * pow(10, 3) * np.ones(intervals), 1)
+    
+    if eventZone != 'None':
+        DeficitInformation(costCapacities, CPeak.sum() * pow(10, 3) * np.ones(intervals), 1)
+    
+    Information(capacities, 
+                np.genfromtxt('Results/Dispatch_Flexible'+suffix, delimiter=','),
+                )

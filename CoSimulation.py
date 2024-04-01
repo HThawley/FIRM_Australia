@@ -68,9 +68,12 @@ def Resilience(solution, flexible, start=None, end=None, output = 'deficits'):
             solution.RDischargeD[:,i], solution.RChargeD[:,i], solution.RStorageD[:,i] = (RDischargeD, RChargeD, RStorageD)
             solution.RDeficit[:,i], solution.RDeficitD[:,i], solution.RSpillage[:,i] = (RDeficit, RDeficitD, RSpillage)                 
         else: 
-            solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (RDischarge, RCharge, RStorage, RP2V)
-            solution.RDischargeD, solution.RChargeD, solution.RStorageD = (RDischargeD, RChargeD, RStorageD)
-            solution.RDeficit, solution.RDeficitD, solution.RSpillage = (RDeficit, RDeficitD, RSpillage) 
+            solution.RDischarge, solution.RCharge, solution.RStorage, solution.RP2V = (
+                RDischarge.reshape(-1,1), RCharge.reshape(-1,1), RStorage.reshape(-1,1), RP2V.reshape(-1,1))
+            solution.RDischargeD, solution.RChargeD, solution.RStorageD = (
+                RDischargeD.reshape(-1,1), RChargeD.reshape(-1,1), RStorageD.reshape(-1,1))
+            solution.RDeficit, solution.RDeficitD, solution.RSpillage = (
+                RDeficit.reshape(-1,1), RDeficitD.reshape(-1,1), RSpillage.reshape(-1,1)) 
         
     
     if eventZoneIndx is not None: 

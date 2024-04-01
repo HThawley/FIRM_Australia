@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from Optimisation import scenario, costConstraintFactor, eventZone, n_year, x0mode, event, trial, logic
+from Optimisation import scenario, costConstraintFactor, eventZone, n_year, x0mode, event, trial, logic, testing
 from Simulation import Reliability
 from CoSimulation import Resilience
 from Network import Transmission
@@ -36,6 +36,12 @@ MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usec
 
 TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
+
+if testing is True: 
+    MLoad  = MLoad[ :3*30*24*2,:]
+    MLoadD = MLoadD[:3*30*24*2,:]
+    TSPV   = TSPV[  :3*30*24*2,:]
+    TSWind = TSWind[:3*30*24*2,:]
 
 if event in ('storm', 'drought'):
     durations = np.genfromtxt(f'Data/{event}Durations.csv', delimiter=',', usecols=[0,1])
@@ -72,8 +78,6 @@ else:
     assert event is None 
     eventDur = np.zeros(len(Windl))
 
-
-
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
 CBaseload = np.array([0, 0, 0, 0, 0, 1.0, 0, 0]) # 24/7, GW
@@ -92,6 +96,7 @@ efficiencyD = 0.8
 factor = np.genfromtxt('Data/factor.csv', delimiter=',', usecols=1)
 
 firstyear, finalyear, timestep = (2020, 2029, 1)
+finalyear = firstyear if testing else finalyear
 
 if scenario<=17:
     node = Nodel[scenario % 10]
@@ -144,7 +149,10 @@ if scenario>=21:
     Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
 
 intervals, nodes = MLoad.shape
-years = int(resolution * intervals / 8760)
+if testing is True:
+    years = resolution * intervals / 8760
+else: 
+    years = int(resolution * intervals / 8760)
 pzones, wzones = (TSPV.shape[1], TSWind.shape[1])
 pidx, widx, sidx = (pzones, pzones + wzones, pzones + wzones + nodes)
 
@@ -154,8 +162,6 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
 x0 = None
-if x0mode == 3: 
-    x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx21-[14]-25-d.csv', delimiter=',')
 if x0mode == 2: 
     try: 
         if trial is None: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter = ',')

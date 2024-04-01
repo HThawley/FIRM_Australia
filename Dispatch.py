@@ -17,7 +17,8 @@ def Flexible(year, x):
 
     startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
     endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
-
+    if testing:
+        endidx = startidx+intervals
     Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
     flexible = Fcapacity * np.ones(endidx - startidx)
 
