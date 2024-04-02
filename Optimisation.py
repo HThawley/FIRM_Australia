@@ -26,7 +26,8 @@ parser.add_argument('-e',   default='e',   type=str,  required=False,help="resil
 parser.add_argument('-his', default=1,     type=int,  required=False,help="save history")
 parser.add_argument('-log', default='xor', type=str,  required=False,help="Logic to consider storms in multiple zones. acceptable values: 'xor' or 'and'.")
 parser.add_argument('-t',   default=None,  type=int,  required=False,help="Index for keeping duplicate runs separate")
-parser.add_argument('-test',default=0,     type=int,  required=False,help="Boolean for testing")
+parser.add_argument('-w',   default=-1,    type=int,  required=False,help="Number of cores")
+parser.add_argument('-test',default=0,     type=int,  required=False,help="Boolean for testing mode")
 args = parser.parse_args()
 
 trial = args.t
@@ -55,8 +56,8 @@ from Input import *
 
 def R(x):
     """This is the new Resilience objective function""" 
-
     S = Solution(x) 
+    S._evaluate()
     
     eventDeficit, penalties, cost = S.eventDeficit, S.penalties, S.cost
     
@@ -66,7 +67,7 @@ def R(x):
     func = eventDeficit + penalties + cost
     
     if cost > costConstraint: 
-        func = func*pow(10,6)
+        func = func*pow(10,9)
     
     return func
 
@@ -80,22 +81,10 @@ def init_callbackfile(n):
         writer = csv.writer(csvfile)
         writer.writerow(['objective'] + ['dvar']*n)
 
-if __name__=='__main__':
-    
+def optimise():
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
-
-    lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.] 
-    ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.] 
-
-    if bool(args.his) is True:
-        cbfile = 'Results/OptimisationHistory' + suffix
-        if x0mode != 2: 
-            init_callbackfile(len(ub))
-        cb = callback
-    else: 
-        cb = None
-
+    
     result = differential_evolution(
         func=R, 
         bounds=list(zip(lb, ub)), 
@@ -108,19 +97,32 @@ if __name__=='__main__':
         disp=bool(args.v), 
         polish=False, 
         updating='deferred', 
-        workers=-1, 
+        workers=args.w, 
         callback = cb,
         )
 
     with open('Results/Optimisation_resultx'+suffix, 'w', newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(list(result.x))
-
     del csvfile
     
     endtime = dt.datetime.now()
+    timetaken = endtime - starttime
     print("Optimisation took", endtime - starttime)
+    return result, timetaken
 
-    from Dispatch import Analysis
-    Analysis(result.x)
+if __name__=='__main__':
+    
+    if bool(args.his) is True:
+        cbfile = 'Results/OptimisationHistory' + suffix
+        if x0mode != 2: 
+            init_callbackfile(len(ub))
+        cb = callback
+    else: 
+        cb = None
+
+    result, time = optimise()
+
+    # from Dispatch import Analysis
+    # Analysis(result.x)
 
