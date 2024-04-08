@@ -15,6 +15,12 @@ def Transmission(solution, output=False):
     pkfactor = solution.CPeak / solution.CPeak.sum()
     flexible = solution.flexible.copy()
     MPeak = flexible.reshape(-1,1) * pkfactor.reshape(1,-1) # MW
+    
+    try: 
+        if solution.RFlexible.size != 0:
+            RMPeak = np.atleast_2d(solution.RFlexible).T*pkfactor.reshape(1,-1)
+    except Exception: # NameError but jit can't type excpetions
+        pass
 
     MLoad_denominator = solution.MLoad.sum(axis=1)
     defactor = np.divide(solution.MLoad, MLoad_denominator.reshape(-1, 1))
@@ -73,7 +79,7 @@ def Transmission(solution, output=False):
         MDischargeD = DischargeD.reshape(-1,1) * pcfactorD  # MDischarge: DD(j, t)
         MStorageD = StorageD.reshape(-1,1) * pcfactorD  # SD(t, j), MWhD
     
-        solution.MPV, solution.MWind, solution.MBaseload, solution.MPeak = (MPV, MWind, MBaseload, MPeak)
+        solution.MPV, solution.MWind, solution.MBaseload, solution.MPeak, solution.RMPeak = (MPV, MWind, MBaseload, MPeak, RMPeak)
         solution.MDischarge, solution.MCharge, solution.MStorage, solution.MP2V = (MDischarge, MCharge, MStorage, MP2V)
         solution.MDischargeD, solution.MChargeD, solution.MStorageD = (MDischargeD, MChargeD, MStorageD)
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)

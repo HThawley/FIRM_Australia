@@ -12,11 +12,11 @@ import os
 def standardiseNas(obj, na=np.nan, extras=[]):
     return na if str(obj).strip().lower() in ['nan', 'none', '', ' ', '-', '<na>'] + extras else obj
 
-def reSearchWrapper(regex, srchstr):
+def reSearchWrapper(regex, srchstr, fail_val=None):
     try: 
         return re.search(regex, srchstr).group()
     except AttributeError: 
-        return None
+        return fail_val
 
 def adjust_legend(axs, x, y, xscale=0.95, yscale=1.0, loc='center right'):
     """
@@ -48,7 +48,7 @@ def directory_up():
 def readPrintedArray(txt):      
     if txt == 'None': return None
     txt = re.sub(r"(?<!\[)\s+(?!\])", r",", txt)
-    return np.array(literal_eval(txt), dtype=int)
+    return np.array(literal_eval(txt), dtype=np.int64)
 
 def manage_nodes(scenario):
     Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
@@ -82,11 +82,13 @@ def zoneTypeIndx(scenario, eventZone=None, wdir=None):
         active_dir = os.getcwd()
         os.chdir(wdir)
 
-    names = np.char.replace(np.genfromtxt('Data\ZoneDict.csv', delimiter=',', dtype=str), 'ï»¿', '')
+    names = np.char.replace(np.genfromtxt(r'Data\ZoneDict.csv', delimiter=',', dtype=str, usecols=[0], skip_header=1), 'ï»¿', '')
     
     if isinstance(eventZone, str):        
-        if str(eventZone) == 'all': eventZone = ...
-        else: eventZone = readPrintedArray(eventZone) 
+        if str(eventZone) == 'all': 
+            eventZone = ...
+        else: 
+            eventZone = readPrintedArray(eventZone) 
 
     node_data = manage_nodes(scenario)
     Nodel, PVl, Windl = node_data[0]
@@ -107,8 +109,8 @@ def zoneTypeIndx(scenario, eventZone=None, wdir=None):
         eventZoneIndx = np.where(zones==1)[0]
         
         names = names[np.where(np.in1d(np.append(PVl, Windl), coverage)==True)[0]]
-   
-    headers = (['pv-'   + name + ' (GW)' for name in names[:pidx]] + 
+
+    headers = (['pv-'   + name + ' (GW)' for name in names[:pidx]] +
                ['wind-' + name + ' (GW)' for name in names[pidx:widx]] + 
                ['storage-' + name + ' (GW)' for name in coverage[0]] + 
                ['storage (GWh)'])

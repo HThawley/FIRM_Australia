@@ -30,6 +30,7 @@ if isinstance(eventZone, str):
         eventZone = 'None'
     else: 
         raise Exception('eventZone not valid, when type str ("all" or None")')
+
 if trial is None: 
     suffix = '{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0])
 else:
@@ -179,12 +180,14 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 x0 = None
 if x0mode == 2: 
     try: 
-        if trial is None: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0]), delimiter = ',')
-        else: x0 = np.genfromtxt('Results/Optimisation_resultx{}-{}-{}-{}-{}.csv'.format(scenario, eventZone, n_year, str(event)[0], trial), delimiter = ',')
-    except FileNotFoundError: pass 
+        x0 = np.genfromtxt(f'Results/Optimisation_resultx{suffix}.csv', delimiter = ',')
+    except FileNotFoundError: 
+        pass 
 if x0 is None and x0mode >= 1:
-    try: x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
-    except FileNotFoundError: pass
+    try: 
+        x0 = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter = ',')
+    except FileNotFoundError: 
+        pass
 
 if costConstraintFactor is not None:
     OptimisedCost = pd.read_csv('CostOptimisationResults/Costs.csv', index_col='Scenario').loc[scenario, 'LCOE']
@@ -204,21 +207,20 @@ elif eventZone is None:
 else: 
     raise ValueError('eventZone should be None, "None", "All", or np array') 
 
-lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.] 
-ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.] 
+lb = np.array([0.]  * pzones + [0.]   * wzones + contingency   + [0.])
+ub = np.array([50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.])
 
 #%%
 @njit()
 def F(solution): 
-
     Deficit, DeficitD = Reliability(solution, flexible=np.zeros((intervals, ) , dtype=np.float64)) # Sj-EDE(t, j), MW
-    Flexible = Deficit.sum(axis=0) * resolution / years / efficiency # MWh p.a.
+    Flexible = Deficit.sum() * resolution / years / (0.5 * (1 + efficiency)) # MWh p.a.
     Hydro = Flexible + GBaseload.sum() * resolution / years # Hydropower & biomass: MWh p.a.
     PenHydro = np.maximum(0, Hydro - 20 * 1000000) # TWh p.a. to MWh p.a.
 
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=np.ones(intervals, dtype=np.float64) * CPeak.sum() * 1000) # solutionj-EDE(t, j), GW to MW
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-    eventDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution) #MWh
+    eventDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution)# / (intervals*resolution/24)) #MWh/day
 
     TDC_abs = np.abs(Transmission(solution)) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
     CDC = np.zeros(len(DCloss), dtype=np.float64)
@@ -228,24 +230,18 @@ def F(solution):
     CDC = CDC * 0.001 # CDC(k), MW to GW
     PenDC = max(0, CDC[6] - CDC6max) * 0.001 # GW to MW
 
-    cost = (factor * np.array([solution.CPV.sum(), solution.CWind.sum(), solution.CPHP.sum(), solution.CPHS] 
-                              + list(CDC) + [solution.CPV.sum(), solution.CWind.sum(), Hydro * 0.000001, -1, -1])
-            )
-    
+    cost = factor * np.array([solution.CPV.sum(), solution.CWind.sum(), solution.CPHP.sum(), solution.CPHS] 
+                             + list(CDC) + [solution.CPV.sum(), solution.CWind.sum(), Hydro * 0.000_001, -1, -1])
     if scenario<=17:
-        cost[-1], cost[-2] = [0] * 2
+        cost[-1], cost[-2] = 0,0
         
-    cost = cost.sum()
     loss = np.sum(TDC_abs, axis=0) * DCloss
     loss = loss.sum() * 0.000000001 * resolution / years # PWh p.a.
-    LCOE = cost / abs(energy - loss)
+    LCOE = cost.sum() / abs(energy - loss)
 
     penalties = PenHydro + PenDeficit + PenDC
 
-    RDeficit / MLoad 
-
     return eventDeficit, LCOE, penalties
-
 
 #%%
 # Specify the types for jitclass
@@ -263,7 +259,7 @@ solution_spec = [
     ('CWind', float64[:]),
     ('GPV', float64[:, :]),  # 2D array of floats
     ('GWind', float64[:, :]),
-    ('CPHP', float64[:,]),
+    ('CPHP', float64[:]),
     ('CPHS', float64),
     ('CDP', float64[:]),
     ('CDS', float64[:]),
@@ -279,7 +275,7 @@ solution_spec = [
     ('logic', types.unicode_type),
     ('eventDur', int64),
     ('eventZoneIndx', int64[:]),
-    ('CWindR', float64[:]),
+    
     ('GWindR', float64[:,:]),
     ('WindDiff', float64[:,:]),
     
@@ -305,6 +301,11 @@ solution_spec = [
     ('RDeficitD', float64[:,:]),
     ('RSpillage', float64[:,:]),
     ('RP2V', float64[:,:]),
+    ('RFlexible',float64[:]),
+
+    ('RMPeak', float64[:, :]),
+    ('RMHydro', float64[:, :]),
+    ('RMBio', float64[:, :]),
     
     ('OptimisedCost', float64),
     ('costConstraint', float64),
@@ -326,6 +327,19 @@ solution_spec = [
     ('MStorageD', float64[:, :]),
     ('MDeficit', float64[:, :]),
     ('MSpillage', float64[:, :]),
+    ('MHydro', float64[:, :]),
+    ('MBio', float64[:, :]),
+    
+    ('TDC', float64[:, :]),
+    ('CDC', float64[:]),
+    ('Topology', float64[:, :]),
+    ('FQ', float64[:]),
+    ('NQ', float64[:]),
+    ('NS', float64[:]),
+    ('NV', float64[:]),
+    ('AS', float64[:]),
+    ('SW', float64[:]),
+    ('TV', float64[:]),
 ]
 
 @jitclass(solution_spec)
@@ -364,18 +378,17 @@ class Solution:
         self.logic = logic        
         self.eventZoneIndx, self.eventDur = eventZoneIndx, eventDur
         
-        mask = np.ones(self.CWind.shape)
-        
+        mask = np.ones(self.CWind.shape, np.bool_)
         if eventZoneIndx[0] > 0:
-            mask[eventZoneIndx] = 0 
+            mask[self.eventZoneIndx] = 0 
         
-        self.CWindR = self.CWind * mask
+        CWindR = self.CWind * mask
         TSWindR = TSWind * mask
         
-        CWindR_tiled = np.zeros((intervals, len(self.CWindR)), dtype=np.float64)
+        CWindR_tiled = np.zeros((intervals, len(CWindR)), dtype=np.float64)
         for i in range(intervals):
-            for j in range(len(self.CWindR)):
-                CWindR_tiled[i,j] = self.CWindR[j]
+            for j in range(len(CWindR)):
+                CWindR_tiled[i,j] = CWindR[j]
         self.GWindR = TSWindR * CWindR_tiled * 1000 # GWind(i, t), GW to MW
         
         self.WindDiff = self.GWindR - self.GWind
@@ -396,7 +409,8 @@ class Solution:
 
 #%%
 if __name__ == '__main__': 
-    x = np.genfromtxt(r"C:\Users\u6942852\Documents\Repos\FIRM_Australia\CostOptimisationResults\Optimisation_resultx21-None.csv", delimiter=',')
+    x = np.genfromtxt(fr"CostOptimisationResults\Optimisation_resultx{scenario}-None.csv", delimiter=',')
+    # x = np.genfromtxt(fr"Results\Optimisation_resultx{scenario}-None-25-e.csv", delimiter=',')
     s = Solution(x)
     s._evaluate()
     print(s.eventDeficit, s.cost, s.penalties)

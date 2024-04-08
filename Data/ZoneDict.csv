@@ -1,55 +1,56 @@
-﻿N_Broken Hill
-N_Central NSW Tablelands
-N_Central West NSW
-N_Murray River
-N_North West New South Wales
-N_Northern NSW Tablelands
-N_Riverland
-Q_Barcaldine
-Q_Darling Downs
-Q_Fitzroy
-Q_Isaac
-Q_North QLD Clean Energy Hub
-Q_Northern QLD
-S_Eastern Eyre Peninsula
-S_Leigh Creek
-S_Northern SA
-S_Riverland
-S_Roxby Downs
-S_Western Eyre Peninsula
-V_Murray River
-W_Perth
-X_Alice Springs
-N_Broken Hill
-N_Central NSW Tablelands
-N_Central West NSW
-N_Murray River
-N_North West New South Wales
-N_Northern NSW Tablelands
-N_Riverland
-N_Southern NSW Tablelands
-Q_Barcaldine
-Q_Darling Downs
-Q_Fitzroy
-Q_Isaac
-Q_North QLD Clean Energy Hub
-S_Eastern Eyre Peninsula
-S_Leigh Creek
-S_Mid-North SA
-S_Northern SA
-S_Riverland
-S_South East SA
-S_Western Eyre Peninsula
-S_Yorke Peninsula
-T_King Island
-T_North East Tasmania
-T_North West Tasmania
-T_Tasmania Midlands
-V_Gippsland
-V_Moyne
-V_Murray River
-V_Western Victoria
-W_Albany
-W_Geraldton
-W_Merredin
-X_Alice Springs
+﻿All,Wind,PV
+N_Broken Hill,N_Broken Hill,N_Broken Hill
+N_Central NSW Tablelands,N_Central NSW Tablelands,N_Central NSW Tablelands
+N_Central West NSW,N_Central West NSW,N_Central West NSW
+N_Murray River,N_Murray River,N_Murray River
+N_North West New South Wales,N_North West New South Wales,N_North West New South Wales
+N_Northern NSW Tablelands,N_Northern NSW Tablelands,N_Northern NSW Tablelands
+N_Riverland,N_Riverland,N_Riverland
+Q_Barcaldine,N_Southern NSW Tablelands,Q_Barcaldine
+Q_Darling Downs,Q_Barcaldine,Q_Darling Downs
+Q_Fitzroy,Q_Darling Downs,Q_Fitzroy
+Q_Isaac,Q_Fitzroy,Q_Isaac
+Q_North QLD Clean Energy Hub,Q_Isaac,Q_North QLD Clean Energy Hub
+Q_Northern QLD,Q_North QLD Clean Energy Hub,Q_Northern QLD
+S_Eastern Eyre Peninsula,S_Eastern Eyre Peninsula,S_Eastern Eyre Peninsula
+S_Leigh Creek,S_Leigh Creek,S_Leigh Creek
+S_Northern SA,S_Mid-North SA,S_Northern SA
+S_Riverland,S_Northern SA,S_Riverland
+S_Roxby Downs,S_Riverland,S_Roxby Downs
+S_Western Eyre Peninsula,S_South East SA,S_Western Eyre Peninsula
+V_Murray River,S_Western Eyre Peninsula,V_Murray River
+W_Perth,S_Yorke Peninsula,W_Perth
+X_Alice Springs,T_King Island,X_Alice Springs
+N_Broken Hill,T_North East Tasmania,
+N_Central NSW Tablelands,T_North West Tasmania,
+N_Central West NSW,T_Tasmania Midlands,
+N_Murray River,V_Gippsland,
+N_North West New South Wales,V_Moyne,
+N_Northern NSW Tablelands,V_Murray River,
+N_Riverland,V_Western Victoria,
+N_Southern NSW Tablelands,W_Albany,
+Q_Barcaldine,W_Geraldton,
+Q_Darling Downs,W_Merredin,
+Q_Fitzroy,X_Alice Springs,
+Q_Isaac,,
+Q_North QLD Clean Energy Hub,,
+S_Eastern Eyre Peninsula,,
+S_Leigh Creek,,
+S_Mid-North SA,,
+S_Northern SA,,
+S_Riverland,,
+S_South East SA,,
+S_Western Eyre Peninsula,,
+S_Yorke Peninsula,,
+T_King Island,,
+T_North East Tasmania,,
+T_North West Tasmania,,
+T_Tasmania Midlands,,
+V_Gippsland,,
+V_Moyne,,
+V_Murray River,,
+V_Western Victoria,,
+W_Albany,,
+W_Geraldton,,
+W_Merredin,,
+X_Alice Springs,,

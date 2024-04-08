@@ -10,64 +10,56 @@ from CoSimulation import Resilience
 import datetime as dt
 from multiprocessing import Pool, cpu_count
 
-def Flexible(year, x):
+def Flexible(idx, x):
     """Energy source of high flexibility"""
-    print(year, end=', ')
     S = Solution(x)
-
-    startidx = int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
-    endidx = int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days)
+    startidx, endidx = idx
     if testing:
         endidx = startidx+intervals
-    Fcapacity = CPeak.sum() * pow(10, 3) # GW to MW
+    Fcapacity = CPeak.sum() * 1000 # GW to MW
     flexible = Fcapacity * np.ones(endidx - startidx)
-
-    for i in range(0, endidx - startidx, timestep):
+    
+    Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=False) # Sj-EDE(t, j), MW
+    Deficiti_1 = (Deficit + DeficitD).sum() * resolution
+    
+    for i in range(0, 350, timestep):
         flexible[i: i+timestep] = 0
-        Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=True) # Sj-EDE(t, j), MW
-        if (Deficit + DeficitD)[i:].sum() * resolution > 0.1:
+        Deficit, DeficitD = Reliability(S, flexible=flexible, start=startidx, end=endidx, output=False) # Sj-EDE(t, j), MW
+        Deficiti = (Deficit + DeficitD).sum() * resolution
+        if Deficiti > Deficiti_1:
             flexible[i: i+timestep] = Fcapacity
-            
-    flexible = np.clip(flexible - S.Spillage, 0, None)
-    return {year:flexible}
-
-def Analysis(x, flex=True):
-    """Dispatch.Analysis(result.x)"""
-    costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-    if flex is True:
-        starttime = dt.datetime.now()
-        print('Dispatch starts at', starttime)
-        print('Dispatch works on: ', end='')
-
-        # Multiprocessing
-        with Pool(processes=min(cpu_count(), (finalyear - firstyear + 1))) as pool:
-            instances  = [(year, x) for year in range(firstyear, finalyear + 1)]
-            Dispresult = pool.starmap(Flexible, instances)
-            
-        result = {year:flex for res in Dispresult for year,flex in res.items()}
-        Flex = np.concatenate([result[year] for year in range(firstyear, finalyear + 1)])
         
-        np.savetxt('Results/Dispatch_Flexible'+suffix, Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    Reliability(S, flexible, start=startidx, end=endidx, output=True)
+    flexible = np.maximum(flexible - S.Spillage, 0)
+    return flexible
 
-        endtime = dt.datetime.now()
-        print('.\nDispatch took', endtime - starttime)
 
-    else: 
-        Flex = np.genfromtxt('Results/Dispatch_Flexible'+suffix, delimiter=',')
+def Analysis(x):
+    """Dispatch.Analysis(result.x)"""
+    starttime = dt.datetime.now()
+    print('Dispatch starts at', starttime)
 
-    from Statistics import Information, DeficitInformation, verifyDispatch
-    # try: verifyDispatch(costCapacities, np.genfromtxt('CostOptimisationResults//Dispatch_Flexible{}-None.csv'.format(scenario), delimiter=','))
-    # except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, C deficit assertion failed')
-    # try: verifyDispatch(x, Flex)
-    # except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, deficit assertion failed')
-    # try: verifyDispatch(x, RFlex, resilience=True)    
-    # except AssertionError: print(f'{"="*50}\nS{scenario}, Z{eventZone}, R deficit assertion failed')
+    idxs = [(
+        int((24 / resolution) * (dt.datetime(year, 1, 1) - dt.datetime(firstyear, 1, 1)).days),
+        int((24 / resolution) * (dt.datetime(year+1, 1, 1) - dt.datetime(firstyear, 1, 1)).days))
+        for year in range(firstyear, finalyear + 1)]
 
+    # Multiprocessing
+    with Pool(processes=min(cpu_count(), (finalyear - firstyear + 1))) as pool:
+        instances  = [(idx, x) for idx in idxs]
+        Dispresult = pool.starmap(Flexible, instances)
+        
+    Dispresult = [flex for flex in Dispresult]
+    Flex = np.concatenate(Dispresult)
+    
+    np.savetxt('Results/Dispatch_Flexible'+suffix, Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+
+    endtime = dt.datetime.now()
+    print('Dispatch took', endtime - starttime)
+
+    from Statistics import Information, DeficitInformation
 
     Information(x, Flex, resilience=False)
-    # Information(x, RFlex, resilience=True)
-    if eventZone != 'None':
-        DeficitInformation(costCapacities, CPeak.sum() * pow(10, 3) * np.ones(intervals), 1)
     
     return True
 
@@ -76,4 +68,4 @@ if __name__ == '__main__':
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
 
-    Analysis(capacities, True)
+    Analysis(capacities)

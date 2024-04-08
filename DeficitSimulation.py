@@ -4,50 +4,50 @@ Created on Sat Oct 21 09:05:54 2023
 
 @author: hmtha
 """
-
+##TODO 
+# Alter hydro and bio here
+# Correct charging behaviour
 
 import numpy as np
 from Simulation import Reliability
 
-def DeficitSimulation(solution, flexible, RSim, start=None, end=None, output = 'deficits'):
+def DeficitSimulation(solution, flexible, FCap, RSim, start=None, end=None, output=True):
     """Deficit = Simulation.Resilience(S, hydro=...)"""
+    Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] # Sj-ENLoad(j, t), MW
+    length = len(Netload)
 
     windDiff, eventDur, eventZoneIndx = solution.WindDiff[start:end], solution.eventDur, solution.eventZoneIndx
     assert eventZoneIndx is not None
     
-    solution.flexible = flexible # MW
 
-    Pcapacity = sum(solution.CPHP) * pow(10, 3) # S-CPHP(j), GW to MW
-    Scapacity = solution.CPHS * pow(10, 3) # S-CPHS(j), GWh to MWh
-    PcapacityD = sum(solution.CDP) * pow(10, 3) # S-CDP(j), GW to MW
-    ScapacityD = sum(solution.CDS) * pow(10, 3) # S-CDS(j), GWh to MWh
+    Pcapacity = sum(solution.CPHP) * 1000 # S-CPHP(j), GW to MW
+    Scapacity = solution.CPHS * 1000 # S-CPHS(j), GWh to MWh
+    PcapacityD = sum(solution.CDP) * 1000 # S-CDP(j), GW to MW
+    ScapacityD = sum(solution.CDS) * 1000 # S-CDS(j), GWh to MWh
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
 
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
-    (Netload, Storage, StorageD, Deficit, DeficitD, Spillage, Discharge, DischargeD, 
-         Charge, ChargeD, P2V) = Reliability(solution, flexible, output=False, resilience = True)
- 
+    Deficit, DeficitD = Reliability(solution, flexible, start, end, output=True)
   
     # Calculate power generation difference for duration of event
     windDiffInst = np.zeros(windDiff.shape)
     for i in eventZoneIndx:
-        windDiffInst[max(0, RSim-eventDur[i]):RSim+1, i] = windDiff[max(0, RSim-eventDur[i]):RSim+1, i] 
+        windDiffInst[max(0, RSim-eventDur):RSim+1, i] = windDiff[max(0, RSim-eventDur):RSim+1, i] 
     
-    # Create new net load 
+    # Create new netload 
     try: 
-        RNetload = Netload - windDiffInst.sum(axis=1) 
+        RNetload = Netload - windDiffInst.sum(axis=1) - flexible
     except np.AxisError: 
         RNetload = Netload - windDiffInst
-    
-    
-    RStorage, RStorageD = Storage.copy(), StorageD.copy()
-    RDischarge, RDischargeD = Discharge.copy(), DischargeD.copy()
-    RCharge, RChargeD =Charge.copy(), ChargeD.copy()
-    RP2V = P2V.copy()
+        
+    RStorage, RStorageD = solution.Storage.copy(), solution.StorageD.copy()
+    RDischarge, RDischargeD = solution.Discharge.copy(), solution.DischargeD.copy()
+    RCharge, RChargeD = solution.Charge.copy(), solution.ChargeD.copy()
+    RP2V = solution.P2V.copy()
 
     # Recalculate step-wise energy flows from start of event 
-    for t in range(RSim-eventDur[i], solution.intervals):
+    for t in range(RSim-eventDur, RSim+eventDur*2):
         RNetloadt = RNetload[t]
         
         RStoraget_1 = RStorage[t-1] if t>0 else 0.5 * Scapacity
@@ -79,11 +79,13 @@ def DeficitSimulation(solution, flexible, RSim, start=None, end=None, output = '
     RDeficitD = ConsumeD - RDischargeD - RP2V * efficiencyD
     RSpillage = -1 * np.minimum(RNetload + RCharge + RChargeD, 0)
 
-    assert 0 <= int(np.amax(Storage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
-    assert 0 <= int(np.amax(StorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
-    assert np.amin(Deficit) >= 0, 'Deficit below zero'
-    assert np.amin(DeficitD) > -0.1, 'DeficitD below zero: {}'.format(np.amin(DeficitD))
-    assert np.amin(Spillage) >= 0, 'Spillage below zero'
+    from Dispatch import Flexible 
+    RFlexible = solution.flexible.copy()
+    RFlexible[RSim-eventDur*4:RSim+eventDur*2] = Flexible((RSim-eventDur*4, RSim+eventDur*2), solution.x)
+    
+
+    assert 0 <= int(np.amax(RStorage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'
+    assert 0 <= int(np.amax(RStorageD)) <= ScapacityD, 'StorageD below zero or exceeds max storage capacity'
     assert np.amin(RDeficit) >= 0, 'RDeficit below zero'
     assert np.amin(RDeficitD) > -0.1, 'RDeficitD below zero: {}'.format(np.amin(RDeficitD))
     assert np.amin(RSpillage) >= 0, 'RSpillage below zero'
@@ -94,12 +96,8 @@ def DeficitSimulation(solution, flexible, RSim, start=None, end=None, output = '
         RDischargeD.reshape(-1,1), RChargeD.reshape(-1,1), RStorageD.reshape(-1,1))
     solution.RDeficit, solution.RDeficitD, solution.RSpillage = (
         RDeficit.reshape(-1,1), RDeficitD.reshape(-1,1), RSpillage.reshape(-1,1)) 
+    solution.RFlexible = RFlexible
 
-    if output =='deficits': 
-        return Deficit, DeficitD, RDeficit, RDeficitD
-    elif output == 'solution': 
-        return solution
-    elif output is None: 
-        return None
-    else: 
-        raise Exception("Specify output")
+    return Deficit, DeficitD, RDeficit, RDeficitD
+
+    

@@ -16,7 +16,7 @@ from graphutils import directory_up, standardiseNas, adjust_legend
 
 directory_up()
 
-scenario = 21
+scenario = 15
 separate_plots = False
 dpi = 200
 
@@ -26,15 +26,14 @@ dpi = 200
 # =============================================================================
 def read_and_filter_df(path):
     df = pd.read_csv(path)
-    df = df.applymap(standardiseNas)
+    df = df.map(standardiseNas)
     df = df[df['Scenario'] == scenario] 
     df = df[df['Zone'].isna()]
     df = df.dropna(subset=['event'])
-    df = df
-    return df.reset_index(drop=True).drop(index=0).reset_index(drop=True)
+    return df.reset_index(drop=True)
     
 op = read_and_filter_df(fr"Results\Optimisation_resultx{scenario}-consolidated.csv")
-co = read_and_filter_df(r"Results/GGTA-consolidated.csv")
+co = read_and_filter_df(r"Results\GGTA-consolidated.csv")
 
 op = pd.melt(
     op,
@@ -155,7 +154,10 @@ sources = [['Solar (GW)', 'Wind (GW)', 'Storage (GW)'], ['Storage (GWh)']]
 for i in range(2):
     barplot(axs[0][i], sources[i], order)
     swarmplot(axs[0][i], sources[i], order)
-    axs[0][i].legend_.remove()
+    try: 
+        axs[0][i].legend_.remove()
+    except AttributeError: 
+        pass
 
 axs[0][0].set_ylabel('Power (GW)')
 axs[0][1].set_ylabel('Energy (GWh)')
@@ -172,7 +174,11 @@ order = ['Electricity', 'Generation', 'Storage', 'Transmission', 'Spillage & Los
 barplot(axs[1], order, order, 'Set2')
 swarmplot(axs[1], order, order)
 
-axs[1].legend_.remove()
+try: 
+    axs[1].legend_.remove()
+except AttributeError: 
+    pass
+
 axs[1].set_title(prefix[1] + 'Range of levelised costs')
 axs[1].set_ylabel('Cost ($/MWh)')
 axs[1].set_xlabel(None)

@@ -129,7 +129,7 @@ def plot_axis(ax, source, weighting):
         basefmt= ' ',
         markerfmt = ' ',
         linefmt = 'black',
-        label = 'Maximum Power\nDeficit (%)',
+        label = 'Mean Power\nDeficit (%)',
         )
     
     # Format Axis for presentation
@@ -170,7 +170,7 @@ def find_deficits():
     if years is not None: 
         sdata = sdata[sdata['Year'].isin(years)]
     
-    sdataMax = sdata.groupby(['Month', 'Day']).max().reset_index()
+    sdataMax = sdata.groupby(['Month', 'Day']).mean().reset_index()
     
     sdataMax['Date'] = sdataMax[['Month','Day']].apply(lambda x: dt(2000, *x), axis = 1)
     
@@ -180,9 +180,9 @@ def find_deficits():
 #%%
 if __name__ == '__main__': 
     
-    scenario = 21
+    scenario = 15
     n_year = 25
-    eventZone = np.array([7])
+    eventZone = np.array([23])
     event = 'e'
     years = None
     # how to separate plots: 'both', 'combined', True

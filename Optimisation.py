@@ -60,15 +60,15 @@ def R(x):
     S._evaluate()
     
     eventDeficit, penalties, cost = S.eventDeficit, S.penalties, S.cost
-    
-    if penalties > 0: 
-        penalties = penalties*pow(10,6)
-    
+        
     func = eventDeficit + penalties + cost
     
     if cost > costConstraint: 
-        func = func*pow(10,9)
+        func = func*1_000_000
     
+    if penalties > 0: 
+        func = func*1_000_000_000
+
     return func
 
 def callback(x_k, convergence):
@@ -82,6 +82,8 @@ def init_callbackfile(n):
         writer.writerow(['objective'] + ['dvar']*n)
 
 def optimise():
+    # R(0.5*(ub-lb)+lb) # pre-compile jit
+
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)
     

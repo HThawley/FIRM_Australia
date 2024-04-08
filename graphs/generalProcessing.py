@@ -34,10 +34,10 @@ def consolidateGGTA(output = False, cap = None):
         for file in files:   
             df = pd.concat([
                     pd.DataFrame([[int(file[4:6]), 
-                                  reSearchWrapper('(?<=-)(\[.*\]|all|None)(?=-)', file),
-                                  reSearchWrapper('(?<=-)\d+(?=-)', file), 
-                                  reSearchWrapper('(?<=-)(\w)(?=(-\d+)?.csv)', file),
-                                  reSearchWrapper('(\d+)?(?=.csv)', file)]]),
+                                  reSearchWrapper(r'(?<=-)(\[.*\]|all|None)(?=-)', file),
+                                  reSearchWrapper(r'(?<=-)\d+(?=-)', file), 
+                                  reSearchWrapper(r'(?<=-)(\w)(?=(-\d+)?.csv)', file),
+                                  reSearchWrapper(r'(\d+)?(?=.csv)', file)]]),
                     pd.read_csv(file, header=None)
                     ], axis = 1)
             ggta = pd.concat([ggta, df])
@@ -56,7 +56,7 @@ def consolidateGGTA(output = False, cap = None):
     if cap is not None: 
         ggta = addZoneCapacityGGTA(ggta, cap)
     if output: 
-        ggta = ggta.applymap(standardiseNas)
+        ggta = ggta.map(standardiseNas)
         ggta.to_csv('Results/GGTA-consolidated.csv', index = False)
 
     return ggta.reset_index(drop=True)
@@ -100,10 +100,10 @@ def consolidateCapacities(output=False):
                 if file[20:22] != scenario: continue
                 df = pd.concat([
                     pd.DataFrame([[int(file[20:22]), 
-                                   reSearchWrapper('(?<=-)(\[.*\]|all|None)(?=-)', file),
-                                   reSearchWrapper('(?<=-)\d+(?=-)', file), 
-                                   reSearchWrapper('(?<=-)(\w)(?=(-\d+)?.csv)', file),
-                                   reSearchWrapper('(\d+)?(?=.csv)', file)]]),
+                                   reSearchWrapper(r'(?<=-)(\[.*\]|all|None)(?=-)', file),
+                                   reSearchWrapper(r'(?<=-)\d+(?=-)', file, -1), 
+                                   reSearchWrapper(r'(?<=-)(\w)(?=(-\d+)?.csv)', file),
+                                   reSearchWrapper(r'(\d+)?(?=.csv)', file)]]),
                     pd.read_csv(file, header=None)
                     ], axis = 1)
                 
@@ -114,14 +114,14 @@ def consolidateCapacities(output=False):
         pidx, widx, sidx, headers, szindx = zoneTypeIndx(int(key), wdir=active_dir)
         
         df.columns = (['Scenario', 'Zone', 'n_year', 'event', 'trial'] + headers)
-        df['n_year'] = df['n_year'].fillna(-1).astype(int)
+        df['n_year'] = df['n_year'].astype(int)
         caps[key] = caps[key].reset_index(drop=True)
         
         
     if output: 
         for key, df in caps.items():
             if df.shape[0] > 1:
-                df = df.applymap(standardiseNas)
+                df = df.map(standardiseNas)
                 df.to_csv('Results/Optimisation_resultx{}-consolidated.csv'.format(key), index = False)
     
     return caps

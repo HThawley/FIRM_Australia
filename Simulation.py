@@ -9,9 +9,9 @@ from numba import njit
 @njit()
 def Reliability(solution, flexible, start=None, end=None, output=False):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
-    intervals = solution.intervals
-
     Netload = (solution.MLoad.sum(axis=1) - solution.GPV.sum(axis=1) - solution.GWind.sum(axis=1) - solution.GBaseload.sum(axis=1))[start:end] - flexible # Sj-ENLoad(j, t), MW
+
+    length = len(Netload)
 
     if output: 
         solution.flexible = flexible # MW
@@ -22,14 +22,19 @@ def Reliability(solution, flexible, start=None, end=None, output=False):
     ScapacityD = solution.CDS.sum() * 1000 # S-CDS(j), GWh to MWh
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
 
-    Discharge, Charge, Storage, DischargeD, ChargeD, StorageD, P2V = [np.zeros(intervals)]*7
+    Discharge = np.zeros(length)
+    Charge = np.zeros(length)
+    Storage = np.zeros(length)
+    DischargeD = np.zeros(length)
+    ChargeD = np.zeros(length)
+    StorageD = np.zeros(length)
+    P2V = np.zeros(length)
 
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
 
-    for t in range(intervals):
+    for t in range(length):
 
         Netloadt = Netload[t]
-        
         Storaget_1 = Storage[t-1] if t>0 else 0.5 * Scapacity
         StorageDt_1 = StorageD[t-1] if t>0 else 0.5 * ScapacityD
 

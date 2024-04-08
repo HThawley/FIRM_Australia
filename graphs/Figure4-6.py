@@ -15,11 +15,11 @@ from datetime import datetime as dt
 
 from graphutils import directory_up, adjust_legend
 
-scenario = 21
-eventZone = np.array([10])
+scenario = 15
+eventZone = np.array([23])
 # zoneName = 'S-NSW Tablelands'
-zoneName = 'Fitzroy'
-n_year = 25
+zoneName = ''
+n_year = 25 
 event = 'e'
 dpi = 200
 deficit_index=0 #rank (0-indexed)
@@ -27,7 +27,7 @@ deficit_index=0 #rank (0-indexed)
 
 directory_up()
 
-df = pd.read_csv(f"Results/SDeficit{deficit_index}-{scenario}-{eventZone}-{n_year}-{event}-1.csv")
+df = pd.read_csv(f"Results/SDeficit{deficit_index}-{scenario}-{eventZone}-{n_year}-{event}.csv")
 df = df.iloc[-350:, :]
 deficitMask = df['eventDeficit'] > 0
 
@@ -45,18 +45,19 @@ df = df.rename(columns={
     'PHES-power':'Storage (GW)',
     'Energy spillage':'Spillage (GW)',
     'PHES-Charge':'Charging (GW)',
-    'Operational demand (original)':'Demand (GW)'
+    'Operational demand (original)':'Demand (GW)',
     })
 
-edf = df[['Date & time', 'Hydro & Bio (GW)', 'Solar (GW)', 'eventPower', 
+edf = df[['Date & time', 'eventH&B', 'Solar (GW)', 'eventWind', 
        'eventPHES-power', 'eventSpillage', 'expec%', 'HILP%', 'Demand (GW)', 'eventPHES-Charge']]
 
 edf = edf.rename(columns={
     'Solar photovoltaics':'Solar (GW)',
     'eventPHES-power':'Storage (GW)',
     'eventSpillage':'Spillage (GW)',
-    'eventPower':'Wind (GW)',
-    'eventPHES-Charge':'Charging (GW)'
+    'eventWind':'Wind (GW)',
+    'eventPHES-Charge':'Charging (GW)',
+    'eventH&B':'Hydro & Bio (GW)',
     })
 
 
@@ -152,12 +153,14 @@ graphWrapper()
 
 
 #%%
+raise KeyboardInterrupt
 
 wind = pd.read_csv('Data/wind.csv', dtype = float)
-wind['dt'] = wind[['Year', 'Month', 'Day', 'Interval']].apply(
+wind['dt'] = wind.loc[:,['Year', 'Month', 'Day', 'Interval']].apply(
     lambda x: dt(int(x[0]), int(x[1]), int(x[2]), int((x[3]-1)//2), int(30*((x[3]-1)%2))), axis = 1)
 
 wind = wind.loc[(wind['dt']<df['Date & time'].max()) & (wind['dt']>df['Date & time'].min())]
+
 
 fig, ax = plt.subplots(figsize = (8,4), dpi=dpi)
 

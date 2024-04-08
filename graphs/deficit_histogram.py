@@ -24,9 +24,9 @@ from graphutils import directory_up, reSearchWrapper
 def sfileMatch(file):
     try: 
         assert file[:4] == f'S{scenario}-'
-        assert reSearchWrapper('(?<=-)\d+(?=-)', file) == str(n_year)
-        assert reSearchWrapper('(?<=-)(\w)(?=(-\d+)?.csv)', file) in events
-        ez = 'All' if 'All' in file else '['+re.split('\[|\]', file)[1]+']'
+        assert reSearchWrapper(r'(?<=-)\d+(?=-)', file) == str(n_year)
+        assert reSearchWrapper(r'(?<=-)(\w)(?=(-\d+)?.csv)', file) in events
+        ez = 'All' if 'All' in file else '['+re.split(r'\[|\]', file)[1]+']'
         assert ez in eventZones
         return True
     except (IndexError, AssertionError): 
@@ -39,11 +39,11 @@ def lambdaDt(*args): return dt(*args)
 # =============================================================================
 # #parameters
 # =============================================================================
-scenario = 21
+scenario = 15
 n_year = 25
 events = ('e',)
 dpi = 100
-eventZones = ('[10]',)
+eventZones = ('[23]',)
 
 # manage directory 
 directory_up()
@@ -63,8 +63,8 @@ for f in sfiles:
     
     sns.histplot(data = data.loc[data['eventDeficit'] != 0, :],
                  x = 'eventDeficit',
-                 binwidth = 2500,
-                 binrange = [0,data['eventDeficit'].max()],
+                 # binwidth = 2500,
+                 # binrange = [0,data['eventDeficit'].max()],
                  )
     
     ax.set_ylim([0, (ax.get_ylim()[1]//2+1)*2])
