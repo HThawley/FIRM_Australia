@@ -11,6 +11,13 @@ import numpy as np
 from re import sub
 from ast import literal_eval    
 
+from sys import platform
+if platform == 'linux': 
+    import resource
+    from psutil import virtual_memory
+    limit = int(0.9*virtual_memory()[0])
+    resource.setrlimit(resource.RLIMIT_DATA, (limit, limit))
+
 parser = ArgumentParser()
 parser.add_argument('-i',   default=500,   type=int,  required=False,help='maxiter=4000, 400')
 parser.add_argument('-p',   default=4,     type=int,  required=False,help='popsize=2, 10')
@@ -82,7 +89,7 @@ def init_callbackfile(n):
         writer.writerow(['objective'] + ['dvar']*n)
 
 def optimise():
-    # R(0.5*(ub-lb)+lb) # pre-compile jit
+    R(0.5*(ub-lb)+lb) # pre-compile jit
 
     starttime = dt.datetime.now()
     print("Optimisation starts at", starttime)

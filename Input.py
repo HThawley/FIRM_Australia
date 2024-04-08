@@ -409,8 +409,8 @@ class Solution:
 
 #%%
 if __name__ == '__main__': 
-    x = np.genfromtxt(fr"CostOptimisationResults\Optimisation_resultx{scenario}-None.csv", delimiter=',')
-    # x = np.genfromtxt(fr"Results\Optimisation_resultx{scenario}-None-25-e.csv", delimiter=',')
+    x = np.genfromtxt(f"CostOptimisationResults/Optimisation_resultx{scenario}-None.csv", delimiter=',')
+    # x = np.genfromtxt(f"Results/Optimisation_resultx{scenario}-None-25-e.csv", delimiter=',')
     s = Solution(x)
     s._evaluate()
     print(s.eventDeficit, s.cost, s.penalties)

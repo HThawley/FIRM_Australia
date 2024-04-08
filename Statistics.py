@@ -210,6 +210,9 @@ def TransmissionFactors(solution, flexible, RFlexible=None):
     solution.MHydro += solution.MBaseload
 
     if RFlexible is not None:
+        pkfactor = solution.CPeak / solution.CPeak.sum()
+        solution.RMPeak = RFlexible.reshape(-1,1)*pkfactor.reshape(1,-1)
+
         solution.RMHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * 1000 # GW to MW
         solution.RMHydro = np.minimum(solution.RMHydro, solution.RMPeak)
         solution.RMBio = solution.RMPeak - solution.RMHydro
