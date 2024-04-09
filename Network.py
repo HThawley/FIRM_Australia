@@ -7,55 +7,50 @@ import numpy as np
 from numba import njit
 
 @njit()
-def Transmission(solution, output=False):
+def Transmission(solution, output=False, resilience=False):
     """TDC = Network.Transmission(S)"""
     intervals, nodes = (solution.intervals, solution.nodes)
     
     MBaseload = solution.GBaseload # MW
     pkfactor = solution.CPeak / solution.CPeak.sum()
-    flexible = solution.flexible.copy()
-    MPeak = flexible.reshape(-1,1) * pkfactor.reshape(1,-1) # MW
-    
-    try: 
-        if solution.RFlexible.size != 0:
-            RMPeak = np.atleast_2d(solution.RFlexible).T*pkfactor.reshape(1,-1)
-    except Exception: # NameError but jit can't type excpetions
-        pass
+    MPeak = np.atleast_2d(solution.flexible).T * pkfactor.reshape(1,-1) # MW
 
     MLoad_denominator = solution.MLoad.sum(axis=1)
     defactor = np.divide(solution.MLoad, MLoad_denominator.reshape(-1, 1))
 
-    MDeficit = solution.Deficit.copy() # avoids numba error with reshaping below (also MSpillage, MCharge, MDischarge)
-    MDeficit = MDeficit.reshape(-1, 1) * defactor # MDeficit: EDE(j, t)
+    MDeficit = np.atleast_2d(solution.Deficit).T * defactor # MDeficit: EDE(j, t)
+    
+    if resilience is True:
+        MPeakR = np.atleast_2d(solution.RFlexible).T*pkfactor.reshape(1,-1)
 
     PVl_int, Windl_int = (solution.PVl_int, solution.Windl_int)
-    MPV, MWind = [np.zeros((nodes, intervals))] * 2
+    MPV, MWind, MWindR = np.zeros((nodes, intervals)), np.zeros((nodes, intervals)), np.zeros((nodes, intervals))
+    
     for i, j in enumerate(solution.Nodel_int):
         MPV[i, :] = solution.GPV[:, np.where(PVl_int==j)[0]].sum(axis=1)
         MWind[i, :] = solution.GWind[:, np.where(Windl_int==j)[0]].sum(axis=1)
-    MPV, MWind = MPV.T, MWind.T # Sij-GPV(t, i), Sij-GWind(t, i), MW
+        MWindR[i, :] = solution.GWindR[:, np.where(Windl_int==j)[0]].sum(axis=1)
+    MPV, MWind, MWindR = MPV.T, MWind.T, MWindR.T # Sij-GPV(t, i), Sij-GWind(t, i), MW
 
     MPW = MPV + MWind
     MPW_denominator = np.atleast_2d(MPW.sum(axis=1) + 0.00000001).T
     spfactor = np.divide(MPW, MPW_denominator)
-    MSpillage = solution.Spillage.copy()
-    MSpillage = MSpillage.reshape(-1, 1) * spfactor # MSpillage: ESP(j, t)
+    MSpillage = np.atleast_2d(solution.Spillage).T * spfactor # MSpillage: ESP(j, t)
 
     CPHP = solution.CPHP
     dzsm = CPHP != 0 # divide by zero safe mask
     pcfactor = np.zeros(CPHP.shape)
     pcfactor[dzsm] =  CPHP[dzsm] / CPHP[dzsm].sum(axis=0)
     
-    MCharge, MDischarge, MP2V = solution.Charge.copy(), solution.Discharge.copy(), solution.P2V.copy()
-    MDischarge = (MDischarge.reshape(-1, 1) * pcfactor)# MDischarge: DPH(j, t)
-    MCharge = (MCharge.reshape(-1, 1) * pcfactor) # MCharge: CHPH(j, t)
-    MP2V = (MP2V.reshape(-1, 1) * pcfactor)
+    MDischarge = np.atleast_2d(solution.Discharge).T * pcfactor# MDischarge: DPH(j, t)
+    MCharge = np.atleast_2d(solution.Charge).T * pcfactor # MCharge: CHPH(j, t)
+    MP2V = np.atleast_2d(solution.P2V).T * pcfactor
     
-    CDP, MChargeD = solution.CDP, solution.ChargeD.copy()
+    CDP = solution.CDP
     dzsm = CDP!=0
     pcfactorD = np.zeros(CDP.shape)
     pcfactorD[dzsm] = pcfactorD[dzsm] / CDP[dzsm].sum()
-    MChargeD = (MChargeD.reshape(-1, 1) * pcfactorD) # MCharge: CHPH(j, t)
+    MChargeD = np.atleast_2d(solution.ChargeD).T * pcfactorD # MCharge: CHPH(j, t)
 
     MImport = solution.MLoad + MCharge + MChargeD + MSpillage - MPV - MWind - MBaseload - MPeak - MDischarge + MP2V - MDeficit # EIM(t, j), MW
               
@@ -74,35 +69,19 @@ def Transmission(solution, output=False):
     TDC = np.stack((FQ, NQ, NS, NV, AS, SW, TV), axis=1) # TDC(t, k), MW
     
     if output:
-        Storage, DischargeD, StorageD = solution.Storage.copy(), solution.DischargeD.copy(), solution.StorageD.copy()
-        MStorage = Storage.reshape(-1,1) * pcfactor # SPH(t, j), MWh
-        MDischargeD = DischargeD.reshape(-1,1) * pcfactorD  # MDischarge: DD(j, t)
-        MStorageD = StorageD.reshape(-1,1) * pcfactorD  # SD(t, j), MWhD
+        MStorage = np.atleast_2d(solution.Storage).T * pcfactor # SPH(t, j), MWh
+        MDischargeD = np.atleast_2d(solution.DischargeD).T * pcfactorD  # MDischarge: DD(j, t)
+        MStorageD = np.atleast_2d(solution.StorageD).T * pcfactorD  # SD(t, j), MWhD
     
-        solution.MPV, solution.MWind, solution.MBaseload, solution.MPeak, solution.RMPeak = (MPV, MWind, MBaseload, MPeak, RMPeak)
+        solution.MPV, solution.MWind, solution.MWindR, solution.MBaseload, solution.MPeak = (MPV, MWind, MWindR, MBaseload, MPeak)
         solution.MDischarge, solution.MCharge, solution.MStorage, solution.MP2V = (MDischarge, MCharge, MStorage, MP2V)
         solution.MDischargeD, solution.MChargeD, solution.MStorageD = (MDischargeD, MChargeD, MStorageD)
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)
+        
+        if resilience is True:
+            solution.MPeakR = MPeakR
+    
     return TDC
 
-# if __name__ == '__main__':
-#     from Input import suffix, scenario, CPeak, intervals, Solution
-#     from DeficitSimulation import DeficitSimulation
-#     from CoSimulation import Resilience
-    
-#     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
-#     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
-#     flexible = CPeak.sum() * pow(10, 3) * np.ones(intervals)
-    
-#     solution = Solution(capacities)
-#     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=flexible)
-    
-#     topDeficitIndx = np.flip(np.argpartition(RDeficit, -1)[-1:])
-    
-#     for n, indx in enumerate(topDeficitIndx):
-#         solution = Solution(capacities)
-#         solution = DeficitSimulation(solution, flexible, RSim=indx, output='solution')
-    
-#     solution.TDC, solution.TDCR = Transmission(solution, True, True)
     
     

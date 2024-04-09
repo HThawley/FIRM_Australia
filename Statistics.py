@@ -69,7 +69,6 @@ def LPGM(solution, RSim=None):
     C = np.around(C.T)
 
     datentime = np.array([(dt.datetime(firstyear, 1, 1, 0, 0) + x * dt.timedelta(minutes=60 * resolution)).strftime('%a -%d %b %Y %H:%M') for x in range(intervals)])
-    C = np.insert(C.astype('str'), 0, datentime, axis=1)
 
     header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
              'Hydropower,Biomass,Solar photovoltaics,Wind,eventWind,' \
@@ -78,10 +77,12 @@ def LPGM(solution, RSim=None):
              'FNQ-QLD,NSW-QLD,NSW-SA,NSW-VIC,NT-SA,SA-WA,TAS-VIC'
 
     if RSim is None: 
+        C = np.insert(C.astype('str'), 0, datentime, axis=1)
         np.savetxt('Results/S'+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
     else: 
-        C = np.around(np.hstack((C, (solution.RMHydro.sum(axis=1)+solution.RMBio.sum(axis=1)).reshape(-1,1))))
+        C = np.around(np.hstack((C, (solution.MHydroR.sum(axis=1)+solution.MBioR.sum(axis=1)).reshape(-1,1))))
         header += ',eventH&B'
+        C = np.insert(C.astype('str'), 0, datentime, axis=1)
         C = C[max(0, RSim[1] - solution.eventDur - 96):RSim[1] + 97, :] #2 days before event + 2 day after 
         np.savetxt('Results/SDeficit{}-'.format(RSim[0])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
 
@@ -90,19 +91,18 @@ def LPGM(solution, RSim=None):
         header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
                  'Hydropower,Biomass,Solar photovoltaics,Wind,eventWind,' \
                  'PHES-power,Energy deficit,Energy spillage,Transmission,PHES-Charge,' \
-                 'PHES-Storage,eventPowerLoss,eventDeficit,'\
-                 'eventStorage,eventPHES-power,eventPHES-charge,eventSpillage'
+                 'PHES-Storage'
 
         Topology = solution.Topology[np.where(np.in1d(np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']), coverage) == True)[0]]
 
         for j in range(nodes):
             C = np.stack([(solution.MLoad + solution.MLoadD)[:, j], (solution.MLoad + solution.MChargeD + solution.MP2V)[:, j],
-                          solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.RMWind[:, j],
+                          solution.MHydro[:, j], solution.MBio[:, j], solution.MPV[:, j], solution.MWind[:, j], solution.MWindR[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -1 * solution.MSpillage[:, j], Topology[j], -1 * solution.MCharge[:, j],
                           solution.MStorage[:, j]])
-            C = np.around(C.transpose())
+            C = np.around(C.T)
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            np.savetxt('Results/S{}'.format(solution.Nodel[j])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
+            np.savetxt('Results/S{}'.format(Nodel[j])+suffix, C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -180,13 +180,13 @@ def GGTA(solution, verbose=False):
 def TransmissionFactors(solution, flexible, RFlexible=None):
     
     if scenario>=21:
-        solution.TDC= Transmission(solution, True) # TDC(t, k), MW
+        solution.TDC= Transmission(solution, True, RFlexible is not None) # TDC(t, k), MW
     else:
         solution.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
         
         solution.MPeak = np.tile(flexible, (nodes, 1)).T # MW
         if RFlexible is not None:
-            solution.RMPeak = np.tile(RFlexible, (nodes, 1)).T
+            solution.MPeakR = np.tile(RFlexible, (nodes, 1)).T
         solution.MBaseload = GBaseload.copy() # MW
 
         solution.MPV = solution.GPV.sum(axis=1).reshape(-1,1) if solution.GPV.shape[1]>0 else np.zeros((intervals, 1), dtype=np.float64)
@@ -203,6 +203,9 @@ def TransmissionFactors(solution, flexible, RFlexible=None):
             
     solution.CDC = np.amax(abs(solution.TDC), axis = 0) * 0.001
     solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV = map(lambda k: solution.TDC[:, k], range(solution.TDC.shape[1]))
+    solution.Topology = np.array(
+        [-1 *solution.FQ, -1 *(solution.NQ +solution.NS +solution.NV), -1 *solution.AS ,solution.FQ +solution.NQ, 
+         solution.NS + solution.AS -solution.SW, -1 *solution.TV,solution.NV +solution.TV,solution.SW])
 
     solution.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * 1000 # GW to MW
     solution.MHydro = np.minimum(solution.MHydro, solution.MPeak)
@@ -210,16 +213,11 @@ def TransmissionFactors(solution, flexible, RFlexible=None):
     solution.MHydro += solution.MBaseload
 
     if RFlexible is not None:
-        solution.RMHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * 1000 # GW to MW
-        solution.RMHydro = np.minimum(solution.RMHydro, solution.RMPeak)
-        solution.RMBio = solution.RMPeak - solution.RMHydro
-        solution.RMHydro += solution.MBaseload
-
-    solution.Topology = np.array(
-        [-1 *solution.FQ, -1 *(solution.NQ +solution.NS +solution.NV), -1 *solution.AS ,solution.FQ +solution.NQ, 
-         solution.NS + solution.AS -solution.SW, -1 *solution.TV,solution.NV +solution.TV,solution.SW])
-    
-
+        solution.MHydroR = np.tile(CHydro - CBaseload, (intervals, 1)) * 1000 # GW to MW
+        solution.MHydroR = np.minimum(solution.MHydroR, solution.MPeakR)
+        solution.MBioR = solution.MPeakR - solution.MHydroR
+        solution.MHydroR += solution.MBaseload
+        
 def Information(x, flexible, resilience=False):
     """Dispatch: Statistics.Information(x, Flex)"""
 
@@ -270,6 +268,10 @@ if __name__ == '__main__':
     costCapacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
     flexible = np.genfromtxt('Results/Dispatch_Flexible'+suffix, delimiter=',')
+    
+    S = Solution(capacities)
+    S._evaluate()
+    print(S.eventDeficit, S.cost, S.penalties)
     
     if eventZone != 'None':
         DeficitInformation(capacities, flexible, 1)

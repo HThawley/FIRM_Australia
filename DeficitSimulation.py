@@ -47,7 +47,7 @@ def DeficitSimulation(solution, flexible, FCap, RSim, start=None, end=None, outp
     RP2V = solution.P2V.copy()
 
     # Recalculate step-wise energy flows from start of event 
-    for t in range(RSim-eventDur, RSim+eventDur*2):
+    for t in range(max(RSim-eventDur,0), min(length, RSim+eventDur*2)):
         RNetloadt = RNetload[t]
         
         RStoraget_1 = RStorage[t-1] if t>0 else 0.5 * Scapacity
@@ -81,7 +81,8 @@ def DeficitSimulation(solution, flexible, FCap, RSim, start=None, end=None, outp
 
     from Dispatch import Flexible 
     RFlexible = solution.flexible.copy()
-    RFlexible[RSim-eventDur*4:RSim+eventDur*2] = Flexible((RSim-eventDur*4, RSim+eventDur*2), solution.x)
+    startidx, endidx = max(0, RSim-eventDur*4), min(length, RSim+eventDur*2 )
+    RFlexible[startidx:endidx] = Flexible((startidx, endidx), solution.x)
     
 
     assert 0 <= int(np.amax(RStorage)) <= Scapacity, 'Storage below zero or exceeds max storage capacity'

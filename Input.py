@@ -220,7 +220,7 @@ def F(solution):
 
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=np.ones(intervals, dtype=np.float64) * CPeak.sum() * 1000) # solutionj-EDE(t, j), GW to MW
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
-    eventDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution)# / (intervals*resolution/24)) #MWh/day
+    eventDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution / (intervals*resolution/24)) #MWh/day
 
     TDC_abs = np.abs(Transmission(solution)) if scenario>=21 else np.zeros((intervals, len(DCloss))) # TDC: TDC(t, k), MW
     CDC = np.zeros(len(DCloss), dtype=np.float64)
@@ -257,6 +257,7 @@ solution_spec = [
 
     ('CPV', float64[:]),
     ('CWind', float64[:]),
+    ('CWindR', float64[:]),
     ('GPV', float64[:, :]),  # 2D array of floats
     ('GWind', float64[:, :]),
     ('CPHP', float64[:]),
@@ -303,9 +304,10 @@ solution_spec = [
     ('RP2V', float64[:,:]),
     ('RFlexible',float64[:]),
 
-    ('RMPeak', float64[:, :]),
-    ('RMHydro', float64[:, :]),
-    ('RMBio', float64[:, :]),
+    ('MWindR', float64[:, :]),
+    ('MPeakR', float64[:, :]),
+    ('MHydroR', float64[:, :]),
+    ('MBioR', float64[:, :]),
     
     ('OptimisedCost', float64),
     ('costConstraint', float64),
@@ -314,10 +316,10 @@ solution_spec = [
     ('penalties', float64),
     ('evaluated', boolean),
     
+    ('MBaseload', float64[:, :]),
     ('MPV', float64[:, :]),
     ('MP2V', float64[:, :]),
     ('MWind', float64[:, :]),
-    ('MBaseload', float64[:, :]),
     ('MPeak', float64[:, :]),
     ('MDischarge', float64[:, :]),
     ('MCharge', float64[:, :]),
@@ -382,13 +384,13 @@ class Solution:
         if eventZoneIndx[0] > 0:
             mask[self.eventZoneIndx] = 0 
         
-        CWindR = self.CWind * mask
+        self.CWindR = self.CWind * mask
         TSWindR = TSWind * mask
         
-        CWindR_tiled = np.zeros((intervals, len(CWindR)), dtype=np.float64)
+        CWindR_tiled = np.zeros((intervals, len(self.CWindR)), dtype=np.float64)
         for i in range(intervals):
-            for j in range(len(CWindR)):
-                CWindR_tiled[i,j] = CWindR[j]
+            for j in range(len(self.CWindR)):
+                CWindR_tiled[i,j] = self.CWindR[j]
         self.GWindR = TSWindR * CWindR_tiled * 1000 # GWind(i, t), GW to MW
         
         self.WindDiff = self.GWindR - self.GWind
