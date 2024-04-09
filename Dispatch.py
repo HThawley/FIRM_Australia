@@ -66,6 +66,7 @@ def Analysis(x):
 if __name__ == '__main__':
     
     # capacities = np.genfromtxt('CostOptimisationResults/Optimisation_resultx{}-None.csv'.format(scenario), delimiter=',')
+    print(suffix)
     capacities = np.genfromtxt('Results/Optimisation_resultx'+suffix, delimiter=',')
 
     Analysis(capacities)
