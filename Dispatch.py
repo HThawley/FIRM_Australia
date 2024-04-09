@@ -60,6 +60,7 @@ def Analysis(x):
     from Statistics import Information, DeficitInformation
 
     Information(x, Flex, resilience=False)
+    DeficitInformation(x, Flex, 1)
     
     return True
 

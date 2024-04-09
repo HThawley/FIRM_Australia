@@ -213,27 +213,11 @@ def TransmissionFactors(solution, flexible, RFlexible=None):
     solution.MHydro += solution.MBaseload
 
     if RFlexible is not None:
-<<<<<<< HEAD
-        pkfactor = solution.CPeak / solution.CPeak.sum()
-        solution.RMPeak = RFlexible.reshape(-1,1)*pkfactor.reshape(1,-1)
-
-        solution.RMHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * 1000 # GW to MW
-        solution.RMHydro = np.minimum(solution.RMHydro, solution.RMPeak)
-        solution.RMBio = solution.RMPeak - solution.RMHydro
-        solution.RMHydro += solution.MBaseload
-
-    solution.Topology = np.array(
-        [-1 *solution.FQ, -1 *(solution.NQ +solution.NS +solution.NV), -1 *solution.AS ,solution.FQ +solution.NQ, 
-         solution.NS + solution.AS -solution.SW, -1 *solution.TV,solution.NV +solution.TV,solution.SW])
-    
-
-=======
         solution.MHydroR = np.tile(CHydro - CBaseload, (intervals, 1)) * 1000 # GW to MW
         solution.MHydroR = np.minimum(solution.MHydroR, solution.MPeakR)
         solution.MBioR = solution.MPeakR - solution.MHydroR
         solution.MHydroR += solution.MBaseload
         
->>>>>>> a5b59dbc899c4813e540f8fef2f59f2d51ee0e36
 def Information(x, flexible, resilience=False):
     """Dispatch: Statistics.Information(x, Flex)"""
 

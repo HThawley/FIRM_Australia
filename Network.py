@@ -13,12 +13,7 @@ def Transmission(solution, output=False, resilience=False):
     
     MBaseload = solution.GBaseload # MW
     pkfactor = solution.CPeak / solution.CPeak.sum()
-<<<<<<< HEAD
-    flexible = solution.flexible.copy()
-    MPeak = flexible.reshape(-1,1) * pkfactor.reshape(1,-1) # MW
-=======
     MPeak = np.atleast_2d(solution.flexible).T * pkfactor.reshape(1,-1) # MW
->>>>>>> a5b59dbc899c4813e540f8fef2f59f2d51ee0e36
 
     MLoad_denominator = solution.MLoad.sum(axis=1)
     defactor = np.divide(solution.MLoad, MLoad_denominator.reshape(-1, 1))
@@ -78,11 +73,7 @@ def Transmission(solution, output=False, resilience=False):
         MDischargeD = np.atleast_2d(solution.DischargeD).T * pcfactorD  # MDischarge: DD(j, t)
         MStorageD = np.atleast_2d(solution.StorageD).T * pcfactorD  # SD(t, j), MWhD
     
-<<<<<<< HEAD
-        solution.MPV, solution.MWind, solution.MBaseload, solution.MPeak = (MPV, MWind, MBaseload, MPeak)
-=======
         solution.MPV, solution.MWind, solution.MWindR, solution.MBaseload, solution.MPeak = (MPV, MWind, MWindR, MBaseload, MPeak)
->>>>>>> a5b59dbc899c4813e540f8fef2f59f2d51ee0e36
         solution.MDischarge, solution.MCharge, solution.MStorage, solution.MP2V = (MDischarge, MCharge, MStorage, MP2V)
         solution.MDischargeD, solution.MChargeD, solution.MStorageD = (MDischargeD, MChargeD, MStorageD)
         solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)

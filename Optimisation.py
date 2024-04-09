@@ -132,6 +132,6 @@ if __name__=='__main__':
 
     result, time = optimise()
 
-    # from Dispatch import Analysis
-    # Analysis(result.x)
+    from Dispatch import Analysis
+    Analysis(result.x)
 
