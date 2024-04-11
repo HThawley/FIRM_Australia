@@ -413,6 +413,7 @@ class Solution:
 if __name__ == '__main__': 
     x = np.genfromtxt(f"CostOptimisationResults/Optimisation_resultx{scenario}-None.csv", delimiter=',')
     # x = np.genfromtxt(f"Results/Optimisation_resultx{scenario}-None-25-e.csv", delimiter=',')
+    # x = np.genfromtxt(f"Results/Optimisation_resultx{scenario}-None-25-N-0.csv", delimiter=',')
     s = Solution(x)
     s._evaluate()
     print(s.eventDeficit, s.cost, s.penalties)

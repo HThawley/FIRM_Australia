@@ -36,7 +36,7 @@ if __name__ == '__main__':
 #   analysis parameters
 # =============================================================================
     events = ('e',)
-    scenario = 21
+    scenario = 15
     # plot as separate subplots
     separate_plots = True
     # figure res

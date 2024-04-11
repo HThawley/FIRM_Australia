@@ -180,9 +180,9 @@ def find_deficits():
 #%%
 if __name__ == '__main__': 
     
-    scenario = 15
+    scenario = 21
     n_year = 25
-    eventZone = np.array([23])
+    eventZone = np.array([7])
     event = 'e'
     years = None
     # how to separate plots: 'both', 'combined', True

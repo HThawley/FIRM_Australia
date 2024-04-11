@@ -71,9 +71,9 @@ def R(x):
     func = eventDeficit + penalties + cost
     
     if cost > costConstraint: 
-        func = func*1_000_000_000
+        func = func*1_000_000_000_000
     
-    if penalties > 0: 
+    if penalties > 0.1: 
         func = func*1_000_000_000_000
 
     return func

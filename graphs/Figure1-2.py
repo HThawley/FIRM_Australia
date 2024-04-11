@@ -16,7 +16,7 @@ from graphutils import directory_up, standardiseNas, adjust_legend
 
 directory_up()
 
-scenario = 15
+scenario = 21
 separate_plots = False
 dpi = 200
 
