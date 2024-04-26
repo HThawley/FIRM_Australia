@@ -219,6 +219,7 @@ def F(solution):
     PenHydro = np.maximum(0, Hydro - 20 * 1000000) # TWh p.a. to MWh p.a.
 
     Deficit, DeficitD, RDeficit, RDeficitD = Resilience(solution, flexible=np.ones(intervals, dtype=np.float64) * CPeak.sum() * 1000) # solutionj-EDE(t, j), GW to MW
+    RDeficit, RDeficitD = RDeficit / len(solution.eventZoneIndx), RDeficitD / len(solution.eventZoneIndx)
     PenDeficit = max(0, (Deficit + DeficitD / efficiencyD).sum() * resolution) # MWh
     eventDeficit = max(0, (RDeficit + RDeficitD / efficiencyD).sum() * resolution / (intervals*resolution/24)) #MWh/day
 
@@ -381,7 +382,7 @@ class Solution:
         self.eventZoneIndx, self.eventDur = eventZoneIndx, eventDur
         
         mask = np.ones(self.CWind.shape, np.bool_)
-        if eventZoneIndx[0] > 0:
+        if eventZoneIndx[0] >= 0:
             mask[self.eventZoneIndx] = 0 
         
         self.CWindR = self.CWind * mask
@@ -414,9 +415,9 @@ if __name__ == '__main__':
     x = np.genfromtxt(f"CostOptimisationResults/Optimisation_resultx{scenario}-None.csv", delimiter=',')
     # x = np.genfromtxt(f"Results/Optimisation_resultx{scenario}-None-25-e.csv", delimiter=',')
     # x = np.genfromtxt(f"Results/Optimisation_resultx{scenario}-None-25-N-0.csv", delimiter=',')
-    s = Solution(x)
-    s._evaluate()
-    print(s.eventDeficit, s.cost, s.penalties)
+    solution = Solution(x)
+    solution._evaluate()
+    print(solution.eventDeficit, solution.cost, solution.penalties)
     # Deficit, DeficitD, RDeficit, RDeficitD = Resilience(s, flexible=np.ones(intervals) * CPeak.sum() * 1000)
     # print(RDeficit.sum())
     

@@ -19,7 +19,7 @@ def Resilience(solution, flexible, start=None, end=None, output=True):
     
     Deficit, DeficitD = Reliability(solution, flexible, start, end, output=True)
     
-    if eventZoneIndx[0] > 0: 
+    if eventZoneIndx[0] >= 0: 
         if len(eventZoneIndx) > 1 and solution.logic == 'and':
             eventZoneIndx = np.array([-1])
             windDiff = windDiff.sum(axis=1).reshape((-1,1))
@@ -41,9 +41,24 @@ def Resilience(solution, flexible, start=None, end=None, output=True):
         if len(eventZoneIndx) > 1:
             assert solution.logic == 'xor'
             
-            RDeficit, RDeficitD = np.zeros((length, len(eventZoneIndx))), np.zeros((length, len(eventZoneIndx)))
+            zs = (length, len(eventZoneIndx))
+            RDeficit, RDeficitD = np.zeros(zs), np.zeros(zs)
+            
+            if output is True:
+                solution.RDischarge = np.zeros(zs)
+                solution.RCharge = np.zeros(zs)
+                solution.RStorage = np.zeros(zs)
+                solution.RP2V = np.zeros(zs)
+                solution.RDischargeD = np.zeros(zs)
+                solution.RChargeD = np.zeros(zs)
+                solution.RStorageD = np.zeros(zs)
+                solution.RDeficit = np.zeros(zs)
+                solution.RDeficitD = np.zeros(zs)
+                solution.RSpillage = np.zeros(zs)
+
             for i, z in enumerate(eventZoneIndx):
-                Rgen = np.hstack((np.zeros(eventDur - 1), np.clip(windDiff[:,z]-solution.Spillage, None, 0)))
+                Rgen = np.hstack((np.zeros(eventDur - 1), 
+                                  np.clip(windDiff[:,z]-solution.Spillage, None, 0)))
                 storageAdj = np.lib.stride_tricks.sliding_window_view(Rgen, eventDur).sum(axis=1)
                 
                 RDeficit[:, i], RDeficitD[:, i] = Resilience_wrapped(
@@ -74,7 +89,6 @@ def Resilience_wrapped(storageAdj, RNetload, solution, start, end, j, output):
     PcapacityD = solution.CDP.sum() * 1000 # S-CDP(j), GW to MW
     ScapacityD = solution.CDS.sum() * 1000 # S-CDS(j), GWh to MWh
     efficiency, efficiencyD, resolution = (solution.efficiency, solution.efficiencyD, solution.resolution)
-
     
     ConsumeD = solution.MLoadD.sum(axis=1)[start:end] * efficiencyD
     

@@ -11,7 +11,9 @@ import re
 import numpy as np
 from ast import literal_eval
 
-from graphs.graphutils import readPrintedArray, reSearchWrapper, zoneTypeIndx, standardiseNas
+from graphutils import directory_up, readPrintedArray, reSearchWrapper, zoneTypeIndx, standardiseNas
+
+directory_up()
 
 #%% 
 

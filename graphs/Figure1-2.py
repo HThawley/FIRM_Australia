@@ -72,6 +72,7 @@ co = pd.melt(
     value_name = 'Quantity',
     )
 
+co = co.drop(columns=['event', 'Zone'])
 comedian = co.groupby(['Scenario','Source']).median().reset_index()
 
 #%%
@@ -79,7 +80,6 @@ comedian = co.groupby(['Scenario','Source']).median().reset_index()
 # Boxplot of capacities at each zone
 # =============================================================================
 fig, ax = plt.subplots(figsize = (8, 6), dpi=dpi)
-
 sns.boxplot(
     data = op.loc[op.loc[:, 'ZoneName'] != 'storage (GWh)', :],
     x = 'ZoneName',
