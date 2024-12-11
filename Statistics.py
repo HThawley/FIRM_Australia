@@ -37,19 +37,16 @@ def Debug(solution):
             assert abs(Storage[i] - Storage[i - 1] + Discharge[i] * resolution - Charge[i] * resolution * efficiency) <= 1
             assert abs(StorageD[i] - StorageD[i - 1] + DischargeD[i] * resolution - ChargeD[i] * resolution * efficiencyD) <= 1
 
-        # Capacity: PV, wind, Discharge, Charge and Storage
-        try:
-            assert np.amax(PV) <= sum(solution.CPV) * pow(10, 3), print(np.amax(PV) - sum(solution.CPV) * pow(10, 3))
-            assert np.amax(Wind) <= sum(solution.CWind) * pow(10, 3), print(np.amax(Wind) - sum(solution.CWind) * pow(10, 3))
+    # Capacity: PV, wind, Discharge, Charge and Storage
+    assert np.amax(PV) <= sum(solution.CPV) * pow(10, 3), print(np.amax(PV) - sum(solution.CPV) * pow(10, 3))
+    assert np.amax(Wind) <= sum(solution.CWind) * pow(10, 3), print(np.amax(Wind) - sum(solution.CWind) * pow(10, 3))
 
-            assert np.amax(Discharge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Discharge) - sum(solution.CPHP) * pow(10, 3))
-            assert np.amax(Charge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Charge) - sum(solution.CPHP) * pow(10, 3))
-            assert np.amax(Storage) <= solution.CPHS * pow(10, 3), print(np.amax(Storage) - solution.CPHS * pow(10, 3))
-            assert np.amax(DischargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(DischargeD) - sum(solution.CDP) * pow(10, 3))
-            assert np.amax(ChargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(ChargeD) - sum(solution.CDP) * pow(10, 3))
-            assert np.amax(StorageD) <= sum(solution.CDS) * pow(10, 3), print(np.amax(StorageD) - sum(solution.CDS) * pow(10, 3))
-        except AssertionError:
-            pass
+    assert np.amax(Discharge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Discharge) - sum(solution.CPHP) * pow(10, 3))
+    assert np.amax(Charge) <= sum(solution.CPHP) * pow(10, 3), print(np.amax(Charge) - sum(solution.CPHP) * pow(10, 3))
+    assert np.amax(Storage) <= solution.CPHS * pow(10, 3), print(np.amax(Storage) - solution.CPHS * pow(10, 3))
+    assert np.amax(DischargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(DischargeD) - sum(solution.CDP) * pow(10, 3))
+    assert np.amax(ChargeD) <= sum(solution.CDP) * pow(10, 3), print(np.amax(ChargeD) - sum(solution.CDP) * pow(10, 3))
+    assert np.amax(StorageD) <= sum(solution.CDS) * pow(10, 3), print(np.amax(StorageD) - sum(solution.CDS) * pow(10, 3))
 
     print('Debugging: everything is ok')
 
@@ -67,7 +64,7 @@ def LPGM(solution):
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
     C = np.around(C.transpose())
 
-    datentime = np.array([(dt.datetime(firstyear, 1, 1, 0, 0) + x * dt.timedelta(minutes=60 * resolution)).strftime('%a %-d %b %Y %H:%M') for x in range(intervals)])
+    datentime = np.array([(dt.datetime(firstyear, 1, 1, 0, 0) + x * dt.timedelta(minutes=60 * resolution)).strftime('%a %d-%b %Y %H:%M') for x in range(intervals)])
     C = np.insert(C.astype('str'), 0, datentime, axis=1)
 
     header = 'Date & time,Operational demand (original),Operational demand (adjusted),' \
