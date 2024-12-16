@@ -6,28 +6,22 @@
 from Input import * 
 from Simulation import Reliability 
 
-import datetime as dt
+from datetime import datetime as dt
 import numpy as np 
 
 def Fill(solution):
     flexible = np.zeros(intervals, dtype=np.float64)
-    Deficit, DeficitD = Reliability(solution, flexible=flexible)
+    Deficit = Reliability(solution, flexible=flexible)
     flex_cap = CPeak.sum()*1000
     
     fill = 0
     for t in range(intervals-1, -1, -1):
         d = Deficit[t]
-        dd = DeficitD[t]
         if d > 0:
             flex = min(d, flex_cap - flexible[t]) 
             flexible[t] = flex
             if d-flex > 0:
                 fill += (d-flex)/efficiency
-        if dd > 0:
-            flex = min(dd, flex_cap - flexible[t]) 
-            flexible[t] += flex
-            if dd-flex > 0:
-                fill += (dd-flex)/efficiencyD
         if fill > 0:
             flex = min(fill, flex_cap - flexible[t]) 
             fill -= flex
@@ -39,12 +33,19 @@ def Fill(solution):
 def Analysis(x):
     """Fill.Analysis(result.x)"""
 
-    starttime = dt.datetime.now()
+    starttime = dt.now()
     print('Fill starts at', starttime)
 
     S = Solution(x)
     Flex = Fill(S)
     np.savetxt('Results/Dispatch_Flexible{}.csv'.format(scenario), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
-    endtime = dt.datetime.now()
+    endtime = dt.now()
     print('Fill took', endtime - starttime)
+    
+    from Statistics import Information
+    Information(x, Flex)
+    
+if __name__ == '__main__':
+    capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float)
+    Analysis(capacities)

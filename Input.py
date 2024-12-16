@@ -4,57 +4,65 @@
 # Correspondence: bin.lu@anu.edu.au
 
 import numpy as np
-from Optimisation import scenario
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4000, 400')
+parser.add_argument('-p', default=1, type=int, required=False, help='popsize=2, 10')
+parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
+parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
+parser.add_argument('-s', default=21, type=int, required=False, help='11, 12, 13, ...')
+args = parser.parse_args()
+
+scenario = args.s
 
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
-PVl =   np.array(['NSW']*7 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*3 + ['SA']*6 + ['TAS']*0 + ['VIC']*1 + ['WA']*1 + ['NT']*1)
-Windl = np.array(['NSW']*8 + ['FNQ']*1 + ['QLD']*2 + ['FNQ']*2 + ['SA']*8 + ['TAS']*4 + ['VIC']*4 + ['WA']*3 + ['NT']*1)
+PVl =   np.array(['NSW']*9 + ['FNQ']*5 + ['QLD']*4 + ['SA']*9 + ['TAS']*3 + ['VIC']*6)
+OnsWl = np.array(['NSW']*9 + ['FNQ']*5 + ['QLD']*4 + ['SA']*9 + ['TAS']*3 + ['VIC']*6)
+OffsWl = np.array(['NSW']*2 + ['SA']*1 + ['TAS']*2 + ['VIC']*2)
 resolution = 0.5
 
-MLoad = np.genfromtxt('Data/electricity.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel))) # EOLoad(t, j), MW
-for i in ['evan', 'erigid', 'earticulated', 'enonfreight', 'ebus', 'emotorcycle', 'erail', 'eair', 'ewater', 'ecooking', 'emanufacturing', 'emining']:
-    MLoad += np.genfromtxt('Data/{}.csv'.format(i), delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)))
+nodesupportl = np.array(['FNQ', 'NSW', 'QLD', 'SA', 'TAS', 'VIC'])
+nodesupport = len(np.setdiff1d(Nodel, nodesupportl))
 
-DSP = 0.8 if scenario>=31 else 0
-MLoad += (1 - DSP) * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)))
+MLoad = np.genfromtxt('Data/electricity.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)-nodesupport)) # EOLoad(t, j), MW
+#behind the meter solar 
+MLoad -= np.genfromtxt('Data/non-scheduled_pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)-nodesupport))
 
-MLoadD = DSP * np.genfromtxt('Data/ecar.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)))
-
-TSPV = np.genfromtxt('Data/pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
-TSWind = np.genfromtxt('Data/wind.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Windl))) # TSWind(t, i), MW
+TSPV    = np.genfromtxt('Data/utility_pv.csv',   delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
+TSOnsW  = np.genfromtxt('Data/onshore_high.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(OnsWl))) # TSWind(t, i), MW
+TSOffsW = np.genfromtxt('Data/offshore_fixed.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(OffsWl))) # TSWind(t, i), MW
 
 assets = np.genfromtxt('Data/hydrobio.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
 CHydro, CBio = [assets[:, x] * pow(10, -3) for x in range(assets.shape[1])] # CHydro(j), MW to GW
 CBaseload = np.array([0, 0, 0, 0, 0, 1.0, 0, 0]) # 24/7, GW
 CPeak = CHydro + CBio - CBaseload # GW
 
-cars = np.genfromtxt('Data/cars.csv', dtype=None, delimiter=',', encoding=None)[1:, 1:].astype(float)
-CDP = DSP * cars[:, 0] * 9.6 * pow(10, -6) # kW to GW
-CDS = DSP * cars[:, 0] * 77 * 0.75 * pow(10, -6) # kWh to GWh
-
 # FQ, NQ, NS, NV, AS, SW, only TV constrained
 CDC6max = 3 * 0.63 # GW
-DCloss = np.array([1500, 1000, 1000, 800, 1200, 2400, 400]) * 0.03 * pow(10, -3)
+
+DClengths = np.array([1500, 1000, 1000, 800, 1200, 2400, 400]) 
+DCloss = DClengths * 0.03 * pow(10, -3)
+undersea_mask = np.array([0, 0, 0, 0, 0, 0, 1], dtype=bool)
 
 efficiency = 0.8
-efficiencyD = 0.8
-factor = np.genfromtxt('Data/factor.csv', delimiter=',', usecols=1)
-
-firstyear, finalyear, timestep = (2020, 2029, 1)
+firstyear, finalyear, timestep = (2025, 2034, 1)
 
 if scenario<=17:
     node = Nodel[scenario % 10]
 
-    MLoad, MLoadD = [x[:, np.where(Nodel==node)[0]] for x in (MLoad, MLoadD)]
-    TSPV = TSPV[:, np.where(PVl==node)[0]]
-    TSWind = TSWind[:, np.where(Windl==node)[0]]
-    CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(Nodel==node)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
+    MLoad   = MLoad[:,   np.where(Nodel ==node)[0]]
+    TSPV    = TSPV[:,    np.where(PVl   ==node)[0]]
+    TSOnsW  = TSOnsW[:,  np.where(OnsWl ==node)[0]]
+    TSOffsW = TSOffsW[:, np.where(OffsWl==node)[0]]
+    CHydro, CBio, CBaseload, CPeak = [x[np.where(Nodel==node)[0]] for x in (CHydro, CBio, CBaseload, CPeak)]
     if node=='QLD':
-        MLoad, MLoadD, CDP, CDS = [x / 0.9 for x in (MLoad, MLoadD, CDP, CDS)]
+        MLoad /= 0.9 
 
-    Nodel, PVl, Windl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, Windl)]
+    Nodel, PVl, OnsWl, OffsWl = [x[np.where(x==node)[0]] for x in (Nodel, PVl, OnsWl, OffsWl)]
 
 if scenario>=21:
+    Nodel = nodesupportl
     coverage = [np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC']),
                 np.array(['NSW', 'QLD', 'SA', 'TAS', 'VIC', 'WA']),
                 np.array(['NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC']),
@@ -64,48 +72,59 @@ if scenario>=21:
                 np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC']),
                 np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])][scenario % 10 - 1]
 
-    MLoad, MLoadD = [x[:, np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (MLoad, MLoadD)]
-    TSPV = TSPV[:, np.where(np.in1d(PVl, coverage)==True)[0]]
-    TSWind = TSWind[:, np.where(np.in1d(Windl, coverage)==True)[0]]
-    CHydro, CBio, CBaseload, CPeak, CDP, CDS = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak, CDP, CDS)]
+    MLoad   = MLoad[:,  np.where(np.in1d(Nodel,  coverage))[0]]
+    TSPV    = TSPV[:,   np.where(np.in1d(PVl,    coverage))[0]]
+    TSOnsW  = TSOnsW[:, np.where(np.in1d(OnsWl,  coverage))[0]]
+    TSOffsW = TSOnsW[:, np.where(np.in1d(OffsWl, coverage))[0]]
+    CHydro, CBio, CBaseload, CPeak = [x[np.where(np.in1d(Nodel, coverage)==True)[0]] for x in (CHydro, CBio, CBaseload, CPeak)]
     if 'FNQ' not in coverage:
         MLoad[:, np.where(coverage=='QLD')[0][0]] /= 0.9
-        MLoadD[:, np.where(coverage=='QLD')[0][0]] /= 0.9
-        CDP[np.where(coverage == 'QLD')[0]] /= 0.9
-        CDS[np.where(coverage == 'QLD')[0]] /= 0.9
 
-    Nodel, PVl, Windl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, Windl)]
+    Nodel, PVl, OnsWl, OffsWl = [x[np.where(np.in1d(x, coverage)==True)[0]] for x in (Nodel, PVl, OnsWl, OffsWl)]
+
+if 'WA' in Nodel or 'NT' in Nodel:
+    raise NotImplementedError("Try a different scenario")
 
 intervals, nodes = MLoad.shape
 years = int(resolution * intervals / 8760)
-pzones, wzones = (TSPV.shape[1], TSWind.shape[1])
-pidx, widx, sidx = (pzones, pzones + wzones, pzones + wzones + nodes)
+pvzones, onswzones, offswzones = TSPV.shape[1], TSOnsW.shape[1], TSOffsW.shape[1]
+pvidx   = pvzones
+onswidx  = pvidx   + onswzones
+offswidx = onswidx  + offswzones
+sidx    = offswidx + nodes
 
-energy = (MLoad + MLoadD).sum() * pow(10, -9) * resolution / years # PWh p.a.
-contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
+energy = MLoad.sum() * pow(10, -9) * resolution / years # PWh p.a.
+contingency = list(0.25 * MLoad.max(axis=0) * pow(10, -3)) # MW to GW
 
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
+
+lb = np.array([0.]  * pvzones + [0.]  * (onswzones+offswzones) + contingency   + [0.])
+ub = np.array([50.] * pvzones + [50.] * (onswzones+offswzones) + [50.] * nodes + [5000.])
+
 
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 
     def __init__(self, x):
         self.x = x
-        self.MLoad, self.MLoadD = (MLoad, MLoadD)
+        self.MLoad = MLoad
         self.intervals, self.nodes = (intervals, nodes)
         self.resolution = resolution
 
-        self.CPV = list(x[: pidx]) # CPV(i), GW
-        self.CWind = list(x[pidx: widx]) # CWind(i), GW
-        self.GPV = TSPV * np.tile(self.CPV, (intervals, 1)) * pow(10, 3) # GPV(i, t), GW to MW
-        self.GWind = TSWind * np.tile(self.CWind, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
+        self.CPV    = list(x[       : pvidx ]) # CPV(i), GW
+        self.COnsW  = list(x[pvidx  : onswidx]) # CWind(i), GW
+        self.COffsW = list(x[onswidx : offswidx]) # CWind(i), GW
+        self.CPHP   = list(x[offswidx: sidx]) # CPHP(j), GW
+        self.CPHS   = x[sidx] # S-CPHS(j), GWh
+        
+        self.GPV    = TSPV    * np.tile(self.CPV,    (intervals, 1)) * pow(10, 3) # GPV(i, t), GW to MW
+        self.GOnsW  = TSOnsW  * np.tile(self.COnsW,  (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
+        self.GOffsW = TSOffsW * np.tile(self.COffsW, (intervals, 1)) * pow(10, 3) # GWind(i, t), GW to MW
 
-        self.CPHP = list(x[widx: sidx]) # CPHP(j), GW
-        self.CPHS = x[sidx] # S-CPHS(j), GWh
-        self.CDP, self.CDS = (CDP, CDS)  # GW, GWh
-        self.efficiency, self.efficiencyD = (efficiency, efficiencyD)
 
-        self.Nodel, self.PVl, self.Windl = (Nodel, PVl, Windl)
+        self.efficiency = efficiency
+
+        self.Nodel, self.PVl, self.OnsWl, self.OffsWl = Nodel, PVl, OnsWl, OffsWl
         self.scenario = scenario
 
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
