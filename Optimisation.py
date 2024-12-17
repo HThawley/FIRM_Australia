@@ -58,15 +58,19 @@ if __name__=='__main__':
         tol=0,
         maxiter=args.i, 
         popsize=args.p, 
-        mutation=(0.1, args.m),
+        mutation=(0.2, args.m),
         recombination=args.r,
         disp=True, 
         polish=False, 
         updating='deferred', 
         workers=-1,
         )
-
-    np.savetxt('Results/Optimisation_resultx{}.csv'.format(scenario), result.x.reshape(1,-1), fmt='%s', delimiter=',')
+    try: 
+        np.savetxt('Results/Optimisation_resultx{}.csv'.format(scenario), result.x.reshape(1,-1), fmt='%s', delimiter=',')
+    except FileNotFoundError:
+        import os
+        os.mkdir('Results')
+        np.savetxt('Results/Optimisation_resultx{}.csv'.format(scenario), result.x.reshape(1,-1), fmt='%s', delimiter=',')
 
     endtime = dt.now()
     print("Optimisation took", endtime - starttime)

@@ -23,8 +23,8 @@ def Transmission(solution, output=False):
     pkfactor = np.tile(CPeak, (intervals, 1)) / CPeak.sum()
     MPeak = np.tile(solution.flexible, (nodes, 1)).T * pkfactor # MW
 
-    MLoad_pos = MLoad - MLoad.min()
-    defactor = np.divide(MLoad_pos, 1e-12 + MLoad_pos.sum(axis=1)[:, None])
+    MLoad_pos = MLoad - MLoad.min() + 1
+    defactor = np.divide(MLoad_pos, MLoad_pos.sum(axis=1)[:, None])
     MDeficit = np.tile(solution.Deficit, (nodes, 1)).T * defactor # MDeficit: EDE(j, t)
 
     MPW = MPV + MOnsW + MOffsW
