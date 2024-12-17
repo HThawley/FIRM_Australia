@@ -52,9 +52,19 @@ if __name__=='__main__':
     starttime = dt.now()
     print("Optimisation starts at", starttime)
 
-    result = differential_evolution(func=F, bounds=list(zip(lb, ub)), tol=0,
-                                    maxiter=args.i, popsize=args.p, mutation=args.m, recombination=args.r,
-                                    disp=True, polish=False, updating='deferred', workers=-1)
+    result = differential_evolution(
+        func=F, 
+        bounds=list(zip(lb, ub)), 
+        tol=0,
+        maxiter=args.i, 
+        popsize=args.p, 
+        mutation=(0.1, args.m),
+        recombination=args.r,
+        disp=True, 
+        polish=False, 
+        updating='deferred', 
+        workers=-1,
+        )
 
     np.savetxt('Results/Optimisation_resultx{}.csv'.format(scenario), result.x.reshape(1,-1), fmt='%s', delimiter=',')
 
