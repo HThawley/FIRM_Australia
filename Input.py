@@ -36,7 +36,7 @@ nodesupport = len(np.setdiff1d(Nodel, nodesupportl))
 
 MLoad = np.genfromtxt('Data/electricity.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)-nodesupport)) # EOLoad(t, j), MW
 #behind the meter solar 
-MLoad -= np.genfromtxt('Data/non-scheduled_pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)-nodesupport))
+MPVnsg = np.genfromtxt('Data/non-scheduled_pv.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(Nodel)-nodesupport))
 
 TSPV    = np.genfromtxt('Data/utility_pv.csv',   delimiter=',', skip_header=1, usecols=range(4, 4+len(PVl))) # TSPV(t, i), MW
 TSOnsW  = np.genfromtxt('Data/onshore_high.csv', delimiter=',', skip_header=1, usecols=range(4, 4+len(OnsWl))) # TSWind(t, i), MW
@@ -60,6 +60,7 @@ if scenario<=17:
     node = Nodel[scenario % 10]
 
     MLoad  = MLoad[:,  np.where(Nodel==node)[0]]
+    MPVnsg = MPVnsg[:, np.where(Nodel==node)[0]]
     TSPV   = TSPV[:,   np.where(PVl  ==node)[0]]
     TSOnsW = TSOnsW[:, np.where(OnsWl==node)[0]]
     TSOffW = TSOffW[:, np.where(OffWl==node)[0]]
@@ -81,6 +82,7 @@ if scenario>=21:
                 np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])][scenario % 10 - 1]
 
     MLoad  = MLoad[:,  np.where(np.in1d(Nodel, coverage))[0]]
+    MPVnsg = MPVnsg[:, np.where(np.in1d(Nodel, coverage))[0]]
     TSPV   = TSPV[:,   np.where(np.in1d(PVl,   coverage))[0]]
     TSOnsW = TSOnsW[:, np.where(np.in1d(OnsWl, coverage))[0]]
     TSOffW = TSOffW[:, np.where(np.in1d(OffWl, coverage))[0]]
@@ -104,15 +106,23 @@ onswidx = pvidx   + onswzones
 offwidx = onswidx + offwzones
 sidx    = offwidx + nodes
 
-energy = MLoad.sum() * resolution / years # MWh p.a.
-contingency = list(0.25 * MLoad.max(axis=0) * pow(10, -3)) # MW to GW
+MOLoad = MLoad - MPVnsg
+energy = MOLoad.sum() * resolution / years # MWh p.a.
+GPVnsg = MPVnsg.sum() * resolution / years # MWh p.a.
 
-GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
+contingency = list(0.25 * MLoad.max(axis=0) * 0.001) # MW to GW
+
+GBaseload = CBaseload * np.ones((intervals, nodes)) * 1000 # GW to MW
 
 lb = np.array([0.]  * pvzones + [0.]  * (onswzones+offwzones) + contingency   + [0.])
 ub = np.array([50.] * pvzones + [50.] * (onswzones+offwzones) + [50.] * nodes + [5000.])
 
 costs = cost_factors(DClengths, undersea_mask)
+# pre-allocating memory will save time on future evaluation with jit
+flex_min = np.zeros(intervals, dtype=np.float64)
+flex_max = np.ones(intervals,  dtype=np.float64)*CPeak.sum()*1000
+GBase = GBaseload.sum()*resolution/years
+TDC_empty = np.zeros((intervals, len(DCloss)), dtype=np.float64)
 
 solution_spec = [
     ('x',           float64[:]      ),  
@@ -120,6 +130,7 @@ solution_spec = [
     ('intervals',   int64           ),
     ('nodes',       int64           ),
     ('resolution',  float64         ),
+    ('years',       float64         ),
     ('efficiency',  float64         ),
     ('Nodel_int',   int64[:]        ), 
     ('PVl_int',     int64[:]        ),
@@ -144,11 +155,7 @@ solution_spec = [
     ('Spillage',    float64[:]      ),
     ('Penalties',   float64         ),
     ('LCOE',        float64         ),
-    ('LCOG',        float64         ),
-    ('LCOBS',       float64         ),
-    ('LCOBT',       float64         ),
-    ('LCOBL',       float64         ),
-    ('MLoad',       float64[:, :]   ),  
+    ('MOLoad',      float64[:, :]   ),  
     ('MPV',         float64[:, :]   ),
     ('MOnsW',       float64[:, :]   ),
     ('MOffW',       float64[:, :]   ),
@@ -175,68 +182,58 @@ solution_spec = [
 @jitclass(solution_spec)
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
-
     def __init__(self, x):
         self.x = x
-        self.MLoad = MLoad
-        self.intervals, self.nodes = (intervals, nodes)
-        self.resolution = resolution
+        self.scenario = scenario
+        self.intervals, self.nodes = intervals, nodes
+        self.resolution, self.years = resolution, years
+        self.efficiency = efficiency
+        self.Nodel_int, self.PVl_int, self.OnsWl_int, self.OffWl_int = Nodel_int, PVl_int, OnsWl_int, OffWl_int
+        
+        self.MOLoad = MOLoad
 
         self.CPV   = x[       : pvidx ]
         self.COnsW = x[pvidx  : onswidx]
         self.COffW = x[onswidx: offwidx]
         self.CPHP  = x[offwidx: sidx]
         self.CPHS  = x[sidx] 
+        self.CHydro = CHydro
+        self.CPeak = CPeak
         
         self.GPV   = TSPV   * np.ones((intervals, len(self.CPV  ))) * self.CPV   * 1000. 
         self.GOnsW = TSOnsW * np.ones((intervals, len(self.COnsW))) * self.COnsW * 1000. 
         self.GOffW = TSOffW * np.ones((intervals, len(self.COffW))) * self.COffW * 1000. 
-
-        self.efficiency = efficiency
-
-        self.Nodel_int, self.PVl_int, self.OnsWl_int, self.OffWl_int = Nodel_int, PVl_int, OnsWl_int, OffWl_int
-        self.scenario = scenario
-
-        self.GBaseload, self.CPeak = (GBaseload, CPeak)
-        self.CHydro = CHydro # GW, GWh
+        self.GBaseload = GBaseload
+    
+    def _evaluate(self, costs):
+        Hydro = GBase + Reliability(self, flexible=flex_min).sum() * resolution / years
+        self.Penalties = max(0., Hydro - 20_000_000) # Hydro over capacity
+        self.Penalties += max(0., Reliability(self, flexible=flex_max).sum() * resolution) # Deficit
         
-flex_min = np.zeros(intervals, dtype=np.float64)
-flex_max  = np.ones( intervals, dtype=np.float64)*CPeak.sum()*1000
-GBase = GBaseload.sum()*resolution/years
-TDC_empty = np.zeros((intervals, len(DCloss)), dtype=np.float64)
-
-
+        TDC = np.abs(Transmission(self))*0.001 if scenario>=21 else TDC_empty 
+        CDC = np.zeros(len(DCloss), np.float64)
+        for j in range(nhvdc):
+            for i in range(intervals):
+                CDC[j] = max(TDC[i, j], CDC[j])
+        # Penalties += max(0, CDC[6] - CDC6max) * pow(10, 3) # DCmax
+        self.LCOE = ((
+            + self.CPV.sum()   * (costs.pv   + costs.ac)
+            + self.COnsW.sum() * (costs.onsw + costs.ac) 
+            + self.COffW.sum() * (costs.offw + costs.ac)
+            + self.CPHP.sum()  * costs.phes[0]
+            + self.CPHS        * costs.phes[1] 
+            + self.Discharge.sum() * self.resolution / self.years * costs.phes[2]
+            + costs.phes[3] 
+            + (CDC*costs.hvdc).sum()
+            + Hydro * costs.hydro
+            ) / energy)
+            # ) / abs(energy - (np.sum(TDC, axis=0) * DCloss).sum() * resolution / years))
+        
 #%%
-@njit 
-def Objective(S, costs):
-    Hydro = GBase + Reliability(S, flexible=flex_min).sum() * resolution / years
-    Penalties = max(0., Hydro - 20_000_000) # Hydro over capacity
-    Penalties += max(0., Reliability(S, flexible=flex_max).sum() * resolution) # Deficit
-    
-    TDC = np.abs(Transmission(S))*0.001 if scenario>=21 else TDC_empty 
-    CDC = np.zeros(len(DCloss), np.float64)
-    for j in range(nhvdc):
-        for i in range(intervals):
-            CDC[j] = max(TDC[i, j], CDC[j])
-    
-    # Penalties += max(0, CDC[6] - CDC6max) * pow(10, 3) # DCmax
-    
-    LCOE = ((
-        + S.CPV.sum()   * (costs.pv   + costs.ac)
-        + S.COnsW.sum() * (costs.onsw + costs.ac) 
-        + S.COffW.sum() * (costs.offw + costs.ac)
-        + S.CPHP.sum()  * costs.phes[0]
-        + S.CPHS        * costs.phes[1] 
-        + S.Discharge.sum() * resolution / years * costs.phes[2]
-        + costs.phes[3] 
-        + (CDC*costs.hvdc).sum()
-        + Hydro * costs.hydro
-        ) / energy)
-        # ) / abs(energy - (np.sum(TDC, axis=0) * DCloss).sum() * resolution / years))
-    return LCOE + Penalties
     
 if __name__ == '__main__':
     x = np.genfromtxt(f'Results/Optimisation_resultx{scenario}.csv', delimiter=',', dtype=float)
     S = Solution(x)
-    print(Objective(S, costs))
+    S._evaluate(costs)
+    print(S.LCOE, S.Penalties)
     

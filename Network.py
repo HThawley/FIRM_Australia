@@ -22,14 +22,14 @@ def Transmission(solution):
 
     solution.MSpillage = np.atleast_2d(solution.Spillage / MPW.sum(axis=1)).T * MPW
     solution.MPeak = np.atleast_2d(solution.flexible).T * solution.CPeak / solution.CPeak.sum()
-    solution.MDeficit = np.atleast_2d(solution.Deficit / solution.MLoad.sum(axis=1)).T * solution.MLoad 
+    solution.MDeficit = np.atleast_2d(solution.Deficit / solution.MOLoad.sum(axis=1)).T * solution.MOLoad 
 
     pcfactor =  np.atleast_2d(solution.CPHP / solution.CPHP.sum(axis=0)).T
     solution.MDischarge = (solution.Discharge * pcfactor).T
     solution.MCharge = (solution.Charge * pcfactor).T
     solution.MStorage = (solution.Storage * pcfactor).T
 
-    solution.MImport = (solution.MLoad + solution.MCharge + solution.MSpillage \
+    solution.MImport = (solution.MOLoad + solution.MCharge + solution.MSpillage \
               - MPW - solution.GBaseload - solution.MPeak - solution.MDischarge - solution.MDeficit).T
 
     solution.TDC = np.zeros((7, solution.intervals), np.float64)

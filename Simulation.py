@@ -10,7 +10,7 @@ from numba import njit
 def Reliability(solution, flexible):
     """Deficit = Simulation.Reliability(S, hydro=...)"""
 
-    Netload = (solution.MLoad.sum(axis=1) 
+    Netload = (solution.MOLoad.sum(axis=1) 
                - solution.GPV.sum(axis=1) 
                - solution.GOnsW.sum(axis=1) 
                - solution.GOffW.sum(axis=1) 
