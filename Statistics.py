@@ -102,7 +102,7 @@ def GGTA(solution):
                                            (solution.GPV.sum(), solution.GOnsW.sum(), solution.GOffW.sum(), 
                                             solution.MHydro.sum(), solution.MBio.sum(), solution.MDischarge.sum())) # TWh p.a.
     GHydrobio = GHydro + GBio
-    CFPV, CFOnsW, CFOffW = (GPV / CPV / 0.0876, GOnsW / COnsW / 0.0876, GOffW / COffW / 0.0876)
+    CFPV, CFOnsW, CFOffW = (G/C/0.0876 for G, C in zip((GPV, GOnsW, GOffW), (CPV, COnsW, COffW)))
 
     CostPV    = costs.pv   * CPV    * pow(10, -9) # A$b p.a.
     CostOnsW  = costs.onsw * COnsW  * pow(10, -9) # A$b p.a.
