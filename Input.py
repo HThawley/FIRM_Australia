@@ -8,9 +8,9 @@ from numba import njit, prange, float64, int64, boolean
 from numba.experimental import jitclass
 from argparse import ArgumentParser
 
+from Costs import cost_factors
 from Simulation import Reliability
 from Network import Transmission
-from Costs import *
 
 parser = ArgumentParser()
 parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4000, 400')
@@ -112,6 +112,8 @@ GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 lb = np.array([0.]  * pvzones + [0.]  * (onswzones+offwzones) + contingency   + [0.])
 ub = np.array([50.] * pvzones + [50.] * (onswzones+offwzones) + [50.] * nodes + [5000.])
 
+costs = cost_factors(DClengths, undersea_mask)
+
 solution_spec = [
     ('x',           float64[:]      ),  
     ('scenario',    int64           ),  
@@ -186,7 +188,7 @@ class Solution:
         self.CPHP  = x[offwidx: sidx]
         self.CPHS  = x[sidx] 
         
-        self.GPV   = TSPV   * np.ones((intervals, len(self.CPV  ))) * self.CPV * 1000. 
+        self.GPV   = TSPV   * np.ones((intervals, len(self.CPV  ))) * self.CPV   * 1000. 
         self.GOnsW = TSOnsW * np.ones((intervals, len(self.COnsW))) * self.COnsW * 1000. 
         self.GOffW = TSOffW * np.ones((intervals, len(self.COffW))) * self.COffW * 1000. 
 
@@ -197,36 +199,38 @@ class Solution:
 
         self.GBaseload, self.CPeak = (GBaseload, CPeak)
         self.CHydro = CHydro # GW, GWh
-
+        
 flex_min = np.zeros(intervals, dtype=np.float64)
 flex_max  = np.ones( intervals, dtype=np.float64)*CPeak.sum()*1000
 GBase = GBaseload.sum()*resolution/years
 TDC_empty = np.zeros((intervals, len(DCloss)), dtype=np.float64)
+
+
 #%%
 @njit 
-def Objective(S):
+def Objective(S, costs):
     Hydro = GBase + Reliability(S, flexible=flex_min).sum() * resolution / years
-    Penalties = max(0., Hydro - 20_000_000) #Hydro over capacity
-    Penalties += max(0, Reliability(S, flexible=flex_max).sum() * resolution) #Deficit
+    Penalties = max(0., Hydro - 20_000_000) # Hydro over capacity
+    Penalties += max(0., Reliability(S, flexible=flex_max).sum() * resolution) # Deficit
     
-    TDC = np.abs(Transmission(S))*0.001 if scenario>=21 else TDC_empty # TDC: TDC(t, k), MW
+    TDC = np.abs(Transmission(S))*0.001 if scenario>=21 else TDC_empty 
     CDC = np.zeros(len(DCloss), np.float64)
     for j in range(nhvdc):
         for i in range(intervals):
             CDC[j] = max(TDC[i, j], CDC[j])
     
-    Penalties += max(0, CDC[6] - CDC6max) * pow(10, 3) # DCmax
+    # Penalties += max(0, CDC[6] - CDC6max) * pow(10, 3) # DCmax
     
     LCOE = ((
-        + S.CPV.sum()   * (pv_costs   + ACgen_costs)
-        + S.COnsW.sum() * (onsw_costs + ACgen_costs) 
-        + S.COffW.sum() * (offw_costs + ACgen_costs)
-        + S.CPHP.sum()  * phes_costs[0]
-        + S.CPHS        * phes_costs[1] 
-        + S.Discharge.sum()*resolution/years * phes_costs[2]
-        + phes_costs[3] 
-        + (CDC*hvdc_costs).sum()
-        + Hydro * hydro_purchase
+        + S.CPV.sum()   * (costs.pv   + costs.ac)
+        + S.COnsW.sum() * (costs.onsw + costs.ac) 
+        + S.COffW.sum() * (costs.offw + costs.ac)
+        + S.CPHP.sum()  * costs.phes[0]
+        + S.CPHS        * costs.phes[1] 
+        + S.Discharge.sum() * resolution / years * costs.phes[2]
+        + costs.phes[3] 
+        + (CDC*costs.hvdc).sum()
+        + Hydro * costs.hydro
         ) / energy)
         # ) / abs(energy - (np.sum(TDC, axis=0) * DCloss).sum() * resolution / years))
     return LCOE + Penalties
@@ -234,5 +238,5 @@ def Objective(S):
 if __name__ == '__main__':
     x = np.genfromtxt(f'Results/Optimisation_resultx{scenario}.csv', delimiter=',', dtype=float)
     S = Solution(x)
-    print(Objective(S))
+    print(Objective(S, costs))
     

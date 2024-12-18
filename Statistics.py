@@ -104,18 +104,18 @@ def GGTA(solution):
     GHydrobio = GHydro + GBio
     CFPV, CFOnsW, CFOffW = (GPV / CPV / 8.76, GOnsW / COnsW / 8.76, GOffW / COffW / 8.76)
 
-    CostPV    = pv_costs   * CPV    * pow(10, -9) # A$b p.a.
-    CostOnsW  = onsw_costs * COnsW  * pow(10, -9) # A$b p.a.
-    CostOffW  = offw_costs * COffW * pow(10, -9) # A$b p.a.
-    CostHydro = hydro_purchase * GHydro * pow(10, -9) # A$b p.a.
-    CostBio   = hydro_purchase * GBio   * pow(10, -9)  # A$b p.a.
-    CostPH    = (phes_costs[0] * CPHP 
-                 + phes_costs[1] * CPHS 
-                 + phes_costs[2]) * pow(10, -9) # A$b p.a.
+    CostPV    = costs.pv   * CPV    * pow(10, -9) # A$b p.a.
+    CostOnsW  = costs.onsw * COnsW  * pow(10, -9) # A$b p.a.
+    CostOffW  = costs.offw * COffW * pow(10, -9) # A$b p.a.
+    CostHydro = costs.hydro * GHydro * pow(10, -9) # A$b p.a.
+    CostBio   = costs.hydro * GBio   * pow(10, -9)  # A$b p.a.
+    CostPH    = (costs.phes[0] * CPHP 
+                 + costs.phes[1] * CPHS 
+                 + costs.phes[2]) * pow(10, -9) # A$b p.a.
 
-    CostDC = (hvdc_costs * solution.CDC).sum() * pow(10, -9) # A$b p.a.
+    CostDC = (costs.hvdc * solution.CDC).sum() * pow(10, -9) # A$b p.a.
 
-    CostAC = ACgen_costs * (CPV + COnsW + COffW) * pow(10, -9) # A$b p.a.
+    CostAC = costs.ac * (CPV + COnsW + COffW) * pow(10, -9) # A$b p.a.
 
     Energy = MLoad.sum() * pow(10, -9) * resolution / years # PWh p.a.
     Loss = np.sum(abs(solution.TDC), axis=0) * DCloss
@@ -191,11 +191,11 @@ def Information(x, flexible):
         S.MOnsW = S.GOnsW.sum(axis=1) if S.GOnsW.shape[1]>0 else np.zeros((intervals, 1))
         S.MOffW = S.GOffW.sum(axis=1) if S.GOffW.shape[1]>0 else np.zeros((intervals, 1))
 
-        S.MDischarge = np.tile(S.Discharge, (nodes, 1)).T
-        S.MDeficit   = np.tile(S.Deficit,   (nodes, 1)).T
-        S.MCharge    = np.tile(S.Charge,    (nodes, 1)).T
-        S.MStorage   = np.tile(S.Storage,   (nodes, 1)).T
-        S.MSpillage  = np.tile(S.Spillage,  (nodes, 1)).T
+        S.MDischarge = S.Discharge.reshape(-1,1)
+        S.MDeficit   = S.Deficit.reshape(-1,1)
+        S.MCharge    = S.Charge.reshape(-1,1)
+        S.MStorage   = S.Storage.reshape(-1,1)
+        S.MSpillage  = S.Spillage.reshape(-1,1)
 
     S.CDC = np.amax(abs(S.TDC), axis=0) * pow(10, -3) # CDC(k), MW to GW
     S.FQ, S.NQ, S.NS, S.NV, S.AS, S.SW, S.TV = map(lambda k: S.TDC[:, k], range(S.TDC.shape[1]))

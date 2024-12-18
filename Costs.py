@@ -1,5 +1,6 @@
 import numpy as np 
-from Input import DClengths, undersea_mask
+from numba import njit, float64, int64
+from numba.experimental import jitclass
 
 curr_conv = 0.7 # AUD to USD where necessary
 discount_rate = 0.0599 # Real discount rate - same as gencost
@@ -60,17 +61,19 @@ storage_replace = 112000 / curr_conv # AUD per replace
 replace = 50 # every 50 years
 storage_lifetime = 100 #operational life
 
-
+@njit
 def annualization_constants(capex, fom, vom, life, dr):
     """ Calculate annualized costs parametrically for power and energy """
     pv = (1-(1+dr)**(-1*life))/dr
     return pow(10,6) * capex / pv + pow(10,6) * fom, vom
 
+@njit
 def annualization_transmission_constants(capex, fom, vom, life, d, dr):
     """ Calculate annualized costs parametrically for power and energy, for transmission lines only"""
     pv = (1-(1+dr)**(-1*life))/dr
     return d * capex * pow(10,3) / pv + d * fom * pow(10,3), vom
 
+@njit
 def annualization_phes_constants(capex_p, capex_e, fom, vom, replace_cost, replace_life, life, dr):
     """ Calculate annualized costs parametrically for power and energy, for PHES only 
     capex_p, fom: USD/kW
@@ -81,24 +84,45 @@ def annualization_phes_constants(capex_p, capex_e, fom, vom, replace_cost, repla
         
     pv = (1-(1+dr)**(-1*life))/dr
     
-    return (capex_p* pow(10,6) / pv + fom * pow(10,6), # * GW = cost
-            capex_e * pow(10,6) / pv, # * GWh = cost
-            vom,# * (MWh discharge p.a.) = cost
-            replace_cost * ((1+dr)**(-1*replace_cost) + (1+dr)**(-1*replace_life*2)) / pv # *1 = cost
-            ) 
+    return np.array([
+        capex_p* pow(10,6) / pv + fom * pow(10,6), # * GW = cost
+        capex_e * pow(10,6) / pv, # * GWh = cost
+        vom,# * (MWh discharge p.a.) = cost
+        replace_cost * ((1+dr)**(-1*replace_cost) + (1+dr)**(-1*replace_life*2)) / pv, # *1 = cost
+        ])
 
 
-pv_costs    = annualization_constants(pv_capex,        pv_fom,        pv_vom,        pv_lifetime,       discount_rate)[0] #vom is 0
-onsw_costs  = annualization_constants(wind_ons_capex,  wind_ons_fom,  wind_ons_vom,  wind_ons_lifetime, discount_rate)[0] #vom is 0
-offw_costs  = annualization_constants(wind_off_capex,  wind_off_fom,  wind_off_vom,  wind_off_lifetime, discount_rate)[0] #vom is 0
-ACgen_costs = annualization_transmission_constants(hvac_capex, hvac_fom, hvac_vom, hvac_lifetime, 20, discount_rate)[0] #vom is 0
+@jitclass([
+    ('pv',      float64     ),  
+    ('onsw',    float64     ),  
+    ('offw',    float64     ),
+    ('ac',      float64     ),
+    ('hydro',   float64     ),
+    ('phes',    float64[:]  ),
+    ('hvdc',    float64[:]  ),
+    ])
+class cost_factors:
+    def __init__(self, DClengths, undersea_mask):
+        self.pv    = annualization_constants(pv_capex,        pv_fom,        pv_vom,        pv_lifetime,       discount_rate)[0] #vom is 0
+        self.onsw  = annualization_constants(wind_ons_capex,  wind_ons_fom,  wind_ons_vom,  wind_ons_lifetime, discount_rate)[0] #vom is 0
+        self.offw  = annualization_constants(wind_off_capex,  wind_off_fom,  wind_off_vom,  wind_off_lifetime, discount_rate)[0] #vom is 0
+        self.ac    = annualization_transmission_constants(hvac_capex, hvac_fom, hvac_vom, hvac_lifetime, 20, discount_rate)[0] #vom is 0
+        
+        self.phes  = annualization_phes_constants(storage_capexP, storage_capexE, storage_fom, storage_vom, storage_replace, replace, storage_lifetime, discount_rate)
+        
+        self.hvdc = np.zeros(len(DClengths), float)
+        for i, undersea in enumerate(undersea_mask):
+            if undersea:
+                self.hvdc[i] = annualization_transmission_constants(hvdc_undersea_capex, hvdc_undersea_fom, hvdc_undersea_vom, hvdc_undersea_lifetime, DClengths[i], discount_rate)[0] # vom is 0
+            else: 
+                self.hvdc[i] = annualization_transmission_constants(hvdc_overhead_capex, hvdc_overhead_fom, hvdc_overhead_vom, hvdc_overhead_lifetime, DClengths[i], discount_rate)[0]
+                self.hvdc[i] += 2*annualization_constants(converter_capex, converter_fom, converter_vom, converter_lifetime, discount_rate)[0]
 
-phes_costs = annualization_phes_constants(storage_capexP, storage_capexE, storage_fom, storage_vom, storage_replace, replace, storage_lifetime, discount_rate)
+        self.hydro=hydro_purchase
 
-hvdc_costs = np.zeros(len(DClengths), float)
-hvdc_costs[~undersea_mask] = np.array([annualization_transmission_constants(hvdc_overhead_capex, hvdc_overhead_fom, hvdc_overhead_vom, hvdc_overhead_lifetime, d, discount_rate)[0]
-                                       for d in DClengths[~undersea_mask]])
-hvdc_costs[~undersea_mask] += tuple((2*i for i in annualization_constants(converter_capex, converter_fom, converter_vom, converter_lifetime, discount_rate)))[0] # vom is 0
-
-hvdc_costs[undersea_mask] =  np.array([annualization_transmission_constants(hvdc_undersea_capex, hvdc_undersea_fom, hvdc_undersea_vom, hvdc_undersea_lifetime, d, discount_rate)[0]
-                                       for d in DClengths[undersea_mask]])
+if __name__ == '__main__':
+    from Input import DClengths, undersea_mask
+    
+    costs = cost_factors(DClengths, undersea_mask)
+    
+    
