@@ -102,7 +102,7 @@ def GGTA(solution):
                                            (solution.GPV.sum(), solution.GOnsW.sum(), solution.GOffW.sum(), 
                                             solution.MHydro.sum(), solution.MBio.sum(), solution.MDischarge.sum())) # TWh p.a.
     GHydrobio = GHydro + GBio
-    CFPV, CFOnsW, CFOffW = (GPV / CPV / 8.76, GOnsW / COnsW / 8.76, GOffW / COffW / 8.76)
+    CFPV, CFOnsW, CFOffW = (GPV / CPV / 0.0876, GOnsW / COnsW / 0.0876, GOffW / COffW / 0.0876)
 
     CostPV    = costs.pv   * CPV    * pow(10, -9) # A$b p.a.
     CostOnsW  = costs.onsw * COnsW  * pow(10, -9) # A$b p.a.
@@ -138,7 +138,7 @@ def GGTA(solution):
     print(f'\u2022 LCOE: {LCOE}')
     print(f'\u2022 LCOG: {LCOG}')
     print(f'\u2022 LCOB: {LCOB}')
-    print(f'\u2022 LCOG-PV: {LCOGP}, (CF:{CFPV}%)')
+    print(f'\u2022 LCOG-PV: {LCOGP}, (CF:{100*round(CFPV,2)}%)')
     print(f'\u2022 LCOG-Onshore Wind: {LCOGOnsW} (CF:{round(CFOnsW,2)}%)')
     print(f'\u2022 LCOG-Offshore Wind: {LCOGOffW} (CF:{round(CFOffW,2)}%)')
     print(f'\u2022 LCOG-Hydro: {LCOGH}')
