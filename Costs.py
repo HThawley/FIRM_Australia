@@ -9,19 +9,19 @@ discount_rate = 0.0599 # Real discount rate - same as gencost
 ## year = 2023
 #==============================================================================
 # utility solar
-pv_capex = 1200 # 1526 # AUD/kW 
+pv_capex = 1526 # AUD/kW 
 pv_fom = 15 # 17 # AUD/kW
 pv_vom = 0 # AUD/MWh
 pv_lifetime = 30
 
 # onshore wind
-wind_ons_capex = 1850 # 3038 # AUD/kW 
+wind_ons_capex = 3038 # AUD/kW 
 wind_ons_fom = 36 # 25 # AUD/kW 
 wind_ons_vom = 0 # AUD/MWh
 wind_ons_lifetime = 25
 
 # offhore wind
-wind_off_capex = 4000 # 5545 # AUD/kW 
+wind_off_capex = 5545 # AUD/kW 
 wind_off_fom = 149.9 # AUD/kW 
 wind_off_vom = 0 # AUD/MWh
 wind_off_lifetime = 25
