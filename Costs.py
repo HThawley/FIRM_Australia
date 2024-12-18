@@ -1,31 +1,29 @@
 import numpy as np 
 from Input import DClengths, undersea_mask
 
-
 curr_conv = 0.7 # AUD to USD where necessary
-
 discount_rate = 0.0599 # Real discount rate - same as gencost
 
 ## costs come from Apx Table B.9 of GenCost 2023-24 
 ## year = 2023
 #==============================================================================
 # utility solar
-pv_capex = 1526 # AUD/kW 
-pv_fom = 17 # AUD/kW
+pv_capex = 1200 # 1526 # AUD/kW 
+pv_fom = 15 # 17 # AUD/kW
 pv_vom = 0 # AUD/MWh
 pv_lifetime = 30
 
 # onshore wind
-wind_ons_capex = 3038 # AUD/kW 
-wind_ons_fom = 25 # AUD/kW 
+wind_ons_capex = 1850 # 3038 # AUD/kW 
+wind_ons_fom = 36 # 25 # AUD/kW 
 wind_ons_vom = 0 # AUD/MWh
 wind_ons_lifetime = 25
 
-# offshore wind
-wind_offs_capex = 5545 # AUD/kW 
-wind_offs_fom = 149.9 # AUD/kW 
-wind_offs_vom = 0 # AUD/MWh
-wind_offs_lifetime = 25
+# offhore wind
+wind_off_capex = 4000 # 5545 # AUD/kW 
+wind_off_fom = 149.9 # AUD/kW 
+wind_off_vom = 0 # AUD/MWh
+wind_off_lifetime = 25
 
 ## costs unchanged from Lu et al. 2021 https://doi.org/10.1016/j.energy.2020.119678
 #==============================================================================
@@ -90,9 +88,9 @@ def annualization_phes_constants(capex_p, capex_e, fom, vom, replace_cost, repla
             ) 
 
 
-pv_costs    = annualization_constants(pv_capex,        pv_fom,        pv_vom,        pv_lifetime,        discount_rate)[0] #vom is 0
-onsw_costs  = annualization_constants(wind_ons_capex,  wind_ons_fom,  wind_ons_vom,  wind_ons_lifetime,  discount_rate)[0] #vom is 0
-offsw_costs = annualization_constants(wind_offs_capex, wind_offs_fom, wind_offs_vom, wind_offs_lifetime, discount_rate)[0] #vom is 0
+pv_costs    = annualization_constants(pv_capex,        pv_fom,        pv_vom,        pv_lifetime,       discount_rate)[0] #vom is 0
+onsw_costs  = annualization_constants(wind_ons_capex,  wind_ons_fom,  wind_ons_vom,  wind_ons_lifetime, discount_rate)[0] #vom is 0
+offw_costs  = annualization_constants(wind_off_capex,  wind_off_fom,  wind_off_vom,  wind_off_lifetime, discount_rate)[0] #vom is 0
 ACgen_costs = annualization_transmission_constants(hvac_capex, hvac_fom, hvac_vom, hvac_lifetime, 20, discount_rate)[0] #vom is 0
 
 phes_costs = annualization_phes_constants(storage_capexP, storage_capexE, storage_fom, storage_vom, storage_replace, replace, storage_lifetime, discount_rate)

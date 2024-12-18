@@ -66,11 +66,11 @@ if __name__=='__main__':
         workers=-1,
         )
     try: 
-        np.savetxt('Results/Optimisation_resultx{}.csv'.format(scenario), result.x.reshape(1,-1), fmt='%s', delimiter=',')
+        np.savetxt(f'Results/Optimisation_resultx{scenario}.csv', result.x.reshape(1,-1), fmt='%s', delimiter=',')
     except FileNotFoundError:
         import os
         os.mkdir('Results')
-        np.savetxt('Results/Optimisation_resultx{}.csv'.format(scenario), result.x.reshape(1,-1), fmt='%s', delimiter=',')
+        np.savetxt(f'Results/Optimisation_resultx{scenario}.csv', result.x.reshape(1,-1), fmt='%s', delimiter=',')
 
     endtime = dt.now()
     print("Optimisation took", endtime - starttime)

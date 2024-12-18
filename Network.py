@@ -4,57 +4,42 @@
 # Correspondence: bin.lu@anu.edu.au
 
 import numpy as np
+from numba import njit
 
-def Transmission(solution, output=False):
+@njit
+def Transmission(solution):
     """TDC = Network.Transmission(S)"""
 
-    Nodel, PVl, OnsWl, OffsWl = solution.Nodel, solution.PVl, solution.OnsWl, solution.OffsWl
-    intervals, nodes = solution.intervals, solution.nodes
-
-    MPV, MOnsW, MOffsW = map(np.zeros, [(nodes, intervals)] * 3)
-    for i, j in enumerate(Nodel):
-        MPV[i,    :] = solution.GPV[:,    np.where(PVl   ==j)[0]].sum(axis=1)
-        MOnsW[i,  :] = solution.GOnsW[:,  np.where(OnsWl ==j)[0]].sum(axis=1)
-        MOffsW[i, :] = solution.GOffsW[:, np.where(OffsWl==j)[0]].sum(axis=1)
-    MPV, MOnsW, MOffsW = MPV.T, MOnsW.T, MOffsW.T # Sij-GPV(t, i), Sij-GWind(t, i), MW
-
-    MLoad, MBaseload, CPeak = solution.MLoad, solution.GBaseload, solution.CPeak # MW, MW, GW
-
-    pkfactor = np.tile(CPeak, (intervals, 1)) / CPeak.sum()
-    MPeak = np.tile(solution.flexible, (nodes, 1)).T * pkfactor # MW
-
-    MLoad_pos = MLoad - MLoad.min() + 1
-    defactor = np.divide(MLoad_pos, MLoad_pos.sum(axis=1)[:, None])
-    MDeficit = np.tile(solution.Deficit, (nodes, 1)).T * defactor # MDeficit: EDE(j, t)
-
-    MPW = MPV + MOnsW + MOffsW
-    spfactor = np.divide(MPW, MPW.sum(axis=1)[:, None], where=MPW.sum(axis=1)[:, None]!=0)
-    MSpillage = np.tile(solution.Spillage, (nodes, 1)).T * spfactor # MSpillage: ESP(j, t)
-
-    CPHP = solution.CPHP
-    pcfactor = CPHP / sum(CPHP) if sum(CPHP) != 0 else 0
-    MDischarge = np.tile(solution.Discharge, (nodes, 1)).T * pcfactor # MDischarge: DPH(j, t)
-    MCharge = np.tile(solution.Charge, (nodes, 1)).T * pcfactor # MCharge: CHPH(j, t)
-
-    MImport = (MLoad + MCharge + MSpillage 
-              - MPV - MOnsW - MOffsW - MBaseload - MPeak - MDischarge - MDeficit) # EIM(t, j), MW
-
-    FQ = -MImport[:, np.where(Nodel=='FNQ')[0][0]] if 'FNQ' in Nodel else np.zeros(intervals)
-    AS = -MImport[:, np.where(Nodel=='NT' )[0][0]] if 'NT'  in Nodel else np.zeros(intervals)
-    SW =  MImport[:, np.where(Nodel=='WA' )[0][0]] if 'WA'  in Nodel else np.zeros(intervals)
-    TV = -MImport[:, np.where(Nodel=='TAS')[0][0]]
-    NQ =  MImport[:, np.where(Nodel=='QLD')[0][0]] - FQ
-    NV =  MImport[:, np.where(Nodel=='VIC')[0][0]] - TV
-    NS = -MImport[:, np.where(Nodel=='NSW')[0][0]] - NQ - NV
-    NS1 = MImport[:, np.where(Nodel=='SA' )[0][0]] - AS + SW
-    assert abs(NS - NS1).max()<=0.1, abs(NS - NS1).max()
+    solution.MPV   = np.empty((solution.intervals, solution.nodes), dtype=np.float64)
+    solution.MOnsW = np.empty((solution.intervals, solution.nodes), dtype=np.float64)
+    solution.MOffW = np.empty((solution.intervals, solution.nodes), dtype=np.float64)
     
-    TDC = np.array([FQ, NQ, NS, NV, AS, SW, TV]).T # TDC(t, k), MW
+    for i, j in enumerate(solution.Nodel_int):
+        solution.MPV[:,   i] = solution.GPV[:,   np.where(solution.PVl_int  ==j)[0]].sum(axis=1)
+        solution.MOnsW[:, i] = solution.GOnsW[:, np.where(solution.OnsWl_int==j)[0]].sum(axis=1)
+        solution.MOffW[:, i] = solution.GOffW[:, np.where(solution.OffWl_int==j)[0]].sum(axis=1)
+    MPW = solution.MPV + solution.MOnsW + solution.MOffW
 
-    if output:
-        MStorage = np.tile(solution.Storage, (nodes, 1)).transpose() * pcfactor # SPH(t, j), MWh
-        solution.MPV, solution.MOnsW, solution.MOffsW, solution.MBaseload, solution.MPeak = (MPV, MOnsW, MOffsW, MBaseload, MPeak)
-        solution.MDischarge, solution.MCharge, solution.MStorage = MDischarge, MCharge, MStorage
-        solution.MDeficit, solution.MSpillage = (MDeficit, MSpillage)
+    solution.MSpillage = np.atleast_2d(solution.Spillage / MPW.sum(axis=1)).T * MPW
+    solution.MPeak = np.atleast_2d(solution.flexible).T * solution.CPeak / solution.CPeak.sum()
+    solution.MDeficit = np.atleast_2d(solution.Deficit / solution.MLoad.sum(axis=1)).T * solution.MLoad 
 
-    return TDC
+    pcfactor =  np.atleast_2d(solution.CPHP / solution.CPHP.sum(axis=0)).T
+    solution.MDischarge = (solution.Discharge * pcfactor).T
+    solution.MCharge = (solution.Charge * pcfactor).T
+    solution.MStorage = (solution.Storage * pcfactor).T
+
+    solution.MImport = (solution.MLoad + solution.MCharge + solution.MSpillage \
+              - MPW - solution.GBaseload - solution.MPeak - solution.MDischarge - solution.MDeficit).T
+
+    solution.TDC = np.zeros((7, solution.intervals), np.float64)
+    if 0 in solution.Nodel_int: solution.TDC[0] = - solution.MImport[np.where(solution.Nodel_int==0)[0][0]]  
+    if 2 in solution.Nodel_int: solution.TDC[4] = - solution.MImport[np.where(solution.Nodel_int==2)[0][0]]  
+    if 7 in solution.Nodel_int: solution.TDC[5] =   solution.MImport[np.where(solution.Nodel_int==7)[0][0]] 
+    solution.TDC[6] = - solution.MImport[np.where(solution.Nodel_int==5)[0][0]]
+    solution.TDC[1] =   solution.MImport[np.where(solution.Nodel_int==3)[0][0]] - solution.TDC[0]
+    solution.TDC[3] =   solution.MImport[np.where(solution.Nodel_int==6)[0][0]] - solution.TDC[6]
+    solution.TDC[2] = - solution.MImport[np.where(solution.Nodel_int==1)[0][0]] - solution.TDC[1] - solution.TDC[3]
+    solution.TDC = solution.TDC.T
+    return solution.TDC
+

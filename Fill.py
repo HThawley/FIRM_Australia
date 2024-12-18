@@ -3,6 +3,7 @@
 # Licensed under the MIT Licence
 # Correspondence: bin.lu@anu.edu.au
 
+from Costs import * # not used but required for import Input
 from Input import * 
 from Simulation import Reliability 
 
@@ -38,7 +39,7 @@ def Analysis(x):
 
     S = Solution(x)
     Flex = Fill(S)
-    np.savetxt('Results/Dispatch_Flexible{}.csv'.format(scenario), Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
+    np.savetxt(f'Results/Dispatch_Flexible{scenario}.csv', Flex, fmt='%f', delimiter=',', newline='\n', header='Flexible energy resources')
 
     endtime = dt.now()
     print('Fill took', endtime - starttime)
@@ -47,5 +48,5 @@ def Analysis(x):
     Information(x, Flex)
     
 if __name__ == '__main__':
-    capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',', dtype=float)
+    capacities = np.genfromtxt(f'Results/Optimisation_resultx{scenario}.csv', delimiter=',', dtype=float)
     Analysis(capacities)

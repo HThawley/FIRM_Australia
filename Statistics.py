@@ -4,11 +4,10 @@
 # Licensed under the MIT Licence
 # Correspondence: bin.lu@anu.edu.au
 
+from Costs import *
 from Input import *
 from Simulation import Reliability
 from Network import Transmission
-from Costs import pv_costs, onsw_costs, offsw_costs, ACgen_costs, phes_costs, hydro_purchase, hvdc_costs
-
 
 import numpy as np
 import pandas as pd
@@ -18,8 +17,8 @@ from datetime import timedelta as td
 def Debug(solution):
     """Debugging"""
 
-    Load, PV, OnsW, OffsW = solution.MLoad.sum(axis=1), solution.GPV.sum(axis=1), solution.GOnsW.sum(axis=1), solution.GOffsW.sum(axis=1)
-    Baseload, Peak = solution.MBaseload.sum(axis=1), solution.MPeak.sum(axis=1)
+    Load, PV, OnsW, OffW = solution.MLoad.sum(axis=1), solution.GPV.sum(axis=1), solution.GOnsW.sum(axis=1), solution.GOffW.sum(axis=1)
+    Baseload, Peak = solution.GBaseload.sum(axis=1), solution.MPeak.sum(axis=1)
 
     Discharge, Charge, Storage = solution.Discharge, solution.Charge, solution.Storage
     Deficit, Spillage = solution.Deficit, solution.Spillage
@@ -29,7 +28,7 @@ def Debug(solution):
 
     for i in range(intervals):
         # Energy supply-demand balance
-        assert abs(Load[i] + Charge[i] + Spillage[i] - PV[i] - OnsW[i] - OffsW[i] - Baseload[i] 
+        assert abs(Load[i] + Charge[i] + Spillage[i] - PV[i] - OnsW[i] - OffW[i] - Baseload[i] 
                    - Peak[i] - Discharge[i] - Deficit[i]) <= 1
 
         # Discharge, Charge and Storage
@@ -39,9 +38,9 @@ def Debug(solution):
             assert abs(Storage[i] - Storage[i - 1] + Discharge[i] * resolution - Charge[i] * resolution * efficiency) <= 1
 
     # Capacity: PV, wind, Discharge, Charge and Storage
-    assert np.amax(PV)    <= 1.005*sum(solution.CPV)    * pow(10, 3), print(np.amax(PV)    - sum(solution.CPV)    * pow(10, 3))
-    assert np.amax(OnsW)  <= 1.005*sum(solution.COnsW)  * pow(10, 3), print(np.amax(OnsW)  - sum(solution.COnsW)  * pow(10, 3))
-    assert np.amax(OffsW) <= 1.005*sum(solution.COffsW) * pow(10, 3), print(np.amax(OffsW) - sum(solution.COffsW) * pow(10, 3))
+    assert np.amax(PV)   <= 1.005*sum(solution.CPV)   * pow(10, 3), print(np.amax(PV)   - sum(solution.CPV)   * pow(10, 3))
+    assert np.amax(OnsW) <= 1.005*sum(solution.COnsW) * pow(10, 3), print(np.amax(OnsW) - sum(solution.COnsW) * pow(10, 3))
+    assert np.amax(OffW) <= 1.005*sum(solution.COffW) * pow(10, 3), print(np.amax(OffW) - sum(solution.COffW) * pow(10, 3))
 
     assert np.amax(Discharge) <= 1.005*sum(solution.CPHP) * pow(10, 3), print(np.amax(Discharge) - sum(solution.CPHP) * pow(10, 3))
     assert np.amax(Charge)    <= 1.005*sum(solution.CPHP) * pow(10, 3), print(np.amax(Charge)    - sum(solution.CPHP) * pow(10, 3))
@@ -55,7 +54,7 @@ def LPGM(solution):
     """Load profiles and generation mix data"""
 
     C = np.stack([solution.MLoad.sum(axis=1), solution.MHydro.sum(axis=1), solution.MBio.sum(axis=1), 
-                  solution.GPV.sum(axis=1), solution.GOnsW.sum(axis=1), solution.GOffsW.sum(axis=1),
+                  solution.GPV.sum(axis=1), solution.GOnsW.sum(axis=1), solution.GOffW.sum(axis=1),
                   solution.Discharge, solution.Deficit, -solution.Spillage, -solution.Charge,
                   solution.Storage,
                   solution.FQ, solution.NQ, solution.NS, solution.NV, solution.AS, solution.SW, solution.TV])
@@ -71,24 +70,22 @@ def LPGM(solution):
                        'Energy deficit','Energy spillage','PHES-Charge','PHES-Storage',
                        'FNQ-QLD','NSW-QLD','NSW-SA','NSW-VIC','NT-SA','SA-WA','TAS-VIC'])
     
-    np.savetxt('Results/S{}.csv'.format(scenario), C, fmt='%s', delimiter=',', header=header, comments='')
+    np.savetxt(f'Results/S{scenario}.csv', C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = ','.join(['Date & time','Operational demand','Hydropower','Biomass',
                            'Solar photovoltaics','Onshore Wind','Offshore Wind','Pumped hydro',
                            'Energy deficit','Energy spillage','Transmission','PHES-Charge','PHES-Storage'])
         
-        Topology = solution.Topology[np.where(np.in1d(np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']), coverage) == True)[0]]
-
         for j in range(nodes):
             C = np.stack([solution.MLoad[:, j], solution.MLoad[:, j], solution.MHydro[:, j], 
-                          solution.MBio[:, j], solution.MPV[:, j], solution.MOnsW[:, j], solution.MOffsW[:, j],
+                          solution.MBio[:, j], solution.MPV[:, j], solution.MOnsW[:, j], solution.MOffW[:, j],
                           solution.MDischarge[:, j], solution.MDeficit[:, j], -solution.MSpillage[:, j], 
-                          Topology[j], -solution.MCharge[:, j], solution.MStorage[:, j]])
+                          solution.MImport[j], -solution.MCharge[:, j], solution.MStorage[:, j]])
             C = np.around(C.T)
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            np.savetxt('Results/S{}{}.csv'.format(scenario, solution.Nodel[j]), C, fmt='%s', delimiter=',', header=header, comments='')
+            np.savetxt(f'Results/S{scenario}{Nodel[j]}.csv', C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -97,19 +94,19 @@ def LPGM(solution):
 def GGTA(solution):
     """GW, GWh, TWh p.a. and A$/MWh information"""
 
-    CPV, COnsW, COffsW, CPHP, CPHS = (sum(solution.CPV), sum(solution.COnsW), sum(solution.COffsW), sum(solution.CPHP), solution.CPHS) # GW, GWh
+    CPV, COnsW, COffW, CPHP, CPHS = (sum(solution.CPV), sum(solution.COnsW), sum(solution.COffW), sum(solution.CPHP), solution.CPHS) # GW, GWh
     CapHydro, CapBio = CHydro.sum(), CBio.sum() # GW
     CapHydrobio = CapHydro + CapBio
 
-    GPV, GOnsW, GOffsW, GHydro, GBio, GPHES = map(lambda x: x * pow(10, -6) * resolution / years, 
-                                           (solution.GPV.sum(), solution.GOnsW.sum(), solution.GOffsW.sum(), 
+    GPV, GOnsW, GOffW, GHydro, GBio, GPHES = map(lambda x: x * pow(10, -6) * resolution / years, 
+                                           (solution.GPV.sum(), solution.GOnsW.sum(), solution.GOffW.sum(), 
                                             solution.MHydro.sum(), solution.MBio.sum(), solution.MDischarge.sum())) # TWh p.a.
     GHydrobio = GHydro + GBio
-    CFPV, CFOnsW, CFOffsW = (GPV / CPV / 8.76, GOnsW / COnsW / 8.76, GOffsW / COffsW / 8.76)
+    CFPV, CFOnsW, CFOffW = (GPV / CPV / 8.76, GOnsW / COnsW / 8.76, GOffW / COffW / 8.76)
 
-    CostPV    = pv_costs    * CPV    * pow(10, -9) # A$b p.a.
-    CostOnsW  = onsw_costs  * COnsW  * pow(10, -9) # A$b p.a.
-    CostOffsW = offsw_costs * COffsW * pow(10, -9) # A$b p.a.
+    CostPV    = pv_costs   * CPV    * pow(10, -9) # A$b p.a.
+    CostOnsW  = onsw_costs * COnsW  * pow(10, -9) # A$b p.a.
+    CostOffW  = offw_costs * COffW * pow(10, -9) # A$b p.a.
     CostHydro = hydro_purchase * GHydro * pow(10, -9) # A$b p.a.
     CostBio   = hydro_purchase * GBio   * pow(10, -9)  # A$b p.a.
     CostPH    = (phes_costs[0] * CPHP 
@@ -118,19 +115,19 @@ def GGTA(solution):
 
     CostDC = (hvdc_costs * solution.CDC).sum() * pow(10, -9) # A$b p.a.
 
-    CostAC = ACgen_costs * (CPV + COnsW + COffsW) * pow(10, -9) # A$b p.a.
+    CostAC = ACgen_costs * (CPV + COnsW + COffW) * pow(10, -9) # A$b p.a.
 
     Energy = MLoad.sum() * pow(10, -9) * resolution / years # PWh p.a.
     Loss = np.sum(abs(solution.TDC), axis=0) * DCloss
     Loss = Loss.sum() * pow(10, -9) * resolution / years # PWh p.a.
 
-    LCOE = (CostPV + CostOnsW + CostOffsW + CostHydro + CostBio + CostPH + CostDC + CostAC) / (Energy - Loss)
-    LCOG = (CostPV +  CostOnsW + CostOffsW + CostHydro + CostBio) * pow(10, 3) / (GPV + GOnsW + GOffsW + GHydro + GBio)
-    LCOGP     = CostPV    * pow(10, 3) / GPV    if GPV!=0    else 0
-    LCOGOnsW  = CostOnsW  * pow(10, 3) / GOnsW  if GOnsW!=0  else 0
-    LCOGOffsW = CostOffsW * pow(10, 3) / GOffsW if GOffsW!=0 else 0
-    LCOGH     = CostHydro * pow(10, 3) / GHydro if GHydro!=0 else 0
-    LCOGB     = CostBio   * pow(10, 3) / GBio   if GBio!=0   else 0
+    LCOE = (CostPV + CostOnsW + CostOffW + CostHydro + CostBio + CostPH + CostDC + CostAC) / (Energy - Loss)
+    LCOG = (CostPV +  CostOnsW + CostOffW + CostHydro + CostBio) * pow(10, 3) / (GPV + GOnsW + GOffW + GHydro + GBio)
+    LCOGP    = CostPV    * pow(10, 3) / GPV    if GPV!=0    else 0
+    LCOGOnsW = CostOnsW  * pow(10, 3) / GOnsW  if GOnsW!=0  else 0
+    LCOGOffW = CostOffW  * pow(10, 3) / GOffW  if GOffW!=0  else 0
+    LCOGH    = CostHydro * pow(10, 3) / GHydro if GHydro!=0 else 0
+    LCOGB    = CostBio   * pow(10, 3) / GBio   if GBio!=0   else 0
 
     LCOB = LCOE - LCOG
     LCOBS = CostPH / (Energy - Loss)
@@ -138,19 +135,19 @@ def GGTA(solution):
     LCOBL = LCOB - LCOBS - LCOBT
 
     print('Levelised costs of electricity:')
-    print('\u2022 LCOE:', LCOE)
-    print('\u2022 LCOG:', LCOG)
-    print('\u2022 LCOB:', LCOB)
-    print('\u2022 LCOG-PV:', LCOGP, '(%s)' % CFPV)
-    print('\u2022 LCOG-Onshore Wind:', LCOGOnsW, '(%s)' % CFOnsW)
-    print('\u2022 LCOG-Offshore Wind:', LCOGOffsW, '(%s)' % CFOffsW)
-    print('\u2022 LCOG-Hydro:', LCOGH)
-    print('\u2022 LCOG-Bio:', LCOGB)
-    print('\u2022 LCOB-Storage:', LCOBS)
-    print('\u2022 LCOB-Transmission:', LCOBT)
-    print('\u2022 LCOB-Spillage & loss:', LCOBL)
+    print(f'\u2022 LCOE: {LCOE}')
+    print(f'\u2022 LCOG: {LCOG}')
+    print(f'\u2022 LCOB: {LCOB}')
+    print(f'\u2022 LCOG-PV: {LCOGP}, (CF:{CFPV}%)')
+    print(f'\u2022 LCOG-Onshore Wind: {LCOGOnsW} (CF:{round(CFOnsW,2)}%)')
+    print(f'\u2022 LCOG-Offshore Wind: {LCOGOffW} (CF:{round(CFOffW,2)}%)')
+    print(f'\u2022 LCOG-Hydro: {LCOGH}')
+    print(f'\u2022 LCOG-Bio: {LCOGB}')
+    print(f'\u2022 LCOB-Storage: {LCOBS}')
+    print(f'\u2022 LCOB-Transmission: {LCOBT}')
+    print(f'\u2022 LCOB-Spillage & loss: {LCOBL}')
 
-    D = np.array([Energy * pow(10, 3), Loss * pow(10, 3), CPV, GPV, COnsW, GOnsW, COffsW, GOffsW, CapHydrobio, GHydrobio, CPHP, CPHS, GPHES] \
+    D = np.array([Energy * pow(10, 3), Loss * pow(10, 3), CPV, GPV, COnsW, GOnsW, COffW, GOffW, CapHydrobio, GHydrobio, CPHP, CPHS, GPHES] \
               + list(solution.CDC) \
               + [LCOE, LCOG, LCOBS, LCOBT, LCOBL])
 
@@ -163,7 +160,7 @@ def GGTA(solution):
                        'LCOB - Transmission&Distribution', 'LCOB - Curtailments and other losses'])
 
 
-    np.savetxt('Results/GGTA{}.csv'.format(scenario), D.reshape(1,-1), fmt='%s', delimiter=',', header=header, comments='')
+    np.savetxt(f'Results/GGTA{scenario}.csv', D.reshape(1,-1), fmt='%s', delimiter=',', header=header, comments='')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
@@ -183,16 +180,16 @@ def Information(x, flexible):
         pass
 
     if scenario>=21:
-        S.TDC = Transmission(S, output=True) # TDC(t, k), MW
+        S.TDC = Transmission(S) # TDC(t, k), MW
     else:
         S.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
-
+        S.MImport = np.zeros((intervls, nodes))
+        
         S.MPeak = np.tile(flexible, (nodes, 1)).transpose() # MW
-        S.MBaseload = GBaseload.copy() # MW
 
-        S.MPV    = S.GPV.sum(axis=1)    if S.GPV.shape[1]>0    else np.zeros((intervals, 1))
-        S.MOnsW  = S.GOnsW.sum(axis=1)  if S.GOnsW.shape[1]>0  else np.zeros((intervals, 1))
-        S.MOffsW = S.GOffsW.sum(axis=1) if S.GOffsW.shape[1]>0 else np.zeros((intervals, 1))
+        S.MPV   = S.GPV.sum(axis=1)   if S.GPV.shape[1]>0   else np.zeros((intervals, 1))
+        S.MOnsW = S.GOnsW.sum(axis=1) if S.GOnsW.shape[1]>0 else np.zeros((intervals, 1))
+        S.MOffW = S.GOffW.sum(axis=1) if S.GOffW.shape[1]>0 else np.zeros((intervals, 1))
 
         S.MDischarge = np.tile(S.Discharge, (nodes, 1)).T
         S.MDeficit   = np.tile(S.Deficit,   (nodes, 1)).T
@@ -206,9 +203,8 @@ def Information(x, flexible):
     S.MHydro = np.tile(CHydro - CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
     S.MHydro = np.minimum(S.MHydro, S.MPeak)
     S.MBio = S.MPeak - S.MHydro
-    S.MHydro += S.MBaseload
+    S.MHydro += GBaseload
 
-    S.Topology = np.array([-1 * S.FQ, -1 * (S.NQ + S.NS + S.NV), -1 * S.AS, S.FQ + S.NQ, S.NS + S.AS - S.SW, -1 * S.TV, S.NV + S.TV, S.SW])
 
     Debug(S)
     LPGM(S)
@@ -220,6 +216,6 @@ def Information(x, flexible):
     return True
 
 if __name__ == '__main__':
-    capacities = np.genfromtxt('Results/Optimisation_resultx{}.csv'.format(scenario), delimiter=',')
-    flexible = np.genfromtxt('Results/Dispatch_Flexible{}.csv'.format(scenario), delimiter=',', skip_header=1)
+    capacities = np.genfromtxt(f'Results/Optimisation_resultx{scenario}.csv', delimiter=',')
+    flexible   = np.genfromtxt(f'Results/Dispatch_Flexible{scenario}.csv',    delimiter=',', skip_header=1)
     Information(capacities, flexible)
