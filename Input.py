@@ -86,6 +86,10 @@ contingency = list(0.25 * (MLoad + MLoadD).max(axis=0) * pow(10, -3)) # MW to GW
 
 GBaseload = np.tile(CBaseload, (intervals, 1)) * pow(10, 3) # GW to MW
 
+lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
+ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
+bounds = list(zip(lb, ub))
+
 class Solution:
     """A candidate solution of decision variables CPV(i), CWind(i), CPHP(j), S-CPHS(j)"""
 

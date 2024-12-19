@@ -16,7 +16,7 @@ parser.add_argument('-i',  default=400,   type=int,  required=False, help='maxit
 parser.add_argument('-p',  default=1,     type=int,  required=False, help='popsize=2, 10')
 parser.add_argument('-m',  default=0.5,   type=float,required=False, help='mutation=0.5')
 parser.add_argument('-r',  default=0.3,   type=float,required=False, help='recombination=0.3')
-parser.add_argument('-s',  default=11,    type=int,  required=False, help='11, 12, 13, ...')
+parser.add_argument('-s',  default=21,    type=int,  required=False, help='11, 12, 13, ...')
 parser.add_argument('-his',default=1,     type=int,  required=False, help='save history')
 parser.add_argument('-x',  default=0,     type=int,  required=False, help='first guess. 2=restart, 1=costOptimum, 0=random')
 parser.add_argument('-v',  default=1,     type=int,  required=False, help='verbose - 1 for True, 0 for False')
@@ -29,10 +29,6 @@ scenario = args.s
 from Input import *
 from Simulation import Reliability
 from Network import Transmission
-
-lb = [0.]  * pzones + [0.]   * wzones + contingency   + [0.]
-ub = [50.] * pzones + [50.]  * wzones + [50.] * nodes + [5000.]
-bounds = list(zip(lb, ub))
 
 if args.c is not None:
     optimisedCost = np.genfromtxt('CostOptimisationResults/Costs.csv', delimiter=',', skip_header=1)
@@ -114,7 +110,7 @@ def F(x, S=None):
     if PenHydro+PenDeficit+PenDC > 0.1:
         return np.inf
     
-    return LCOE
+    return LCOE + PenHydro+PenDeficit+PenDC
 
 
 def F_v(x, callback=False):

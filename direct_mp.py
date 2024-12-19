@@ -112,7 +112,7 @@ def direct(
     func: Callable[[npt.ArrayLike, Tuple[Any]], float],
     bounds: Union[Iterable, Bounds],
     *,
-    args: tuple = (),
+    f_args: tuple = (),
     eps: float = 1e-4,
     maxfun: Union[int, None] = None,
     maxiter: int = 1000,
@@ -127,12 +127,12 @@ def direct(
     min_vol_indx:float=-np.inf,
 ):
   
-    def _func_wrap(x, args=None):
+    def _func_wrap(x, f_args=()):
         x = np.asarray(x)
-        if args is None:
+        if len(f_args) == 0:
             f = func(x)
         else:
-            f = func(x, *args)
+            f = func(x, *f_args)
         return f
             
     def _algorithm():
@@ -144,9 +144,9 @@ def direct(
             bounds = generate_bounds(cube, indcs)
             
             if vectorizable is True: 
-                f_values = _func_wrap((norm*centres).T, args)
+                f_values = _func_wrap((_unnorm(centres)).T, f_args)
             else: 
-                f_values = np.array([_func_wrap(norm*xn, args) for xn in centres])
+                f_values = np.array([_func_wrap(_unnorm(xn), f_args) for xn in centres])
             
             with Pool(processes=min(cpu_count(), bounds.shape[0])) as processPool:
                 cubes = processPool.starmap(
@@ -193,7 +193,7 @@ def direct(
             return centres
 
         i=0
-        parent = hypercube(norm_bounds.ub/2, _func_wrap(norm*norm_bounds.ub/2, args)[0], norm_bounds, np.inf, -1)
+        parent = hypercube(norm_bounds.ub/2, _func_wrap(_unnorm(norm_bounds.ub/2), f_args)[0], norm_bounds, np.inf, -1)
         parents = [parent]
         archive = np.array([], dtype=int)
 
@@ -227,7 +227,7 @@ def direct(
             print(f'i = {i}: #cubes = {len(parents)}. Took: {dt.datetime.now()-it_start}')
             i+=1
         
-        best = [(cube.f, norm*cube.centre) for cube in parents]
+        best = [(cube.f, _unnorm(cube.centre)) for cube in parents]
         best_f = np.array([item[0] for item in best])
 
         best_x = np.concatenate([item[1].reshape(1, -1) for item in best], axis = 0)
@@ -236,6 +236,8 @@ def direct(
         
         return best_x, best_f
         
+    def _unnorm(x):
+        return norm*x+lb
     
     # convert bounds to new Bounds class if necessary
     if not isinstance(bounds, Bounds):
@@ -250,10 +252,8 @@ def direct(
     lb = np.ascontiguousarray(bounds.lb, dtype=np.float64)
     ub = np.ascontiguousarray(bounds.ub, dtype=np.float64)
     
-
-    
     norm = bounds.ub - bounds.lb
-    norm_bounds = Bounds([0]*len(norm), [1]*len(norm))
+    norm_bounds = Bounds(np.zeros(len(norm)), np.ones(len(norm)))
     
     x_best, f_best =_algorithm()
     
@@ -267,7 +267,7 @@ if __name__ == '__main__':
 
     result = direct(
         func=F_v, 
-        args=(True,),
+        f_args=(True,),
         population=args.p,
         # eps=0.5,
         bounds=list(zip(lb, ub)), 

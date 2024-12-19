@@ -64,5 +64,6 @@ def Reliability(solution, flexible, start=None, end=None):
     solution.Discharge, solution.Charge, solution.Storage, solution.P2V = (Discharge, Charge, Storage, P2V)
     solution.DischargeD, solution.ChargeD, solution.StorageD = (DischargeD, ChargeD, StorageD)
     solution.Deficit, solution.DeficitD, solution.Spillage = (Deficit, DeficitD, Spillage)
-
+    solution.Netload = Netload
+    
     return Deficit, DeficitD
