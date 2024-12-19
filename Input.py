@@ -13,14 +13,17 @@ from Simulation import Reliability
 from Network import Transmission
 
 parser = ArgumentParser()
-parser.add_argument('-i', default=400, type=int, required=False, help='maxiter=4000, 400')
-parser.add_argument('-p', default=1, type=int, required=False, help='popsize=2, 10')
-parser.add_argument('-m', default=0.5, type=float, required=False, help='mutation=0.5')
-parser.add_argument('-r', default=0.3, type=float, required=False, help='recombination=0.3')
-parser.add_argument('-s', default=21, type=int, required=False, help='11, 12, 13, ...')
+parser.add_argument('-i', default=400,     type=int,   required=False, help='maxiter=4000, 400')
+parser.add_argument('-p', default=1,       type=int,   required=False, help='popsize=2, 10')
+parser.add_argument('-m', default=0.5,     type=float, required=False, help='mutation=0.5')
+parser.add_argument('-r', default=0.3,     type=float, required=False, help='recombination=0.3')
+parser.add_argument('-s', default=21,      type=int,   required=False, help='11, 12, 13, ...')
+parser.add_argument('-c', default='CSIRO', type=str,   required=False, help='cost assumptions = CSIRO|IRENA')
 args = parser.parse_args()
 
 scenario = args.s
+costs_source = args.c.lower()
+assert costs_source in ('csiro', 'irena')
 
 Nodel = np.array(['FNQ', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'])
 PVl =   np.array(['NSW']*9 + ['FNQ']*5 + ['QLD']*4 + ['SA']*9 + ['TAS']*3 + ['VIC']*6)
@@ -117,7 +120,7 @@ GBaseload = CBaseload * np.ones((intervals, nodes)) * 1000 # GW to MW
 lb = np.array([0.]  * pvzones + [0.]  * (onswzones+offwzones) + contingency   + [0.])
 ub = np.array([50.] * pvzones + [50.] * (onswzones+offwzones) + [50.] * nodes + [5000.])
 
-costs = cost_factors(DClengths, undersea_mask)
+costs = cost_factors(costs_source, DClengths, undersea_mask)
 # pre-allocating memory will save time on future evaluation with jit
 flex_min = np.zeros(intervals, dtype=np.float64)
 flex_max = np.ones(intervals,  dtype=np.float64)*CPeak.sum()*1000

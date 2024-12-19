@@ -1,65 +1,103 @@
 import numpy as np 
-from numba import njit, float64, int64
+from numba import njit, float64
 from numba.experimental import jitclass
 
-curr_conv = 0.7 # AUD to USD where necessary
+USD_to_AUD = 1.43 # AUD to USD where necessary
 discount_rate = 0.0599 # Real discount rate - same as gencost
+USD_inflation = 1.18 # 2020->2023
+AUD_inflation = 1.16 # 2020->2023
+
 
 ## costs come from Apx Table B.9 of GenCost 2023-24 
 ## year = 2023
 #==============================================================================
 # utility solar
-pv_capex = 1526 # AUD/kW 
-pv_fom = 15 # 17 # AUD/kW
-pv_vom = 0 # AUD/MWh
-pv_lifetime = 30
+csiro_pv = (
+    1526,   # capex AUD/kW 
+    17,     # fom   AUD/kW p.a.
+    0,      # vom   AUD/MWh 
+    30,     # life  years
+    )
+irena_pv = (
+    989 * USD_to_AUD,  # capex AUD/kW - AUS average
+    18.2 * USD_to_AUD, # fom   AUD/kW - IRENA assumption for OECD, 
+    0, 
+    30,
+    )
 
 # onshore wind
-wind_ons_capex = 3038 # AUD/kW 
-wind_ons_fom = 36 # 25 # AUD/kW 
-wind_ons_vom = 0 # AUD/MWh
-wind_ons_lifetime = 25
+csiro_onsw = (
+    3038,   # capex AUD/kW 
+    25,     # fom   AUD/kW p.a.
+    0,      # vom   AUD/MWh 
+    25,     # life  years
+    )
+irena_onsw = (
+    1572 * USD_to_AUD, # capex AUD/kW - AUS average
+    42.9 * USD_to_AUD, # fom   AUD/kW p.a. - average of major markets' weighted averages
+    0, 
+    25
+    )
 
-# offhore wind
-wind_off_capex = 5545 # AUD/kW 
-wind_off_fom = 149.9 # AUD/kW 
-wind_off_vom = 0 # AUD/MWh
-wind_off_lifetime = 25
+# offshore wind
+csiro_offw = (
+    5545,   # capex AUD/kW 
+    149.9,  # fom   AUD/kW
+    0,      # vom   AUD/MWh
+    25,     # life  years
+    )
+irena_offw = (
+    2800 * USD_to_AUD, # capex AUD/kW - global weighted average
+    92.5 * USD_to_AUD, # fom   AUD/kW p.a. - middle of 2023 range from (Wood Mackenzie, 2023d) pp 123
+    0, 
+    25,
+    )
+
 
 ## costs unchanged from Lu et al. 2021 https://doi.org/10.1016/j.energy.2020.119678
 #==============================================================================
-hvdc_overhead_capex = 320 # AUD/MW-km
-hvdc_overhead_fom = 3.2 # AUD/MW-km p.a.
-hvdc_overhead_vom = 0
-hvdc_overhead_lifetime = 50
+hvdc_overhead = (
+    320 * AUD_inflation,  # capex AUD/MW-km
+    3.2 * AUD_inflation,  # fom   AUD/MW-km p.a.
+    0,                    # vom   AUD/MWh-km
+    50,                   # life  years
+    )
 
-converter_capex = 160 # AUD/kW
-converter_fom = 1.6 # AUD/kW p.a.
-converter_vom = 0
-converter_lifetime = 30
+converter = (
+    160 * AUD_inflation,  # capex AUD/kw
+    1.6 * AUD_inflation,  # fom   AUD/kw p.a.
+    0,                    # vom
+    30,                   # life  years
+    )
 
 # undersea costs includer converter
-hvdc_undersea_capex = 4000 # AUD/MW-km
-hvdc_undersea_fom = 40 # AUD/MW-km p.a.
-hvdc_undersea_vom = 0
-hvdc_undersea_lifetime = 30
+hvdc_undersea = (
+    4000 * AUD_inflation, # capex AUD/kw
+    40   * AUD_inflation, # fom   AUD/kw p.a.
+    0,                    # vom
+    30,                   # life  years
+    )
 
-hvac_capex = 1500 # AUD/MW-km
-hvac_fom = 15 # AUD/MW-km p.a.
-hvac_vom = 0
-hvac_lifetime = 50
+hvac = (
+    1500 * AUD_inflation, # capex AUD/MW-km
+    15   * AUD_inflation, # fom   AUD/MW-km p.a.
+    0,                    # vom 
+    50,                   # life  years
+    )
 
 hydro_purchase = 50 # AUD/MWh p.a.
 
 ## costs from re100 cost model - Class A site
 #==============================================================================
-storage_capexP = 530/0.83 / curr_conv # AUD/kW 
-storage_capexE = 47/0.83 / curr_conv # AUD/kWh
-storage_fom = 8.21 / curr_conv # AUD/kW p.a.
-storage_vom = 0.3 / curr_conv # AUD/MWh p.a.
-storage_replace = 112000 / curr_conv # AUD per replace
-replace = 50 # every 50 years
-storage_lifetime = 100 #operational life
+phes = (
+    530    * USD_inflation * USD_to_AUD, # capex AUD/kW
+    47     * USD_inflation * USD_to_AUD, # capex AUD/kWh
+    8.21   * USD_inflation * USD_to_AUD, # fom AUD/kW p.a.
+    0.3    * USD_inflation * USD_to_AUD, # vom AUD/MWh
+    112000 * USD_inflation * USD_to_AUD, # AUD per replace
+    50,  # replace lifetime
+    100, # life years
+    )
 
 @njit
 def annualization_constants(capex, fom, vom, life, dr):
@@ -85,7 +123,7 @@ def annualization_phes_constants(capex_p, capex_e, fom, vom, replace_cost, repla
     pv = (1-(1+dr)**(-1*life))/dr
     
     return np.array([
-        capex_p* pow(10,6) / pv + fom * pow(10,6), # * GW = cost
+        capex_p * pow(10,6) / pv + fom * pow(10,6), # * GW = cost
         capex_e * pow(10,6) / pv, # * GWh = cost
         vom,# * (MWh discharge p.a.) = cost
         replace_cost * ((1+dr)**(-1*replace_cost) + (1+dr)**(-1*replace_life*2)) / pv, # *1 = cost
@@ -102,27 +140,33 @@ def annualization_phes_constants(capex_p, capex_e, fom, vom, replace_cost, repla
     ('hvdc',    float64[:]  ),
     ])
 class cost_factors:
-    def __init__(self, DClengths, undersea_mask):
-        self.pv    = annualization_constants(pv_capex,        pv_fom,        pv_vom,        pv_lifetime,       discount_rate)[0] #vom is 0
-        self.onsw  = annualization_constants(wind_ons_capex,  wind_ons_fom,  wind_ons_vom,  wind_ons_lifetime, discount_rate)[0] #vom is 0
-        self.offw  = annualization_constants(wind_off_capex,  wind_off_fom,  wind_off_vom,  wind_off_lifetime, discount_rate)[0] #vom is 0
-        self.ac    = annualization_transmission_constants(hvac_capex, hvac_fom, hvac_vom, hvac_lifetime, 20, discount_rate)[0] #vom is 0
+    def __init__(self, source, DClengths, undersea_mask):
+        if source == 'csiro':
+            self.pv    = annualization_constants(*csiro_pv,   discount_rate)[0] #vom is 0
+            self.onsw  = annualization_constants(*csiro_onsw, discount_rate)[0] #vom is 0
+            self.offw  = annualization_constants(*csiro_offw, discount_rate)[0] #vom is 0
+        if source == 'irena':
+            self.pv    = annualization_constants(*irena_pv,   discount_rate)[0] #vom is 0
+            self.onsw  = annualization_constants(*irena_onsw, discount_rate)[0] #vom is 0
+            self.offw  = annualization_constants(*irena_offw, discount_rate)[0] #vom is 0
         
-        self.phes  = annualization_phes_constants(storage_capexP, storage_capexE, storage_fom, storage_vom, storage_replace, replace, storage_lifetime, discount_rate)
+        self.ac    = annualization_transmission_constants(*hvac, 20, discount_rate)[0] #vom is 0
+        
+        self.phes  = annualization_phes_constants(*phes, discount_rate)
         
         self.hvdc = np.zeros(len(DClengths), float)
         for i, undersea in enumerate(undersea_mask):
             if undersea:
-                self.hvdc[i] = annualization_transmission_constants(hvdc_undersea_capex, hvdc_undersea_fom, hvdc_undersea_vom, hvdc_undersea_lifetime, DClengths[i], discount_rate)[0] # vom is 0
+                self.hvdc[i] = annualization_transmission_constants(*hvdc_undersea, DClengths[i], discount_rate)[0] # vom is 0
             else: 
-                self.hvdc[i] = annualization_transmission_constants(hvdc_overhead_capex, hvdc_overhead_fom, hvdc_overhead_vom, hvdc_overhead_lifetime, DClengths[i], discount_rate)[0]
-                self.hvdc[i] += 2*annualization_constants(converter_capex, converter_fom, converter_vom, converter_lifetime, discount_rate)[0]
+                self.hvdc[i] = annualization_transmission_constants(*hvdc_overhead, DClengths[i], discount_rate)[0] # vom is 0
+                self.hvdc[i] += 2*annualization_constants(*converter, discount_rate)[0]
 
         self.hydro=hydro_purchase
 
 if __name__ == '__main__':
-    from Input import DClengths, undersea_mask
+    from Input import costs_source, DClengths, undersea_mask
     
-    costs = cost_factors(DClengths, undersea_mask)
+    costs = cost_factors(costs_source, DClengths, undersea_mask)
     
     
