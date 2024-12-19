@@ -72,7 +72,7 @@ def LPGM(solution):
                        'Energy deficit','Energy spillage','PHES-Charge','PHES-Storage',
                        'FNQ-QLD','NSW-QLD','NSW-SA','NSW-VIC','NT-SA','SA-WA','TAS-VIC'])
     
-    np.savetxt(f'Results/S{scenario}.csv', C, fmt='%s', delimiter=',', header=header, comments='')
+    np.savetxt(f'Results/S{suffix}.csv', C, fmt='%s', delimiter=',', header=header, comments='')
 
     if scenario>=21:
         header = ','.join(['Date & time','All demand','Rooftop Solar','Operational demand','Hydropower','Biomass',
@@ -87,7 +87,7 @@ def LPGM(solution):
             C = np.around(C.T)
 
             C = np.insert(C.astype('str'), 0, datentime, axis=1)
-            np.savetxt(f'Results/S{scenario}{Nodel[j]}.csv', C, fmt='%s', delimiter=',', header=header, comments='')
+            np.savetxt(f'Results/S{Nodel[j]}{suffix}.csv', C, fmt='%s', delimiter=',', header=header, comments='')
 
     print('Load profiles and generation mix is produced.')
 
@@ -165,7 +165,7 @@ def GGTA(solution):
                        'LCOB - Transmission&Distribution', 'LCOB - Curtailments and other losses'])
 
 
-    np.savetxt(f'Results/GGTA{scenario}.csv', D.reshape(1,-1), fmt='%s', delimiter=',', header=header, comments='')
+    np.savetxt(f'Results/GGTA{suffix}.csv', D.reshape(1,-1), fmt='%s', delimiter=',', header=header, comments='')
     print('Energy generation, storage and transmission information is produced.')
 
     return True
@@ -188,7 +188,7 @@ def Information(x, flexible):
         S.TDC = Transmission(S) # TDC(t, k), MW
     else:
         S.TDC = np.zeros((intervals, len(DCloss))) # TDC(t, k), MW
-        S.MImport = np.zeros((intervls, nodes))
+        S.MImport = np.zeros((intervals, nodes))
         
         S.MPeak = np.tile(flexible, (nodes, 1)).transpose() # MW
 
@@ -221,6 +221,6 @@ def Information(x, flexible):
     return True
 
 if __name__ == '__main__':
-    capacities = np.genfromtxt(f'Results/Optimisation_resultx{scenario}.csv', delimiter=',')
-    flexible   = np.genfromtxt(f'Results/Dispatch_Flexible{scenario}.csv',    delimiter=',', skip_header=1)
+    capacities = np.genfromtxt(f'Results/Optimisation_resultx{suffix}.csv', delimiter=',')
+    flexible   = np.genfromtxt(f'Results/Dispatch_Flexible{suffix}.csv',    delimiter=',', skip_header=1)
     Information(capacities, flexible)

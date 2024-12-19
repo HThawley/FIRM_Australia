@@ -47,11 +47,11 @@ if __name__=='__main__':
         vectorized=True,
         )
     try: 
-        np.savetxt(f'Results/Optimisation_resultx{scenario}.csv', result.x.reshape(1,-1), fmt='%s', delimiter=',')
+        np.savetxt(f'Results/Optimisation_resultx{suffix}.csv', result.x.reshape(1,-1), fmt='%s', delimiter=',')
     except FileNotFoundError:
         import os
         os.mkdir('Results')
-        np.savetxt(f'Results/Optimisation_resultx{scenario}.csv', result.x.reshape(1,-1), fmt='%s', delimiter=',')
+        np.savetxt(f'Results/Optimisation_resultx{suffix}.csv', result.x.reshape(1,-1), fmt='%s', delimiter=',')
 
     endtime = dt.now()
     print("Optimisation took", endtime - starttime)

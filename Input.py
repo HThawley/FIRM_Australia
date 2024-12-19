@@ -127,6 +127,8 @@ flex_max = np.ones(intervals,  dtype=np.float64)*CPeak.sum()*1000
 GBase = GBaseload.sum()*resolution/years
 TDC_empty = np.zeros((intervals, len(DCloss)), dtype=np.float64)
 
+suffix = f'{scenario}-{costs_source}'
+
 solution_spec = [
     ('x',           float64[:]      ),  
     ('scenario',    int64           ),  
@@ -235,7 +237,7 @@ class Solution:
 #%%
     
 if __name__ == '__main__':
-    x = np.genfromtxt(f'Results/Optimisation_resultx{scenario}.csv', delimiter=',', dtype=float)
+    x = np.genfromtxt(f'Results/Optimisation_resultx{suffix}.csv', delimiter=',', dtype=float)
     S = Solution(x)
     S._evaluate(costs)
     print(S.LCOE, S.Penalties)
