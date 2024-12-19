@@ -109,11 +109,12 @@ def GGTA(solution):
     CostPV    = costs.pv   * CPV   * pow(10, -9) # A$b p.a.
     CostOnsW  = costs.onsw * COnsW * pow(10, -9) # A$b p.a.
     CostOffW  = costs.offw * COffW * pow(10, -9) # A$b p.a.
-    CostHydro = costs.hydro * GHydro * pow(10, -9) # A$b p.a.
-    CostBio   = costs.hydro * GBio   * pow(10, -9)  # A$b p.a.
+    CostHydro = costs.hydro * GHydro * 0.001 # A$b p.a.
+    CostBio   = costs.hydro * GBio   * 0.001 # A$b p.a.
     CostPH    = (costs.phes[0] * CPHP 
                  + costs.phes[1] * CPHS 
-                 + costs.phes[2]) * pow(10, -9) # A$b p.a.
+                 # + costs.phes[2] * GPHES * pow(10, 6)
+                 + costs.phes[3]) * pow(10, -9) # A$b p.a.
 
     CostDC = (costs.hvdc * solution.CDC).sum() * pow(10, -9) # A$b p.a.
 
